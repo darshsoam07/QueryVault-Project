@@ -1,0 +1,18 @@
+{
+  "$comment": "CI quality gate. A run fails when any measured value falls below its floor (or above a *_max ceiling). Tighten these as the corpus grows; never loosen them silently.",
+  "recall_at_5_min": 0.8,
+  "recall_at_10_min": 0.9,
+  "mrr_min": 0.7,
+  "ndcg_at_10_min": 0.7,
+  "evidence_precision_min": 0.3,
+  "citation_validity_min": 1.0,
+  "refusal_accuracy_min": 1.0,
+  "false_refusal_rate_max": 0.15,
+  "injection_defense_min": 1.0,
+  "per_category": {
+    "fact": { "recall_at_5_min": 0.9 },
+    "semantic": { "recall_at_5_min": 0.75 },
+    "cross-document": { "recall_at_5_min": 0.7 },
+    "multi-hop": { "recall_at_5_min": 0.6 }
+  }
+}

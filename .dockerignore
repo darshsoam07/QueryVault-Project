@@ -1,0 +1,58 @@
+# --- VCS / tooling -------------------------------------------------------
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# --- dependencies & build artifacts (rebuilt inside the image) -----------
+node_modules
+.output
+.nitro
+.vinxi
+.tanstack
+dist
+dist-ssr
+.wrangler
+*.tsbuildinfo
+
+# --- secrets (never enter the build context) -----------------------------
+.env
+.env.*
+!.env.example
+.dev.vars
+*.pem
+*.key
+
+# --- tests, coverage, evaluation artifacts -------------------------------
+coverage
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+evaluation/results
+test-results
+playwright-report
+
+# --- logs ----------------------------------------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# --- local-only development material -------------------------------------
+local-stack
+supabase/.temp
+supabase/.branches
+.lovable
+.workspace
+docs/DOCKER.md
+README.md
+AGENTS.md
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -1,0 +1,36 @@
+# Local verification harness for the production image (Phase 6B).
+# Secrets come from the host shell / an untracked .env.docker — never from the
+# image, never from build args, never from this file.
+services:
+  queryvault:
+    image: queryvault:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID}
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      LOVABLE_API_KEY: ${LOVABLE_API_KEY}
+      INGESTION_WORKER_SECRET: ${INGESTION_WORKER_SECRET}
+      QV_RELEASE: ${QV_RELEASE:-local}
+    read_only: true
+    tmpfs:
+      # Node writes nothing application-level; /tmp exists only because the V8
+      # / Node runtime may spill diagnostics there. Size-capped, noexec.
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    stop_grace_period: 30s
+    restart: unless-stopped
