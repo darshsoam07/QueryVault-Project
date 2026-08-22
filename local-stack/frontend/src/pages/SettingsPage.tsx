@@ -38,10 +38,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="mt-4 rounded-xl border border-line bg-panel px-5 py-2">
-        <Row
-          label="Ollama"
-          value={health?.ollama_reachable ? "Connected" : "Not reachable"}
-        />
+        <Row label="Ollama" value={health?.ollama_reachable ? "Connected" : "Not reachable"} />
         <Row
           label="Model installed"
           value={health?.model_available ? "Yes" : "No — run ollama pull llama3"}

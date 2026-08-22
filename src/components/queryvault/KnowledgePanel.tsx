@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
+import { fromQueryError, userMessage } from "@/lib/client-errors";
 import { deleteDocument, reindexDocument, runIngestionWorker } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
 import { pollIngestion, uploadAndEnqueue, type IngestStatus } from "@/lib/ingest";
@@ -44,14 +45,12 @@ export function useDocuments(userId: string | undefined) {
           "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message",
         )
         .order("created_at", { ascending: false });
-      if (error) throw new Error(error.message);
+      if (error) throw fromQueryError(error, "Could not load your documents.");
       return data ?? [];
     },
     // While anything is mid-pipeline, follow the real server phases.
     refetchInterval: (query) =>
-      (query.state.data ?? []).some(
-        (doc) => doc.status !== "ready" && doc.status !== "failed",
-      )
+      (query.state.data ?? []).some((doc) => doc.status !== "ready" && doc.status !== "failed")
         ? 2000
         : false,
   });
@@ -99,8 +98,8 @@ export function KnowledgePanel({
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
       setTimeout(() => setProgress(null), 1500);
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error) => {
+      toast.error(userMessage(error, "That upload could not be indexed."));
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
       setTimeout(() => setProgress(null), 2500);
     },
@@ -115,7 +114,7 @@ export function KnowledgePanel({
       toast.success("Reindexing queued");
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(userMessage(error, "Could not queue a reindex.")),
   });
 
   const remove = useMutation({
@@ -126,8 +125,8 @@ export function KnowledgePanel({
       toast.success("Document removed");
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error) => {
+      toast.error(userMessage(error, "Could not remove that document."));
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
     },
   });

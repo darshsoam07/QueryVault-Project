@@ -25,8 +25,7 @@ export const Route = createFileRoute("/api/public/health")({
 
         const secret = process.env["INGESTION_WORKER_SECRET"];
         const deepRequested = url.searchParams.get("deep") === "1";
-        const authorized =
-          Boolean(secret) && request.headers.get("x-worker-secret") === secret;
+        const authorized = Boolean(secret) && request.headers.get("x-worker-secret") === secret;
         const report = await runReadiness(deepRequested && authorized);
 
         if (report.status === "healthy") return json(report, 200);

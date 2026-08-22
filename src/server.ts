@@ -1,7 +1,13 @@
 import "./lib/error-capture";
 
+import { assertBootConfig } from "./lib/config/boot.server";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+
+// Fail fast, before the first request. Unusable Supabase configuration makes
+// every request return `401 Invalid API key`, which looks like an auth bug and
+// is not one — so the process refuses to start and names the actual variable.
+assertBootConfig();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

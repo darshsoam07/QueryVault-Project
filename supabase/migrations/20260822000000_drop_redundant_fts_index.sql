@@ -1,0 +1,28 @@
+-- Drop the redundant full-text index on document_chunks.
+--
+-- Two GIN indexes covered the same text:
+--
+--   document_chunks_content_fts_idx  ON ... USING gin (to_tsvector('english', content))
+--   document_chunks_content_tsv_idx  ON ... USING gin (content_tsv)
+--
+-- The first was created before `content_tsv` existed. Migration
+-- 20260814140933 added `content_tsv` as a STORED generated column with the
+-- identical expression, indexed it, and rewrote `lexical_document_chunks` to
+-- filter on `c.content_tsv @@ q.tsq`. Every lexical query has gone through the
+-- column since; nothing references the expression form.
+--
+-- Keeping it is not free. A GIN index over the tokenised text of every chunk is
+-- one of the larger objects in the database, and it has to be maintained on
+-- every chunk insert — which is the write-heaviest path in the system, since
+-- ingesting one document writes hundreds of chunks in batches. Paying that twice
+-- to serve zero queries is pure overhead.
+--
+-- Dropping an unused index cannot change a query result, only a plan, and no
+-- plan referenced this one.
+--
+-- Rollback: recreate it with
+--   CREATE INDEX document_chunks_content_fts_idx
+--     ON public.document_chunks USING gin (to_tsvector('english', content));
+-- Expect a full index build; on a large corpus prefer CONCURRENTLY.
+
+DROP INDEX IF EXISTS public.document_chunks_content_fts_idx;

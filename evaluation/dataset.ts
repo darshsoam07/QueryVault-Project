@@ -11,12 +11,7 @@
  */
 
 export type EvalCategory =
-  | "fact"
-  | "semantic"
-  | "cross-document"
-  | "negative"
-  | "injection"
-  | "multi-hop";
+  "fact" | "semantic" | "cross-document" | "negative" | "injection" | "multi-hop";
 
 export type EvalCase = {
   id: string;
@@ -73,7 +68,8 @@ export const EVAL_CASES: EvalCase[] = [
   {
     id: "cross-policy-vs-contract",
     category: "cross-document",
-    question: "Does the security policy match what the customer contract promises about encryption?",
+    question:
+      "Does the security policy match what the customer contract promises about encryption?",
     relevantChunkIds: ["chunk-sec-007", "chunk-legal-003"],
     requiredDocumentIds: ["doc-security", "doc-contract"],
   },

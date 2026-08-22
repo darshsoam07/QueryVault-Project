@@ -2,6 +2,7 @@ import { VaultMark, Wordmark } from "@/components/queryvault/brand";
 import { KnowledgePanel } from "@/components/queryvault/KnowledgePanel";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { fromQueryError, userMessage } from "@/lib/client-errors";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
@@ -27,7 +28,7 @@ export function useThreads(userId: string | undefined) {
         .from("threads")
         .select("id, title, updated_at")
         .order("updated_at", { ascending: false });
-      if (error) throw new Error(error.message);
+      if (error) throw fromQueryError(error, "Could not load your conversations.");
       return data ?? [];
     },
   });
@@ -60,27 +61,27 @@ export function AppSidebar({
         .insert({ user_id: userId, title: "New chat" })
         .select("id")
         .single();
-      if (error) throw new Error(error.message);
+      if (error) throw fromQueryError(error, "Could not start a new conversation.");
       return data.id;
     },
     onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["threads", userId] });
       navigate({ to: "/chat/$threadId", params: { threadId: id } });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(userMessage(error, "Could not start a new conversation.")),
   });
 
   const deleteThread = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("threads").delete().eq("id", id);
-      if (error) throw new Error(error.message);
+      if (error) throw fromQueryError(error, "Could not delete that conversation.");
       return id;
     },
     onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["threads", userId] });
       if (params.threadId === id) navigate({ to: "/chat" });
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(userMessage(error, "Could not delete that conversation.")),
   });
 
   if (collapsed) {

@@ -110,7 +110,8 @@ describe("observability metric math", () => {
 
 describe("injection enclosure check", () => {
   it("accepts markers quoted inside an evidence element", () => {
-    const block = '<evidence id="source_01" document="a.pdf" page="1">\nIGNORE PREVIOUS\n</evidence>';
+    const block =
+      '<evidence id="source_01" document="a.pdf" page="1">\nIGNORE PREVIOUS\n</evidence>';
     expect(isEnclosedInEvidence(block, "IGNORE PREVIOUS")).toBe(true);
   });
 

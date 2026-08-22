@@ -1,4 +1,4 @@
-import { embedTexts, toVectorLiteral } from "@/lib/ai-gateway.server";
+import { embedTexts, toVectorLiteral, type AiProvider } from "@/lib/ai-gateway.server";
 import type { Candidate } from "./types";
 import type { RetrievalClient } from "./client";
 
@@ -20,12 +20,12 @@ export async function denseRetrieve(options: {
   documentIds: string[] | null;
   limit: number;
   minSimilarity: number;
-  apiKey: string;
+  provider: AiProvider;
 }): Promise<DenseResult> {
-  const { client, queries, userId, documentIds, limit, minSimilarity, apiKey } = options;
+  const { client, queries, userId, documentIds, limit, minSimilarity, provider } = options;
 
   const embedStart = Date.now();
-  const embeddings = await embedTexts(queries, apiKey);
+  const embeddings = await embedTexts(queries, provider);
   const embeddingLatencyMs = Date.now() - embedStart;
 
   const queryStart = Date.now();

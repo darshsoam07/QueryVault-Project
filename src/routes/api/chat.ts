@@ -1,8 +1,8 @@
 import {
-  CHAT_MODEL,
   GatewayError,
-  createLovableAiGatewayProvider,
-  requireApiKey,
+  createAiSdkProvider,
+  requireAiProvider,
+  type AiProvider,
 } from "@/lib/ai-gateway.server";
 import { ApiError, errorResponse, logEvent, newRequestId } from "@/lib/api-errors";
 import { GROUNDED_REFUSAL, chatRequestSchema, extractQuestion } from "@/lib/chat.schema";
@@ -18,7 +18,6 @@ import {
   type EvidenceSource,
 } from "@/lib/retrieval";
 import type { Database } from "@/integrations/supabase/types";
-import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   convertToModelMessages,
@@ -88,29 +87,14 @@ export const Route = createFileRoute("/api/chat")({
           const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
           if (!token) throw new ApiError("UNAUTHENTICATED", "Please sign in to continue.");
 
-          const supabaseUrl = process.env["SUPABASE_URL"];
-          const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
-          if (!supabaseUrl || !publishableKey) {
-            throw new ApiError("NOT_CONFIGURED", "The backend is not configured.");
-          }
-
-          const supabase = createClient<Database>(supabaseUrl, publishableKey, {
-            auth: { persistSession: false, autoRefreshToken: false },
-            global: {
-              fetch: (input, init) => {
-                const headers = new Headers(init?.headers);
-                headers.set("apikey", publishableKey);
-                headers.set("Authorization", `Bearer ${token}`);
-                return fetch(input, { ...init, headers });
-              },
-            },
-          });
-
-          const { data: userData, error: userError } = await supabase.auth.getUser(token);
-          if (userError || !userData.user) {
+          // Shared, RLS-respecting verification. Previously this route built its
+          // own client inline, a fourth copy of the apikey/Authorization logic.
+          const { verifyAccessToken } = await import("@/integrations/supabase/verify-token.server");
+          const caller = await verifyAccessToken(token);
+          if (!caller) {
             throw new ApiError("UNAUTHENTICATED", "Your session expired. Sign in again.");
           }
-          const userId = userData.user.id;
+          const { supabase, userId } = caller;
 
           // ---- Strict validation of untrusted input ---------------------
           let rawBody: unknown;
@@ -188,10 +172,17 @@ export const Route = createFileRoute("/api/chat")({
             scopedIds = ready;
           }
 
-          let apiKey: string;
+          let provider: AiProvider;
           try {
-            apiKey = requireApiKey();
-          } catch {
+            provider = requireAiProvider();
+          } catch (error) {
+            // Surface the operator-facing reason in logs, a generic code to the
+            // client. A misconfigured model name and a missing key are both
+            // "not configured" from the user's point of view.
+            logEvent("error", "chat.ai_not_configured", requestId, {
+              user_id: userId,
+              reason: error instanceof GatewayError ? error.message : "unknown",
+            });
             throw new ApiError("NOT_CONFIGURED", "AI is not configured for this workspace.");
           }
 
@@ -214,7 +205,7 @@ export const Route = createFileRoute("/api/chat")({
                 client: supabase,
                 userId,
                 documentIds: scopedIds,
-                apiKey,
+                provider,
               }),
             );
           } catch (error) {
@@ -270,14 +261,24 @@ export const Route = createFileRoute("/api/chat")({
 
           // Operator-only pipeline trace (owner + operators can read it).
           const traceStages = {
-            embedding: { latencyMs: t.embeddingLatencyMs, variants: t.queryVariants, rewritten: t.queryRewritten },
+            embedding: {
+              latencyMs: t.embeddingLatencyMs,
+              variants: t.queryVariants,
+              rewritten: t.queryRewritten,
+            },
             dense: {
               latencyMs: t.denseLatencyMs,
               count: t.denseCandidates,
               top: outcome.ranked
                 .filter((c) => c.densePosition !== null)
                 .slice(0, 8)
-                .map((c) => ({ chunkId: c.chunkId, filename: c.filename, page: c.page, similarity: c.similarity, position: c.densePosition })),
+                .map((c) => ({
+                  chunkId: c.chunkId,
+                  filename: c.filename,
+                  page: c.page,
+                  similarity: c.similarity,
+                  position: c.densePosition,
+                })),
             },
             lexical: {
               latencyMs: t.lexicalLatencyMs,
@@ -285,14 +286,30 @@ export const Route = createFileRoute("/api/chat")({
               top: outcome.ranked
                 .filter((c) => c.lexicalPosition !== null)
                 .slice(0, 8)
-                .map((c) => ({ chunkId: c.chunkId, filename: c.filename, page: c.page, lexicalRank: c.lexicalRank, position: c.lexicalPosition })),
+                .map((c) => ({
+                  chunkId: c.chunkId,
+                  filename: c.filename,
+                  page: c.page,
+                  lexicalRank: c.lexicalRank,
+                  position: c.lexicalPosition,
+                })),
             },
-            fusion: { count: t.fusedCandidates, rrfTop: outcome.ranked.slice(0, 8).map((c) => ({ chunkId: c.chunkId, fusionScore: c.fusionScore })) },
+            fusion: {
+              count: t.fusedCandidates,
+              rrfTop: outcome.ranked
+                .slice(0, 8)
+                .map((c) => ({ chunkId: c.chunkId, fusionScore: c.fusionScore })),
+            },
             rerank: {
               latencyMs: t.rerankLatencyMs,
               reranker: t.rerankerName,
               count: t.rerankedCandidates,
-              top: outcome.ranked.slice(0, 8).map((c) => ({ chunkId: c.chunkId, filename: c.filename, page: c.page, rerankScore: c.rerankScore })),
+              top: outcome.ranked.slice(0, 8).map((c) => ({
+                chunkId: c.chunkId,
+                filename: c.filename,
+                page: c.page,
+                rerankScore: c.rerankScore,
+              })),
             },
             gate: {
               grounded: outcome.verdict.grounded,
@@ -404,7 +421,7 @@ export const Route = createFileRoute("/api/chat")({
             });
           }
 
-          const gateway = createLovableAiGatewayProvider(apiKey);
+          const gateway = createAiSdkProvider(provider);
           let answerText = "";
           emitAsync({
             event: EVENTS.GENERATION_STARTED,
@@ -412,7 +429,11 @@ export const Route = createFileRoute("/api/chat")({
             status: "started",
             userId,
             threadId: body.threadId,
-            attributes: { model: CHAT_MODEL, evidence: sources.length, context_tokens: t.contextTokens },
+            attributes: {
+              model: provider.chatModel,
+              evidence: sources.length,
+              context_tokens: t.contextTokens,
+            },
           });
 
           const stream = createUIMessageStream({
@@ -421,7 +442,7 @@ export const Route = createFileRoute("/api/chat")({
               writer.write({ type: "data-sources", id: "sources", data: sources });
 
               const result = streamText({
-                model: gateway(CHAT_MODEL),
+                model: gateway(provider.chatModel),
                 system: SYSTEM_PROMPT,
                 messages: [
                   ...(await convertToModelMessages(originalMessages.slice(-12))),
@@ -442,7 +463,10 @@ export const Route = createFileRoute("/api/chat")({
                     userId,
                     threadId: body.threadId,
                     latencyMs: Date.now() - generationStart,
-                    attributes: { model: CHAT_MODEL, generation_latency_ms: Date.now() - generationStart },
+                    attributes: {
+                      model: provider.chatModel,
+                      generation_latency_ms: Date.now() - generationStart,
+                    },
                   });
                 },
               });
@@ -500,7 +524,7 @@ export const Route = createFileRoute("/api/chat")({
                 threadId: body.threadId,
                 latencyMs: Date.now() - generationStart,
                 attributes: {
-                  model: CHAT_MODEL,
+                  model: provider.chatModel,
                   grounded: true,
                   refused: false,
                   reranker: t.rerankerName,

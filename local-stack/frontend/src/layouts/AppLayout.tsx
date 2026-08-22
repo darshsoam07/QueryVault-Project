@@ -50,9 +50,7 @@ export default function AppLayout() {
             open ? "absolute inset-y-14 left-0 z-20 block bg-panel" : "hidden",
           )}
         >
-          <p className="px-2 pb-2 text-[11px] uppercase tracking-widest text-muted">
-            Workspace
-          </p>
+          <p className="px-2 pb-2 text-[11px] uppercase tracking-widest text-muted">Workspace</p>
           <div className="space-y-0.5">
             {NAV.map(({ to, label, icon: Icon, end }) => (
               <NavLink

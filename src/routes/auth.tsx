@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { googleAuthEnabled, oauthRedirectTo } from "@/lib/auth-providers";
+import { userMessage } from "@/lib/client-errors";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -48,19 +49,23 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/chat` },
         });
         if (error) throw error;
-        toast.success("Account created. You're in.");
+        // When the project requires email confirmation, signUp succeeds but
+        // returns no session — the user is NOT signed in yet. Claiming "you're
+        // in" left them staring at a sign-in form with no idea why.
+        if (data.session) toast.success("Account created. You're in.");
+        else toast.success("Check your email to confirm your account, then sign in.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Authentication failed.");
+      toast.error(userMessage(error, "Authentication failed."));
     } finally {
       setBusy(false);
     }
@@ -68,16 +73,22 @@ function AuthPage() {
 
   const google = async () => {
     setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
+    try {
+      // Supabase performs the redirect itself, so on success this promise
+      // resolves while the browser is already navigating away — there is no
+      // "signed in" branch to handle here.
+      const redirectTo = oauthRedirectTo();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        // Conditional spread, not `redirectTo: undefined` — tsconfig sets
+        // exactOptionalPropertyTypes, so an explicit undefined is a type error.
+        options: { ...(redirectTo ? { redirectTo } : {}) },
+      });
+      if (error) throw error;
+    } catch (error) {
       setBusy(false);
-      toast.error("Google sign-in failed. Try email instead.");
-      return;
+      toast.error(userMessage(error, "Google sign-in failed. Try email instead."));
     }
-    if (result.redirected) return;
-    navigate({ to: "/chat" });
   };
 
   return (
@@ -138,24 +149,31 @@ function AuthPage() {
             </Button>
           </form>
 
-          <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {googleAuthEnabled && (
+            <>
+              <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                or
+                <span className="h-px flex-1 bg-border" />
+              </div>
 
-          <Button variant="outline" className="w-full bg-surface/40" onClick={google} disabled={busy}>
-            Continue with Google
-          </Button>
+              <Button
+                variant="outline"
+                className="w-full bg-surface/40"
+                onClick={google}
+                disabled={busy}
+              >
+                Continue with Google
+              </Button>
+            </>
+          )}
 
           <button
             type="button"
             className="mt-5 w-full text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
           >
-            {mode === "signin"
-              ? "No account yet? Create one"
-              : "Already have an account? Sign in"}
+            {mode === "signin" ? "No account yet? Create one" : "Already have an account? Sign in"}
           </button>
         </div>
       </div>

@@ -28,9 +28,7 @@ export default function SourceList({ sources }: { sources: Source[] }) {
               <div className="flex items-center gap-2">
                 <FileText size={13} className="text-amethyst" />
                 <span className="font-medium text-ink">{source.document_name}</span>
-                <span className="font-mono text-[11px] text-muted">
-                  Page {source.page_number}
-                </span>
+                <span className="font-mono text-[11px] text-muted">Page {source.page_number}</span>
                 <span className="font-mono text-[11px] text-cyan">
                   {(source.relevance_score * 100).toFixed(0)}%
                 </span>

@@ -17,6 +17,8 @@ export const EVENTS = {
   GENERATION_COMPLETED: "generation.completed",
   GENERATION_FAILED: "generation.failed",
   QUOTA_EXCEEDED: "quota.exceeded",
+  /** An unhandled error caught by a browser error boundary and reported back. */
+  CLIENT_ERROR: "client.error",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

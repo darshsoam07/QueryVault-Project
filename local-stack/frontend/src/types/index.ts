@@ -1,11 +1,5 @@
 export type DocumentStatus =
-  | "uploading"
-  | "parsing"
-  | "chunking"
-  | "embedding"
-  | "indexing"
-  | "ready"
-  | "error";
+  "uploading" | "parsing" | "chunking" | "embedding" | "indexing" | "ready" | "error";
 
 export interface DocumentRecord {
   id: string;

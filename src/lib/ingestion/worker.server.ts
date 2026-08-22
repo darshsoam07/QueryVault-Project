@@ -13,11 +13,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import {
-  EMBEDDING_DIMENSIONS,
-  EMBEDDING_MODEL,
   GatewayError,
   embedTexts,
-  requireApiKey,
+  requireAiProvider,
   toVectorLiteral,
 } from "@/lib/ai-gateway.server";
 import { logEvent, newRequestId } from "@/lib/api-errors";
@@ -187,19 +185,21 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   }
 
   // ---- embed + index ---------------------------------------------------
-  const apiKey = requireApiKey();
+  const provider = requireAiProvider();
   const batches = batchArray(chunks, EMBED_BATCH);
   let indexed = 0;
 
   for (const batch of batches) {
     await assertLive(db, job);
-    await setPhase(db, job, "embedding", { progress: 40 + Math.round((indexed / chunks.length) * 45) });
+    await setPhase(db, job, "embedding", {
+      progress: 40 + Math.round((indexed / chunks.length) * 45),
+    });
 
     let embeddings: number[][];
     try {
       embeddings = await embedTexts(
         batch.map((chunk) => chunk.content),
-        apiKey,
+        provider,
       );
     } catch (error) {
       if (error instanceof GatewayError) {
@@ -222,7 +222,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
         token_estimate: Math.ceil(chunk.content.length / 4),
         embedding: toVectorLiteral(embeddings[i]!),
         chunking_version: CHUNKER_VERSION,
-        embedding_model: EMBEDDING_MODEL,
+        embedding_model: provider.embeddingModel,
       })),
     );
 
@@ -259,8 +259,8 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       page_count: pages.length,
       parser_version: PARSER_VERSION,
       chunking_version: CHUNKER_VERSION,
-      embedding_model: EMBEDDING_MODEL,
-      embedding_dimension: EMBEDDING_DIMENSIONS,
+      embedding_model: provider.embeddingModel,
+      embedding_dimension: provider.embeddingDimensions,
       completed_at: new Date().toISOString(),
       failure_code: null,
       failure_message: null,
@@ -291,7 +291,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       embedded_texts: chunks.length,
       parser_version: PARSER_VERSION,
       chunking_version: CHUNKER_VERSION,
-      embedding_model: EMBEDDING_MODEL,
+      embedding_model: provider.embeddingModel,
     },
   });
   return { chunks: chunks.length };

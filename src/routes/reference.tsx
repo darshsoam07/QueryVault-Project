@@ -398,7 +398,10 @@ function ReferencePage() {
     <main className="grid-void min-h-screen">
       <div className="mx-auto max-w-4xl px-6 py-10">
         <div className="flex items-center justify-between">
-          <Link to="/chat" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan">
+          <Link
+            to="/chat"
+            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan"
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to workspace
           </Link>
@@ -412,9 +415,9 @@ function ReferencePage() {
           Python <span className="text-gradient-brand">RAG reference</span>
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          The same architecture this app runs, expressed as a self-hosted Python service:
-          LangChain loaders, recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma
-          index, and a FastAPI query API with citations and streaming.
+          The same architecture this app runs, expressed as a self-hosted Python service: LangChain
+          loaders, recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma index, and
+          a FastAPI query API with citations and streaming.
         </p>
         <p className="mt-4 max-w-2xl rounded-lg border border-border/60 bg-surface/40 p-4 text-sm leading-relaxed text-muted-foreground">
           A complete, runnable version of this stack ships in the repository under{" "}
@@ -424,8 +427,6 @@ function ReferencePage() {
           history and a Docker Compose file. See{" "}
           <code className="font-mono text-foreground">local-stack/README.md</code> to run it.
         </p>
-
-
 
         <Tabs defaultValue="structure" className="mt-8">
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-surface/50 p-1">
@@ -445,7 +446,7 @@ function ReferencePage() {
         <section className="mt-10 rounded-xl border border-border/60 bg-surface/40 p-5">
           <h2 className="text-sm font-semibold text-foreground">Run it locally</h2>
           <pre className="mt-3 overflow-x-auto font-mono text-[12px] leading-relaxed text-muted-foreground">
-{`ollama pull llama3.1:8b && ollama pull nomic-embed-text
+            {`ollama pull llama3.1:8b && ollama pull nomic-embed-text
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000`}

@@ -10,7 +10,8 @@
  * `dependency` failures are someone else's outage, `config` means the
  * environment is missing something. That distinction is the whole point.
  */
-import { EMBEDDING_MODEL, GATEWAY_BASE_URL } from "@/lib/ai-gateway.server";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { describeAiProvider, type AiProvider } from "@/lib/ai-gateway.server";
 
 export type CheckState = "up" | "degraded" | "down" | "unknown";
 export type FailureKind = "none" | "application" | "dependency" | "config";
@@ -58,52 +59,99 @@ function down(
   return { name, state: "down", kind, critical, latencyMs, detail };
 }
 
-/** The app itself: config present, code paths importable. */
-export async function checkApplication(): Promise<CheckResult> {
+/**
+ * Which required Supabase variables are absent, if any.
+ *
+ * Every probe that talks to Supabase consults this first. Without it, an
+ * unconfigured deployment reports its database and storage as `dependency`
+ * failures — blaming a third party for our own missing environment, which is
+ * exactly the distinction `kind` exists to make.
+ */
+function missingSupabaseConfig(): string | null {
   const missing = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"].filter(
     (name) => !process.env[name],
   );
-  if (missing.length > 0) {
-    return down("api", true, "config", 0, `missing configuration: ${missing.join(", ")}`);
-  }
+  // Names only. The values are secrets and this payload is served over HTTP.
+  return missing.length > 0 ? `missing configuration: ${missing.join(", ")}` : null;
+}
+
+/** The app itself: config present, code paths importable. */
+export async function checkApplication(): Promise<CheckResult> {
+  const misconfigured = missingSupabaseConfig();
+  if (misconfigured) return down("api", true, "config", 0, misconfigured);
   return ok("api", true, 0, "application responding");
 }
 
+/**
+ * The database is reachable *and* the schema is applied.
+ *
+ * This asserts a positive result rather than the absence of an error, because
+ * the absence of an error is not evidence of health here. The obvious cheap
+ * form of this probe — `.select("id", { count: "exact", head: true })` — issues
+ * a HEAD request, and the Supabase edge answers HEAD on a table that does not
+ * exist with `204, no body`, so `error` is null and `count` is null. The
+ * identical request as a GET returns `404 PGRST205`. A probe written the cheap
+ * way therefore reports a completely unmigrated database as healthy, which is
+ * the exact state in which it must not accept traffic.
+ *
+ * `documents` stands in for the schema as a whole: migrations apply as a unit,
+ * so if the first user table is missing, nothing is there. Selecting only `id`
+ * reads a uuid at most — never document content.
+ */
 export async function checkDatabase(): Promise<CheckResult> {
+  const misconfigured = missingSupabaseConfig();
+  if (misconfigured) return down("database", true, "config", 0, misconfigured);
   const { value, latencyMs, error } = await timed(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: queryError } = await supabaseAdmin
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .limit(1);
+    const { data, error: queryError } = await supabaseAdmin.from("documents").select("id").limit(1);
     if (queryError) throw new Error(queryError.message);
+    // An existing-but-empty table gives `[]`, which is healthy. Anything that
+    // is not a row set means we never actually reached the table.
+    if (!Array.isArray(data)) throw new Error("database returned no result set");
     return true;
   });
   if (!value) {
     return down("database", true, "dependency", latencyMs, describe(error, "database unreachable"));
   }
-  return ok("database", true, latencyMs, "query succeeded");
+  return ok("database", true, latencyMs, "schema reachable");
 }
 
+/**
+ * The bucket exists and is still private.
+ *
+ * Same failure mode as above: `storage.from(bucket).list()` returns
+ * `{ data: [], error: null }` for a bucket that does not exist, so a probe
+ * built on it can never fail. `getBucket` 404s instead — and returns the
+ * bucket's `public` flag, which lets readiness enforce the one storage
+ * property that is a security boundary rather than a preference. Every
+ * uploaded document is private user data; a bucket flipped public exposes all
+ * of it, and that is worth refusing traffic over.
+ */
 export async function checkStorage(): Promise<CheckResult> {
+  const bucket = "documents";
+  const misconfigured = missingSupabaseConfig();
+  if (misconfigured) return down("storage", true, "config", 0, misconfigured);
   const { value, latencyMs, error } = await timed(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: listError } = await supabaseAdmin.storage.from("documents").list("", {
-      limit: 1,
-    });
-    if (listError) throw new Error(listError.message);
-    return true;
+    const { data, error: bucketError } = await supabaseAdmin.storage.getBucket(bucket);
+    if (bucketError) throw new Error(bucketError.message);
+    if (!data) throw new Error(`bucket "${bucket}" not found`);
+    return data;
   });
   if (!value) {
     return down("storage", true, "dependency", latencyMs, describe(error, "storage unreachable"));
   }
-  return ok("storage", true, latencyMs, "bucket reachable");
+  // Reported as `config`, not `dependency`: nobody else's outage caused this,
+  // and no amount of retrying fixes it.
+  if (value.public) {
+    return down("storage", true, "config", latencyMs, `bucket "${bucket}" is public`);
+  }
+  return ok("storage", true, latencyMs, `bucket "${bucket}" reachable and private`);
 }
 
 /** The SQL retrieval functions must exist and be callable. */
 export async function checkRetrievalFunction(): Promise<CheckResult> {
+  const misconfigured = missingSupabaseConfig();
+  if (misconfigured) return down("retrieval_function", true, "config", 0, misconfigured);
   const { value, latencyMs, error } = await timed(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // A null requesting user can never match rows, so this exercises the
     // function contract without reading anyone's data.
     const { error: rpcError } = await supabaseAdmin.rpc("lexical_document_chunks", {
@@ -130,30 +178,42 @@ async function checkGateway(
   name: string,
   critical: boolean,
   deep: boolean,
-  probe: (apiKey: string, signal: AbortSignal) => Promise<void>,
+  probe: (provider: AiProvider, signal: AbortSignal) => Promise<void>,
 ): Promise<CheckResult> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return down(name, critical, "config", 0, "AI key not configured");
+  const resolved = describeAiProvider();
+  if (!resolved.configured) return down(name, critical, "config", 0, resolved.reason);
+  const { provider } = resolved;
   if (!deep) {
-    return { name, state: "unknown", kind: "none", critical, latencyMs: null, detail: "configured (shallow probe)" };
+    return {
+      name,
+      state: "unknown",
+      kind: "none",
+      critical,
+      latencyMs: null,
+      detail: `configured: ${provider.label} (shallow probe)`,
+    };
   }
   const { value, latencyMs, error } = await timed(async (signal) => {
-    await probe(apiKey, signal);
+    await probe(provider, signal);
     return true;
   });
   if (!value) {
     return down(name, critical, "dependency", latencyMs, describe(error, "provider unreachable"));
   }
-  return ok(name, critical, latencyMs, "provider responded");
+  return ok(name, critical, latencyMs, `${provider.label} responded`);
 }
 
 export function checkEmbeddingProvider(deep: boolean): Promise<CheckResult> {
-  return checkGateway("embedding_provider", true, deep, async (apiKey, signal) => {
-    const response = await fetch(`${GATEWAY_BASE_URL}/embeddings`, {
+  return checkGateway("embedding_provider", true, deep, async (provider, signal) => {
+    const response = await fetch(`${provider.baseUrl}/embeddings`, {
       method: "POST",
       signal,
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-      body: JSON.stringify({ model: EMBEDDING_MODEL, input: ["health"] }),
+      headers: { "Content-Type": "application/json", ...provider.authHeaders() },
+      body: JSON.stringify({
+        model: provider.embeddingModel,
+        input: ["health"],
+        ...(provider.supportsDimensionsParam ? { dimensions: provider.embeddingDimensions } : {}),
+      }),
     });
     if (!response.ok) throw new Error(`status ${response.status}`);
     await response.arrayBuffer();
@@ -161,10 +221,10 @@ export function checkEmbeddingProvider(deep: boolean): Promise<CheckResult> {
 }
 
 export function checkLlmProvider(deep: boolean): Promise<CheckResult> {
-  return checkGateway("llm_provider", true, deep, async (apiKey, signal) => {
-    const response = await fetch(`${GATEWAY_BASE_URL}/models`, {
+  return checkGateway("llm_provider", true, deep, async (provider, signal) => {
+    const response = await fetch(`${provider.baseUrl}/models`, {
       signal,
-      headers: { "Lovable-API-Key": apiKey },
+      headers: { ...provider.authHeaders() },
     });
     if (!response.ok && response.status !== 404) throw new Error(`status ${response.status}`);
     await response.arrayBuffer();
@@ -205,8 +265,7 @@ export async function runReadiness(deep: boolean): Promise<HealthReport> {
   const appFailure = failed.find((c) => c.kind === "application" || c.kind === "config");
 
   return {
-    status:
-      criticalFailures.length > 0 ? "unhealthy" : failed.length > 0 ? "degraded" : "healthy",
+    status: criticalFailures.length > 0 ? "unhealthy" : failed.length > 0 ? "degraded" : "healthy",
     probe: "ready",
     failure: appFailure ? appFailure.kind : failed.length > 0 ? "dependency" : "none",
     checks,

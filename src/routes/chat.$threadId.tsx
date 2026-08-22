@@ -16,6 +16,7 @@ import { useDocuments } from "@/components/queryvault/KnowledgePanel";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
+import { fromQueryError, userMessage } from "@/lib/client-errors";
 import type { SourceNode } from "@/routes/api/chat";
 import { useChatShell } from "@/routes/chat";
 import { cn } from "@/lib/utils";
@@ -143,7 +144,7 @@ function ThreadPage() {
         .select("id, role, content, sources, latency_ms")
         .eq("thread_id", threadId)
         .order("created_at", { ascending: true });
-      if (error) throw new Error(error.message);
+      if (error) throw fromQueryError(error, "Could not load this conversation.");
       return (data ?? []).map(toUIMessage);
     },
   });
@@ -166,7 +167,7 @@ function ThreadPage() {
   const { messages, sendMessage, setMessages, status, error } = useChat({
     id: threadId,
     transport,
-    onError: (chatError) => toast.error(chatError.message || "Something went wrong."),
+    onError: (chatError) => toast.error(userMessage(chatError, "Something went wrong.")),
     onFinish: () => {
       queryClient.invalidateQueries({ queryKey: ["threads", userId] });
       textareaRef.current?.focus();
@@ -282,7 +283,7 @@ function ThreadPage() {
 
           {error && (
             <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-foreground">
-              {error.message}
+              {userMessage(error, "Something went wrong.")}
             </p>
           )}
         </ConversationContent>

@@ -1,4 +1,4 @@
-import { CHAT_MODEL, GATEWAY_BASE_URL } from "@/lib/ai-gateway.server";
+import { chatCompletion, type AiProvider } from "@/lib/ai-gateway.server";
 import { RETRIEVAL_CONFIG, type QueryRewriteStrategy } from "./config";
 import { contentTerms } from "./reranker";
 
@@ -48,7 +48,7 @@ Never answer the question. Never add facts.`;
  */
 export async function expandQuery(options: {
   question: string;
-  apiKey: string;
+  provider: AiProvider;
   strategy?: QueryRewriteStrategy;
   model?: string;
 }): Promise<{ queries: string[]; rewritten: boolean }> {
@@ -58,23 +58,14 @@ export async function expandQuery(options: {
   }
 
   try {
-    const response = await fetch(`${GATEWAY_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": options.apiKey },
-      body: JSON.stringify({
-        model: options.model ?? CHAT_MODEL,
-        temperature: 0,
-        messages: [
-          { role: "system", content: REWRITE_SYSTEM },
-          { role: "user", content: options.question.slice(0, 1000) },
-        ],
-      }),
+    const raw = await chatCompletion(options.provider, {
+      model: options.model ?? options.provider.utilityModel,
+      temperature: 0,
+      messages: [
+        { role: "system", content: REWRITE_SYSTEM },
+        { role: "user", content: options.question.slice(0, 1000) },
+      ],
     });
-    if (!response.ok) throw new Error(`rewrite_http_${response.status}`);
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const raw = payload.choices?.[0]?.message?.content ?? "";
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("rewrite_unparsable");
     const parsed = JSON.parse(match[0]) as { queries?: unknown };

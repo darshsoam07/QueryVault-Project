@@ -44,8 +44,7 @@ export const api = {
     form.append("file", file);
     return request<DocumentRecord>("/documents/upload", { method: "POST", body: form });
   },
-  deleteDocument: (id: string) =>
-    request<void>(`/documents/${id}`, { method: "DELETE" }),
+  deleteDocument: (id: string) => request<void>(`/documents/${id}`, { method: "DELETE" }),
   reindexDocument: (id: string) =>
     request<DocumentRecord>(`/documents/${id}/reindex`, { method: "POST" }),
 
@@ -61,6 +60,5 @@ export const api = {
     }),
   listConversations: () => request<Conversation[]>("/conversations"),
   listMessages: (id: string) => request<Message[]>(`/conversations/${id}/messages`),
-  deleteConversation: (id: string) =>
-    request<void>(`/conversations/${id}`, { method: "DELETE" }),
+  deleteConversation: (id: string) => request<void>(`/conversations/${id}`, { method: "DELETE" }),
 };

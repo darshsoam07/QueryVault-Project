@@ -170,16 +170,16 @@ export type EvalReport = {
   passed: boolean;
 };
 
-export async function runEvaluation(deps: RetrievalDeps = createFixtureDeps()): Promise<EvalReport> {
+export async function runEvaluation(
+  deps: RetrievalDeps = createFixtureDeps(),
+): Promise<EvalReport> {
   const cases: CaseResult[] = [];
   for (const evalCase of EVAL_CASES) {
     cases.push(await runCase(evalCase, deps));
   }
 
   const answerable = cases.filter((c) => !c.expectRefusal);
-  const gateNegatives = cases.filter(
-    (c) => c.expectRefusal && c.refusalStage === "retrieval",
-  );
+  const gateNegatives = cases.filter((c) => c.expectRefusal && c.refusalStage === "retrieval");
   const injectionCases = cases.filter((c) => c.category === "injection");
   const crossDocCases = cases.filter((c) => c.category === "cross-document");
 
@@ -307,8 +307,13 @@ function format(report: EvalReport): string {
   return lines.join("\n");
 }
 
+// argv[1] uses the platform separator, so on Windows this is
+// "...\evaluation\runner.ts". Comparing against a forward-slash path made the
+// whole block dead there: no report was printed and `--gate` could never
+// exit 1, so a retrieval regression passed silently.
 const invokedDirectly =
-  typeof process !== "undefined" && process.argv[1]?.includes("evaluation/runner");
+  typeof process !== "undefined" &&
+  process.argv[1]?.replace(/\\/g, "/").includes("evaluation/runner");
 
 if (invokedDirectly) {
   const report = await runEvaluation();

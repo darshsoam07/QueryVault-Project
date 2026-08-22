@@ -1,0 +1,94 @@
+name: CI
+
+# Runs the same gates as the local `npm run` scripts, in the same order. If this
+# passes and the build is green, the artifact is deployable — see docs/DEPLOYMENT.md.
+#
+# No secrets are configured here on purpose. Every gate below runs fully offline:
+# the tests mock Supabase and the AI provider, and the eval harness scores a
+# fixture corpus. A CI job that needed a real service-role key or a provider key
+# would put those secrets in reach of any pull request.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The eval scripts in package.json run on bun (`bun evaluation/runner.ts`),
+      # which is also what bun.lock and bunfig.toml target. Installing it here
+      # lets CI invoke the project's own scripts instead of reimplementing them
+      # with a different runner that could diverge.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile and
+      # fails if package.json and the lock have drifted, which is the point of
+      # committing a lockfile at all.
+      - run: npm ci
+
+      - name: Type check
+        run: ./node_modules/.bin/tsc --noEmit
+
+      # Includes the no-restricted-imports rule that stops client code importing
+      # a `*.server` module, and Prettier as an error.
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm run test
+
+      # Fails the build if retrieval quality, refusal accuracy, citation validity
+      # or injection defence drops below the floors in evaluation/thresholds.json.
+      # A silent RAG regression is exactly the kind that ships otherwise.
+      - name: Retrieval evaluation gate
+        run: npm run eval:gate
+
+      # VITE_* values are inlined at build time. These are throwaway placeholders
+      # so the build can complete — the artifact from this job is a verification
+      # artifact, never deployed. Real deployments build with real public config.
+      #
+      # QV_ALLOW_PLACEHOLDER_CONFIG makes that intent explicit to the build guard
+      # in vite.config.ts, which otherwise refuses to produce an artifact that
+      # would answer "Invalid API key" for every user. The guard still fails hard
+      # if a placeholder is replaced by something that looks like a real secret,
+      # so this opt-in cannot be used to smuggle a service-role key into a bundle.
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: https://ci-placeholder.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+          VITE_SUPABASE_PROJECT_ID: ci-placeholder
+          QV_ALLOW_PLACEHOLDER_CONFIG: "1"
+        run: npm run build
+
+      # Last line of defence on the secret boundary. Matches secret *values*, not
+      # names: the bare literal `sb_secret_` legitimately appears in the bundle
+      # inside a `startsWith` guard that rejects a service-role key handed to the
+      # client, so the pattern requires a trailing key body.
+      - name: Assert no secret reached the client bundle
+        run: |
+          if grep -rEo "sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{20,}|SUPABASE_SERVICE_ROLE_KEY|INGESTION_WORKER_SECRET" .output/public; then
+            echo "::error::Secret material found in the client bundle"
+            exit 1
+          fi
+          echo "clean: no secret material in .output/public"

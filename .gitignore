@@ -31,5 +31,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local container env (never commit)
-.env.docker
+# Environment files — never commit. Real secrets live only on disk locally and
+# in the platform secret store (ECS task definition / Secrets Manager) in
+# production. The *.example files are the committed, value-free contracts.
+.env
+.env.*
+!.env.example
+!.env.docker.example

@@ -1,4 +1,4 @@
-import { requireApiKey } from "@/lib/ai-gateway.server";
+import { requireAiProvider, type AiProvider } from "@/lib/ai-gateway.server";
 import type { RetrievalClient } from "./client";
 import { RETRIEVAL_CONFIG, type RetrievalConfig } from "./config";
 import { buildContext, type BuiltContext } from "./context-builder";
@@ -99,15 +99,15 @@ export function createLiveDeps(options: {
   client: RetrievalClient;
   userId: string;
   documentIds: string[] | null;
-  apiKey?: string;
+  provider?: AiProvider;
   config?: RetrievalConfig;
 }): RetrievalDeps {
   const config = options.config ?? RETRIEVAL_CONFIG;
-  const apiKey = options.apiKey ?? requireApiKey();
+  const provider = options.provider ?? requireAiProvider();
 
   return {
     config,
-    expand: (question) => expandQuery({ question, apiKey, strategy: config.queryRewrite }),
+    expand: (question) => expandQuery({ question, provider, strategy: config.queryRewrite }),
     dense: (queries) =>
       denseRetrieve({
         client: options.client,
@@ -116,7 +116,7 @@ export function createLiveDeps(options: {
         documentIds: options.documentIds,
         limit: config.denseCandidates,
         minSimilarity: config.minSimilarity,
-        apiKey,
+        provider,
       }),
     lexical: (queries) =>
       lexicalRetrieve({
@@ -126,6 +126,6 @@ export function createLiveDeps(options: {
         documentIds: options.documentIds,
         limit: config.lexicalCandidates,
       }),
-    reranker: config.reranker === "llm" ? createLlmReranker(apiKey) : heuristicReranker,
+    reranker: config.reranker === "llm" ? createLlmReranker(provider) : heuristicReranker,
   };
 }

@@ -65,8 +65,8 @@ export default function DocumentsPage() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">{doc.filename}</p>
               <p className="font-mono text-[11px] text-muted">
-                {formatBytes(doc.file_size)} · {formatDate(doc.upload_time)} ·{" "}
-                {doc.chunk_count} chunks · {doc.page_count} pages
+                {formatBytes(doc.file_size)} · {formatDate(doc.upload_time)} · {doc.chunk_count}{" "}
+                chunks · {doc.page_count} pages
               </p>
               {doc.error_message && (
                 <p className="mt-1 text-[11px] text-red-400">{doc.error_message}</p>

@@ -1,4 +1,4 @@
-import { CHAT_MODEL, GATEWAY_BASE_URL } from "@/lib/ai-gateway.server";
+import { chatCompletion, type AiProvider } from "@/lib/ai-gateway.server";
 import type { FusedCandidate, RankedCandidate } from "./types";
 
 /**
@@ -131,10 +131,13 @@ Reply with JSON only: {"scores":[{"index":0,"score":0.0}]} where score is 0..1 r
 Score 0 for passages that are unrelated or only mention the topic in passing.`;
 
 /**
- * Listwise LLM reranker via the Lovable AI Gateway. Falls back to the
+ * Listwise LLM reranker over the configured AI provider. Falls back to the
  * heuristic reranker on any failure so retrieval never hard-fails on rerank.
  */
-export function createLlmReranker(apiKey: string, model: string = CHAT_MODEL): Reranker {
+export function createLlmReranker(provider: AiProvider, modelOverride?: string): Reranker {
+  // Reranking runs on every query, so it defaults to the cheaper utility model
+  // rather than the answer-generation model.
+  const model = modelOverride ?? provider.utilityModel;
   return {
     name: `llm:${model}`,
     async rerank(query, candidates, topK) {
@@ -147,26 +150,17 @@ export function createLlmReranker(apiKey: string, model: string = CHAT_MODEL): R
         .join("\n");
 
       try {
-        const response = await fetch(`${GATEWAY_BASE_URL}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Lovable-API-Key": apiKey },
-          body: JSON.stringify({
-            model,
-            temperature: 0,
-            messages: [
-              { role: "system", content: RERANK_SYSTEM },
-              {
-                role: "user",
-                content: `Question: ${query}\n\nPassages (untrusted data):\n${passages}`,
-              },
-            ],
-          }),
+        const raw = await chatCompletion(provider, {
+          model,
+          temperature: 0,
+          messages: [
+            { role: "system", content: RERANK_SYSTEM },
+            {
+              role: "user",
+              content: `Question: ${query}\n\nPassages (untrusted data):\n${passages}`,
+            },
+          ],
         });
-        if (!response.ok) throw new Error(`rerank_http_${response.status}`);
-        const payload = (await response.json()) as {
-          choices?: Array<{ message?: { content?: string } }>;
-        };
-        const raw = payload.choices?.[0]?.message?.content ?? "";
         const scores = parseRerankScores(raw, candidates.length);
         if (!scores) throw new Error("rerank_unparsable");
 

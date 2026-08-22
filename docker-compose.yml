@@ -18,8 +18,25 @@ services:
       HOST: "0.0.0.0"
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      # Not read by application code, but part of the declared server contract
+      # and cross-checked at boot: it is what lets the startup validator catch a
+      # key issued for a different project, which otherwise surfaces only as
+      # `401 Invalid API key` on every request.
+      SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      LOVABLE_API_KEY: ${LOVABLE_API_KEY}
+      # Provider selection plus every credential the resolver may look for. Only
+      # the one matching AI_PROVIDER needs a value; the rest arrive as empty
+      # strings and are treated as unset. Forwarding all three keeps the compose
+      # file provider-agnostic, so switching provider is an .env.docker edit.
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LOVABLE_API_KEY: ${LOVABLE_API_KEY:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-}
+      AI_UTILITY_MODEL: ${AI_UTILITY_MODEL:-}
+      AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-}
+      AI_EMBEDDING_DIMENSIONS: ${AI_EMBEDDING_DIMENSIONS:-}
       INGESTION_WORKER_SECRET: ${INGESTION_WORKER_SECRET}
       QV_RELEASE: ${QV_RELEASE:-local}
     read_only: true

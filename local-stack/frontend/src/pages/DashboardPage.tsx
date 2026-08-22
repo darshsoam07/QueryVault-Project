@@ -53,9 +53,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6 rounded-xl border border-line bg-panel px-5 py-4">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-          System status
-        </p>
+        <p className="font-mono text-[11px] uppercase tracking-widest text-muted">System status</p>
         <dl className="mt-3 grid gap-2 text-[13px] sm:grid-cols-2">
           <div className="flex justify-between gap-4">
             <dt className="text-muted">Ollama</dt>
@@ -73,9 +71,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">Vector store</dt>
-            <dd className="font-mono text-xs">
-              Chroma · {health?.vector_chunks ?? 0} vectors
-            </dd>
+            <dd className="font-mono text-xs">Chroma · {health?.vector_chunks ?? 0} vectors</dd>
           </div>
         </dl>
       </div>
