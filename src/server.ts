@@ -1,13 +1,17 @@
 import "./lib/error-capture";
 
-import { assertBootConfig } from "./lib/config/boot.server";
+import { ensureBootConfigChecked } from "./lib/config/boot.server";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
-// Fail fast, before the first request. Unusable Supabase configuration makes
-// every request return `401 Invalid API key`, which looks like an auth bug and
-// is not one — so the process refuses to start and names the actual variable.
-assertBootConfig();
+// Backstop only. The real boot check is the Nitro startup plugin
+// (server/plugins/config-guard.ts), because Nitro imports this module lazily on
+// the first request — too late to stop a broken container from coming up.
+// This call covers any host that skips Nitro plugins; it is memoized, so the
+// startup line is not printed twice. Unusable Supabase configuration makes every
+// request return `401 Invalid API key`, which looks like an auth bug and is not
+// one — so the failure names the actual variable instead.
+ensureBootConfigChecked();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

@@ -77,6 +77,7 @@ async function advanceStatus(db: Admin, job: Job, target: "processing"): Promise
     .from("documents")
     .select("status")
     .eq("id", job.document_id)
+    .eq("user_id", job.user_id)
     .maybeSingle();
   if (!doc) throw new JobCancelled("document removed");
   if (doc.status === "deleting") throw new JobCancelled("document is being deleted");
@@ -162,7 +163,8 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   await db
     .from("documents")
     .update({ storage_path: storagePath, byte_size: blob.size })
-    .eq("id", job.document_id);
+    .eq("id", job.document_id)
+    .eq("user_id", job.user_id);
 
   // ---- parse -----------------------------------------------------------
   await assertLive(db, job);
@@ -235,7 +237,11 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     }
 
     indexed += rows.length;
-    await db.from("documents").update({ chunk_count: indexed }).eq("id", job.document_id);
+    await db
+      .from("documents")
+      .update({ chunk_count: indexed })
+      .eq("id", job.document_id)
+      .eq("user_id", job.user_id);
   }
 
   // ---- finalise --------------------------------------------------------

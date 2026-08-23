@@ -16,9 +16,12 @@
  * ever contain a configuration *value*. These messages reach stdout, container
  * logs and log aggregators.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { assertBootConfig, collectBootFindings } from "@/lib/config/boot.server";
+import { assertBootConfig, BOOT_CHECK_FLAG, collectBootFindings } from "@/lib/config/boot.server";
 import {
   isPlaceholder,
   projectRefFromUrl,
@@ -319,6 +322,44 @@ describe("collectBootFindings", () => {
     expect(found).toContain("CONFIG_MIRROR_MISMATCH");
   });
 
+  it("reports one project mismatch, not one per validation pass", () => {
+    // Found live: the server pass and the public cross-check pass both described
+    // the same disagreement, so the operator saw two near-identical fatal lines
+    // for one fault.
+    const findings = collectBootFindings({
+      ...serverEnv,
+      SUPABASE_PROJECT_ID: OTHER_REF,
+      VITE_SUPABASE_URL: VALID.VITE_SUPABASE_URL,
+      VITE_SUPABASE_PUBLISHABLE_KEY: VALID.VITE_SUPABASE_PUBLISHABLE_KEY,
+      VITE_SUPABASE_PROJECT_ID: VALID.VITE_SUPABASE_PROJECT_ID,
+    });
+    expect(findings.filter((f) => f.code === "CONFIG_PROJECT_MISMATCH")).toHaveLength(1);
+  });
+
+  it("still reports a mismatch that only the public tier reveals", () => {
+    // The server tier agrees with itself here; the fault is only visible once the
+    // VITE_ values are included, so collapsing duplicates must not hide it.
+    const findings = collectBootFindings({
+      ...serverEnv,
+      VITE_SUPABASE_URL: `https://${OTHER_REF}.supabase.co`,
+      VITE_SUPABASE_PUBLISHABLE_KEY: VALID.VITE_SUPABASE_PUBLISHABLE_KEY,
+      VITE_SUPABASE_PROJECT_ID: OTHER_REF,
+    });
+    expect(findings.filter((f) => f.code === "CONFIG_PROJECT_MISMATCH")).toHaveLength(1);
+  });
+
+  it("reports each drifted mirror pair separately", () => {
+    // Unlike a project mismatch, two drifted pairs are two distinct faults.
+    const findings = collectBootFindings({
+      ...serverEnv,
+      VITE_SUPABASE_URL: VALID.VITE_SUPABASE_URL,
+      VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_differentKeyEntirely00",
+      VITE_SUPABASE_PROJECT_ID: VALID.VITE_SUPABASE_PROJECT_ID,
+      SUPABASE_PUBLISHABLE_KEY: VALID.SUPABASE_PUBLISHABLE_KEY,
+    });
+    expect(findings.filter((f) => f.code === "CONFIG_MIRROR_MISMATCH")).toHaveLength(1);
+  });
+
   it("does not demand VITE_ values that are absent at runtime", () => {
     const findings = collectBootFindings({ ...serverEnv, VITE_SUPABASE_URL: "" });
     expect(findings).toEqual([]);
@@ -382,5 +423,96 @@ describe("assertBootConfig", () => {
     const badKey = legacyKey({ ref: OTHER_REF, role: "anon" });
     expect(() => assertBootConfig({ ...ok, SUPABASE_SERVICE_ROLE_KEY: badKey })).toThrow();
     expect(String(error.mock.calls[0]?.[0])).not.toContain(badKey);
+  });
+});
+
+describe("ensureBootConfigChecked", () => {
+  // Two entry points call this — the Nitro startup plugin and the SSR entry —
+  // and without a process-wide memo a healthy server logged its startup line
+  // twice, because Nitro emits this module into both chunks.
+  async function freshModule() {
+    vi.resetModules();
+    return import("@/lib/config/boot.server");
+  }
+
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+    // The memo outlives module resets by design, so clear it explicitly.
+    delete (globalThis as Record<string, unknown>)[BOOT_CHECK_FLAG];
+  });
+
+  function stubValidEnv() {
+    vi.stubEnv("SUPABASE_URL", VALID.SUPABASE_URL);
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", VALID.SUPABASE_PUBLISHABLE_KEY);
+    vi.stubEnv("SUPABASE_PROJECT_ID", VALID.SUPABASE_PROJECT_ID);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", VALID.SUPABASE_SERVICE_ROLE_KEY);
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    vi.stubEnv("INGESTION_WORKER_SECRET", "0".repeat(64));
+    // Absent in the test process; stubbed empty so a developer's real VITE_
+    // values cannot leak in and change the outcome.
+    vi.stubEnv("VITE_SUPABASE_URL", "");
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "");
+    vi.stubEnv("VITE_SUPABASE_PROJECT_ID", "");
+  }
+
+  it("validates the real process environment and logs once across calls", async () => {
+    stubValidEnv();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const first = await freshModule();
+    first.ensureBootConfigChecked();
+
+    // A second, separately-loaded copy of the module — what Nitro actually
+    // produces for the startup plugin and the SSR chunk.
+    const second = await freshModule();
+    second.ensureBootConfigChecked();
+
+    expect(info).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-throws on every call while the configuration is broken", async () => {
+    stubValidEnv();
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { ensureBootConfigChecked } = await freshModule();
+
+    // Caching a failure would let a second entry point believe the check passed.
+    expect(() => ensureBootConfigChecked()).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(() => ensureBootConfigChecked()).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boot guard registration
+// ---------------------------------------------------------------------------
+
+describe("boot guard registration", () => {
+  // Everything above tests what the guard *decides*. This tests that it still
+  // runs at boot at all, which is a separate failure mode and the one that
+  // actually bit: the check first lived in src/server.ts, a chunk Nitro imports
+  // lazily on the first request, so a container with a cross-project key came up,
+  // logged "Listening", passed its liveness probe and 500'd every page.
+  //
+  // Registration cannot be typechecked. `@lovable.dev/vite-tanstack-config`
+  // forwards the whole nitro object verbatim but types only preset/output/
+  // cloudflare, so `plugins` goes through a cast — and a cast that silently stops
+  // matching reality is exactly what this file exists to prevent.
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const viteConfig = readFileSync(`${root}vite.config.ts`, "utf8");
+
+  it("registers the startup plugin in the nitro options", () => {
+    expect(viteConfig).toMatch(/plugins:\s*\[BOOT_GUARD_PLUGIN\]/);
+    expect(viteConfig).toMatch(/nitro:\s*nitroOptions\b/);
+  });
+
+  it("names a plugin file that exists and runs the boot check", () => {
+    const declared = /BOOT_GUARD_PLUGIN = "([^"]+)"/.exec(viteConfig)?.[1];
+    expect(declared).toBeDefined();
+
+    const source = readFileSync(`${root}${declared?.replace(/^\.\//, "")}`, "utf8");
+    // A Nitro plugin is its default export; without one the file is inert and the
+    // build still succeeds, which is the quiet version of this bug.
+    expect(source).toMatch(/^export default function/m);
+    expect(source).toContain("ensureBootConfigChecked");
   });
 });

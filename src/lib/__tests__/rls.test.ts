@@ -14,6 +14,11 @@
  * layer that catches the realistic regression — someone adds a table and
  * forgets `ENABLE ROW LEVEL SECURITY`, or relaxes a policy to `USING (true)`
  * while debugging and never puts it back.
+ *
+ * One section is not about the migrations: the ingestion worker holds the service
+ * role, which bypasses RLS, so for its queries isolation is whatever the query
+ * says. That belongs here because it is the same boundary, just the part the
+ * database cannot defend.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -219,6 +224,88 @@ describe("user isolation", () => {
     expect(code).toMatch(
       /revoke\s+insert,\s*update,\s*delete\s+on\s+public\.document_chunks\s+from\s+authenticated/i,
     );
+  });
+
+  it("requires document ownership to enqueue an ingestion job", () => {
+    // `auth.uid() = user_id` proves the job row is the caller's. It says nothing
+    // about document_id, so on its own it lets a signed-in user enqueue a job
+    // against someone else's document. The worker refuses to act on such a job,
+    // but the row has already claimed the single live slot for that document —
+    // ingestion_jobs_one_live_per_document is unique on document_id alone — so the
+    // owner can no longer enqueue their own. Cross-tenant denial of service.
+    const insert = POLICIES.find((p) => p.name === "ingestion_jobs_insert_own");
+    expect(insert).toBeDefined();
+
+    const body = insert?.body ?? "";
+    expect(body).toMatch(/with\s+check/i);
+    expect(body, "must cross-check the document owner, not just the job row").toMatch(
+      /exists\s*\(\s*select[\s\S]*from\s+public\.documents/i,
+    );
+    expect(body).toMatch(/d\.user_id\s*=\s*auth\.uid\(\)/i);
+    expect(body).toMatch(/d\.id\s*=\s*document_id/i);
+  });
+
+  it("has exactly one live-job uniqueness index, and it is per document", () => {
+    // The test above depends on this index being the contended resource. If it
+    // ever gains user_id, the DoS framing changes and the policy comment is stale.
+    expect(code).toMatch(
+      /create\s+unique\s+index[^;]*ingestion_jobs_one_live_per_document[^;]*\(\s*document_id\s*\)/i,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Service-role writes — the boundary RLS cannot defend
+// ---------------------------------------------------------------------------
+
+describe("ingestion worker owner scoping", () => {
+  // The worker holds the service role, which bypasses RLS entirely. For its
+  // queries, tenant isolation is not a database guarantee — it is whatever the
+  // query says. Three of these were scoped by document id alone, and stayed safe
+  // only because an earlier `assertLive` happened to reject a foreign document
+  // first. That is an ordering coincidence, not an invariant: reorder the
+  // pipeline, or add a step above the check, and an unscoped write reaches
+  // another tenant's row. The unscoped update was the worse one — it writes
+  // `storage_path`, so it could have repointed a victim's document at the
+  // attacker's own storage prefix.
+  const worker = readFileSync(
+    join(process.cwd(), "src", "lib", "ingestion", "worker.server.ts"),
+    "utf8",
+  );
+
+  /**
+   * Each `db.from("documents")` chain, up to the statement that terminates it.
+   *
+   * `db.storage.from("documents")` is deliberately excluded: the storage bucket
+   * shares the table's name but is a different API, scoped by the object key
+   * (`ownerScopedPath(user, document)`) rather than by a filter. That path has its
+   * own assertions around `isOwnerScopedPath` in security.test.ts.
+   */
+  function documentChains(): string[] {
+    const marker = '.from("documents")';
+    const chains: string[] = [];
+
+    for (let at = worker.indexOf(marker); at !== -1; at = worker.indexOf(marker, at + 1)) {
+      if (/\.storage\s*$/.test(worker.slice(Math.max(0, at - 40), at))) continue;
+      const rest = worker.slice(at + marker.length);
+      chains.push(rest.slice(0, rest.indexOf(";")));
+    }
+    return chains;
+  }
+
+  it("scopes every documents query by user_id", () => {
+    const chains = documentChains();
+    expect(chains.length).toBeGreaterThan(0);
+
+    const unscoped = chains.filter((chain) => !/\.eq\("user_id",/.test(chain));
+    expect(unscoped, "documents query not scoped by user_id").toEqual([]);
+  });
+
+  it("scopes every documents query by document id as well", () => {
+    // Guards the other direction: a query scoped only by user_id would touch
+    // every document that user owns.
+    const unscoped = documentChains().filter((chain) => !/\.eq\("id",/.test(chain));
+    expect(unscoped).toEqual([]);
   });
 });
 

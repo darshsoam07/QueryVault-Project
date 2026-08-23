@@ -69,15 +69,68 @@ function publicConfigGuard(): Plugin {
   };
 }
 
+/** The `nitro` option as the wrapper declares it — see `nitroOptions` below. */
+type WrapperNitroOptions = NonNullable<NonNullable<Parameters<typeof defineConfig>[0]>["nitro"]>;
+
+/**
+ * Path of the Nitro startup plugin that validates configuration before the
+ * listener accepts traffic. Exported so a test can assert it still exists and is
+ * still referenced — see src/lib/__tests__/config.test.ts.
+ */
+export const BOOT_GUARD_PLUGIN = "./server/plugins/config-guard.ts";
+
+/**
+ * True inside the Lovable build environment, detected with the same two signals
+ * the config wrapper itself uses.
+ */
+const isLovableBuild =
+  process.env["LOVABLE_SANDBOX"] === "1" || !!process.env["DEV_SERVER__PROJECT_PATH"];
+
+/**
+ * Nitro options, with the boot guard registered for Node targets.
+ *
+ * `src/server.ts` is not early enough for this check: Nitro emits the SSR entry
+ * into a chunk it imports on the *first request*, so a misconfigured container
+ * would come up, log "Listening", answer the liveness probe 200 and then 500
+ * every page. Nitro plugins run during app initialisation, which is before the
+ * listener serves.
+ *
+ * The cast covers exactly one gap. `@lovable.dev/vite-tanstack-config` forwards
+ * the whole object verbatim — its build path is literally
+ * `nitro({ defaultPreset, ...userNitroOpts })` — but its *public type* admits only
+ * `preset`/`output`/`cloudflare`, documented as "narrow on purpose … while Nitro
+ * v3 is pre-RC". So `plugins` reaches Nitro and works (verified: with a
+ * cross-project key the process exits before printing "Listening"); the type just
+ * does not describe it. Keeping the cast on this one value leaves `preset` and
+ * every other option in this file type-checked.
+ *
+ * Registration is explicit rather than by convention because Nitro v3 defaults
+ * `serverDir: false` — nothing under `server/` is scanned unless that is turned
+ * on, which would also enable route and auto-import scanning this app does not
+ * want. Verified: with the file present but unlisted, the guard appeared only in
+ * the lazy SSR chunk.
+ *
+ * It is skipped inside the Lovable build because that path overrides `preset` to
+ * `cloudflare-module` but keeps whatever `plugins` were passed, and the guard is
+ * Node-shaped: it reads `process.env` during initialisation and exits the process
+ * on a fatal finding. On Workers the server configuration arrives through
+ * bindings, so the guard would see an empty environment and refuse to start —
+ * breaking the hosted preview to protect a deployment path it is not on. The
+ * container target keeps the guard; `src/server.ts` remains the backstop for
+ * both.
+ */
+const nitroOptions = {
+  preset: process.env["NITRO_PRESET"] || "node-server",
+  ...(isLovableBuild ? {} : { plugins: [BOOT_GUARD_PLUGIN] }),
+} as WrapperNitroOptions;
+
 // Phase 6A: the AWS/ECS target is a standard Node production server.
 // Nitro's `node-server` preset emits `.output/server/index.mjs` (run with `npm run start`).
 // Inside the Lovable build environment this option is ignored and the platform's own
 // Cloudflare target is used, so the hosted preview/publish flow is unchanged.
 export default defineConfig({
   plugins: [publicConfigGuard()],
-  nitro: {
-    preset: process.env["NITRO_PRESET"] || "node-server",
-  },
+  nitro: nitroOptions,
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

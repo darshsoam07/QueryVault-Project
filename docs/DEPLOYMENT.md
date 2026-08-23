@@ -38,12 +38,12 @@ Two things are worth knowing before you start:
 The build targets Nitro's `node-server` preset, so the artifact is an ordinary Node
 process. That makes the following viable, in order of how well they fit:
 
-| Target | Verdict | Why |
-|---|---|---|
-| **Container on a long-running host** (ECS/Fargate, Fly.io, Render, Railway, a VM) | **Recommended** | Matches the architecture exactly: one always-on process, horizontal scale by adding replicas, the ingestion worker drains continuously. See [`DOCKER.md`](./DOCKER.md). |
-| **Supabase** | **Required, complementary** | Not an app host. It provides Auth, Postgres+pgvector, and Storage regardless of where the Node server runs. |
-| **Vercel / serverless** | **Possible with a caveat** | The web surface deploys fine (Nitro has a `vercel` preset). The problem is ingestion: PDF parsing plus embedding regularly exceeds serverless execution limits, and a function that is frozen mid-job leaves a row locked until the 300 s reclaim window expires. If you deploy serverless, move ingestion to a separate always-on worker and drive it through `POST /api/public/worker-drain`. Do not simply hope jobs finish in time. |
-| **Static hosting** (S3/CloudFront alone, GitHub Pages) | **Not possible** | There is server-side code: SSR, API routes, and every path that touches a secret. A static bundle cannot hold the service role key or the AI provider key, and by design must not. |
+| Target                                                                            | Verdict                     | Why                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Container on a long-running host** (ECS/Fargate, Fly.io, Render, Railway, a VM) | **Recommended**             | Matches the architecture exactly: one always-on process, horizontal scale by adding replicas, the ingestion worker drains continuously. See [`DOCKER.md`](./DOCKER.md).                                                                                                                                                                                                                                                                 |
+| **Supabase**                                                                      | **Required, complementary** | Not an app host. It provides Auth, Postgres+pgvector, and Storage regardless of where the Node server runs.                                                                                                                                                                                                                                                                                                                             |
+| **Vercel / serverless**                                                           | **Possible with a caveat**  | The web surface deploys fine (Nitro has a `vercel` preset). The problem is ingestion: PDF parsing plus embedding regularly exceeds serverless execution limits, and a function that is frozen mid-job leaves a row locked until the 300 s reclaim window expires. If you deploy serverless, move ingestion to a separate always-on worker and drive it through `POST /api/public/worker-drain`. Do not simply hope jobs finish in time. |
+| **Static hosting** (S3/CloudFront alone, GitHub Pages)                            | **Not possible**            | There is server-side code: SSR, API routes, and every path that touches a secret. A static bundle cannot hold the service role key or the AI provider key, and by design must not.                                                                                                                                                                                                                                                      |
 
 Scaling note: replicas are safe. Job claiming uses `SELECT … FOR UPDATE SKIP LOCKED`,
 so two servers never process the same document, and chunk ids are deterministic, so a
@@ -73,37 +73,37 @@ cp .env.example .env
 
 ### Public (browser-visible)
 
-| Variable | Required | Notes |
-|---|---|---|
-| `VITE_SUPABASE_URL` | Yes | `https://<project-ref>.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | New-format `sb_publishable_…` or a legacy anon JWT. Safe to ship **only because RLS is enabled on every table.** |
-| `VITE_SUPABASE_PROJECT_ID` | Yes | Must be the same project as the URL and keys. |
-| `VITE_ENABLE_GOOGLE_AUTH` | No (default `false`) | Set `true` only after Google is actually enabled in Supabase. While false the button is hidden rather than shown-and-broken. |
+| Variable                        | Required             | Notes                                                                                                                        |
+| ------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Yes                  | `https://<project-ref>.supabase.co`                                                                                          |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes                  | New-format `sb_publishable_…` or a legacy anon JWT. Safe to ship **only because RLS is enabled on every table.**             |
+| `VITE_SUPABASE_PROJECT_ID`      | Yes                  | Must be the same project as the URL and keys.                                                                                |
+| `VITE_ENABLE_GOOGLE_AUTH`       | No (default `false`) | Set `true` only after Google is actually enabled in Supabase. While false the button is hidden rather than shown-and-broken. |
 
 ### Server-only
 
-| Variable | Required | Notes |
-|---|---|---|
-| `SUPABASE_URL` | Yes | Same value as the `VITE_` one. Server code cannot read `import.meta.env`. |
-| `SUPABASE_PUBLISHABLE_KEY` | Yes | Same value. Used for user-scoped clients, so RLS still applies. |
-| `SUPABASE_PROJECT_ID` | Yes | Same value. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | **SECRET. Bypasses RLS entirely — full read/write across every tenant.** Used only by server-authoritative writers (ingestion worker, admin functions). Never log it, never commit it, never send it to a browser. |
-| `OPENAI_API_KEY` *or* `LOVABLE_API_KEY` *or* `AI_API_KEY` | Yes | **SECRET.** Provider credential; see [AI provider configuration](#6-ai-provider-configuration). Without one, ingestion fails at the embedding step and `/api/chat` returns `NOT_CONFIGURED` — it fails closed, it does not silently degrade. |
-| `INGESTION_WORKER_SECRET` | Yes | **SECRET.** Bearer token authorising `POST /api/public/worker-drain` and the deep health probe. Generate with `openssl rand -hex 32`. |
-| `PORT` | No (default `3000`) | |
-| `HOST` | No (default `0.0.0.0`) | Keep `0.0.0.0` in a container or the health check cannot reach it. |
-| `QV_RELEASE` | Recommended | Stamped onto telemetry so you can attribute a regression to a deploy. Set it to the image tag or git SHA. |
-| `NITRO_PRESET` | No (default `node-server`) | Only change this to target a different host. |
+| Variable                                                  | Required                   | Notes                                                                                                                                                                                                                                        |
+| --------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`                                            | Yes                        | Same value as the `VITE_` one. Server code cannot read `import.meta.env`.                                                                                                                                                                    |
+| `SUPABASE_PUBLISHABLE_KEY`                                | Yes                        | Same value. Used for user-scoped clients, so RLS still applies.                                                                                                                                                                              |
+| `SUPABASE_PROJECT_ID`                                     | Yes                        | Same value.                                                                                                                                                                                                                                  |
+| `SUPABASE_SERVICE_ROLE_KEY`                               | Yes                        | **SECRET. Bypasses RLS entirely — full read/write across every tenant.** Used only by server-authoritative writers (ingestion worker, admin functions). Never log it, never commit it, never send it to a browser.                           |
+| `OPENAI_API_KEY` _or_ `LOVABLE_API_KEY` _or_ `AI_API_KEY` | Yes                        | **SECRET.** Provider credential; see [AI provider configuration](#6-ai-provider-configuration). Without one, ingestion fails at the embedding step and `/api/chat` returns `NOT_CONFIGURED` — it fails closed, it does not silently degrade. |
+| `INGESTION_WORKER_SECRET`                                 | Yes                        | **SECRET.** Bearer token authorising `POST /api/public/worker-drain` and the deep health probe. Generate with `openssl rand -hex 32`.                                                                                                        |
+| `PORT`                                                    | No (default `3000`)        |                                                                                                                                                                                                                                              |
+| `HOST`                                                    | No (default `0.0.0.0`)     | Keep `0.0.0.0` in a container or the health check cannot reach it.                                                                                                                                                                           |
+| `QV_RELEASE`                                              | Recommended                | Stamped onto telemetry so you can attribute a regression to a deploy. Set it to the image tag or git SHA.                                                                                                                                    |
+| `NITRO_PRESET`                                            | No (default `node-server`) | Only change this to target a different host.                                                                                                                                                                                                 |
 
 ### Tuning knobs (all optional, sensible defaults)
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `QV_RATE_CHAT_PER_MIN` | 30 | Chat requests per user per minute. |
-| `QV_RATE_EMBED_PER_MIN` | 120 | Embedding calls per user per minute. |
-| `QV_RATE_UPLOAD_PER_5MIN` | 12 | Uploads per user per 5 minutes. |
-| `QV_RATE_CLIENT_ERROR_PER_5MIN` | 20 | Browser error reports per user per 5 minutes. |
-| `QV_MAX_CONCURRENT_INGESTIONS` | 3 | Jobs drained at once **per replica**. Raise for throughput, lower to protect provider quota. |
+| Variable                        | Default | Meaning                                                                                      |
+| ------------------------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `QV_RATE_CHAT_PER_MIN`          | 30      | Chat requests per user per minute.                                                           |
+| `QV_RATE_EMBED_PER_MIN`         | 120     | Embedding calls per user per minute.                                                         |
+| `QV_RATE_UPLOAD_PER_5MIN`       | 12      | Uploads per user per 5 minutes.                                                              |
+| `QV_RATE_CLIENT_ERROR_PER_5MIN` | 20      | Browser error reports per user per 5 minutes.                                                |
+| `QV_MAX_CONCURRENT_INGESTIONS`  | 3       | Jobs drained at once **per replica**. Raise for throughput, lower to protect provider quota. |
 
 Rate limiting is **fail-closed**: if the limiter cannot reach its table, the request is
 rejected rather than allowed through unmetered.
@@ -116,6 +116,53 @@ groups. `.env` is git-ignored; keep it that way.
 
 If a secret is ever exposed — committed, pasted into a ticket, logged — **rotate it**,
 do not merely delete the exposure. Git history and log aggregators both persist.
+
+### Configuration validation
+
+Misconfiguration here does not produce a configuration error. It produces
+`401 {"message":"Invalid API key"}` on every request, which reads as an
+authentication bug and sends whoever is debugging it into the auth code. The
+values are also inlined at build time, so the mistake is unfixable at deploy
+time — a rebuild is the only remedy.
+
+So the same validator (`src/lib/config/validate.ts`) runs at the three points
+where it is still cheap to catch:
+
+| Point                                                           | What happens                                                                                                                                                           |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Build** (`vite.config.ts`)                                    | Refuses to produce an artifact when a public value is missing or a placeholder. Always refuses when a `VITE_` variable holds a service-role key, whatever else is set. |
+| **Server boot** (`server/plugins/config-guard.ts`)              | Refuses to start on a missing, placeholder, or cross-project server value, naming the variable. Logs `[config] ok — supabase project <ref>, release <tag>` when clean. |
+| **Client construction** (`src/integrations/supabase/client.ts`) | Throws a named error rather than letting supabase-js issue requests with a placeholder key.                                                                            |
+
+It detects missing values, placeholders, unparseable URLs, a project ref that
+disagrees between the URL / `PROJECT_ID` / key claims, a key carrying the wrong
+`role`, and `VITE_`/unprefixed pairs that have drifted apart.
+
+Two things are **warnings**, not boot failures, because the server is still
+useful without them: no AI provider key (`/api/chat` returns a structured
+`NOT_CONFIGURED`) and no `INGESTION_WORKER_SECRET` (those endpoints fall back to
+`worker_credentials` and stay fail-closed).
+
+Findings name variables and report derived non-secret facts — a project ref, a
+JWT `role`. **No configuration value is ever printed**, in a log line or in an
+HTTP response.
+
+The boot check is a Nitro startup plugin rather than a call in the server entry
+because Nitro emits the SSR entry into a chunk it imports on the _first request_.
+A check there is not a boot check: the container would come up, log `Listening`,
+answer the liveness probe `200`, and only then fail every page. Plugins run
+during app initialisation, before the listener serves. `src/server.ts` still
+calls the same memoized check as a backstop for a host that skips Nitro plugins.
+
+On a fatal finding the process **exits non-zero** in production rather than
+throwing, so an orchestrator treats the task as failed and rolls back or restarts
+instead of leaving a listening process that cannot serve. In development the error
+is rethrown so the dev server shows it in place.
+
+`QV_ALLOW_PLACEHOLDER_CONFIG=1` is a **build-time** opt-in used by CI to prove
+the build compiles without holding real credentials. Never set it on a deployed
+container, and never on a build whose artifact will be released: the artifact it
+produces carries an unusable key.
 
 ---
 
@@ -135,6 +182,7 @@ do not merely delete the exposure. Git history and log aggregators both persist.
 
    The sign-up handler in `src/routes/auth.tsx` already distinguishes these cases, so
    either setting produces honest UI copy.
+
 4. **Google sign-in (optional).** Authentication → Providers → Google; supply a
    Google OAuth client id and secret. Then add your redirect URL (see
    [Domain configuration](#10-domain-configuration)) and set
@@ -203,7 +251,7 @@ Confirm in Dashboard → Storage:
   uploaded PDF world-readable by URL and would defeat tenant isolation entirely,
   regardless of how correct the database policies are.
 - Objects are stored under an owner-scoped prefix (`<user-id>/<document-id>…`). The
-  storage policies key off that first path segment, so the path layout *is* the
+  storage policies key off that first path segment, so the path layout _is_ the
   authorization boundary — do not "tidy" it.
 
 Downloads are served through short-lived signed URLs. Never switch the bucket to
@@ -246,11 +294,11 @@ server-side writers and must never be handed to a browser.
 Chat and embeddings go through one abstraction, `src/lib/ai-gateway.server.ts`, which
 selects a provider from the environment. Three are supported:
 
-| Provider | Key variable | Base URL |
-|---|---|---|
-| OpenAI (default) | `OPENAI_API_KEY` | `https://api.openai.com/v1` |
-| Lovable AI Gateway | `LOVABLE_API_KEY` | `https://ai.gateway.lovable.dev/v1` |
-| Any OpenAI-compatible endpoint | `AI_API_KEY` | `AI_BASE_URL` (required) |
+| Provider                       | Key variable      | Base URL                            |
+| ------------------------------ | ----------------- | ----------------------------------- |
+| OpenAI (default)               | `OPENAI_API_KEY`  | `https://api.openai.com/v1`         |
+| Lovable AI Gateway             | `LOVABLE_API_KEY` | `https://ai.gateway.lovable.dev/v1` |
+| Any OpenAI-compatible endpoint | `AI_API_KEY`      | `AI_BASE_URL` (required)            |
 
 Selection is by which key is present, so an existing Lovable-only deployment keeps
 working untouched. To be explicit, set `AI_PROVIDER` to `openai`, `lovable`, or
@@ -271,7 +319,7 @@ Rules that are not negotiable:
   ungrounded answer.
 - **Embedding dimensions are baked into the schema.** The column is
   `halfvec(3072)`. Switching to a model with a different output size requires a
-  migration *and* re-embedding every existing chunk. Changing the model without
+  migration _and_ re-embedding every existing chunk. Changing the model without
   reindexing yields silently poor retrieval — vectors from two models are not
   comparable.
 
@@ -317,7 +365,7 @@ retrieval regression fails the build instead of reaching users.
 grep -rEo "sb_secret_[A-Za-z0-9_-]{8,}|eyJ[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{20,}|SUPABASE_SERVICE_ROLE_KEY|INGESTION_WORKER_SECRET" .output/public && echo "LEAK" || echo "clean"
 ```
 
-Match the secret *value*, not a name or a prefix. `sb_secret_` on its own appears
+Match the secret _value_, not a name or a prefix. `sb_secret_` on its own appears
 legitimately in the browser bundle — the shared key-format helper does
 `key.startsWith("sb_secret_")` to reject a service-role key handed to the client, so
 the bare 10-character literal is present by design. What must never appear is that
@@ -329,6 +377,17 @@ Build-time note: `VITE_*` values are inlined **at build time**, so the browser b
 is environment-specific. A build made against staging keys is a staging artifact —
 promoting that exact artifact to production would point users' browsers at staging
 Supabase. Either build per environment, or serve those three values at runtime.
+
+Because that mistake cannot be corrected after the fact, the build refuses to run
+without real public config — see
+[Configuration validation](#configuration-validation). If you only want to prove
+the build compiles, declare it:
+
+```bash
+QV_ALLOW_PLACEHOLDER_CONFIG=1 npm run build
+```
+
+The resulting artifact is a verification artifact and must not be deployed.
 
 ---
 
@@ -409,13 +468,14 @@ attribute a regression to a specific deploy.
 1. **DNS** → your load balancer or platform hostname.
 2. **TLS certificate** for the domain (ACM, Let's Encrypt, or platform-managed).
 3. **Supabase redirect allow-list** — Dashboard → Authentication → URL Configuration:
-   - *Site URL*: `https://your-domain.example`
-   - *Redirect URLs*: `https://your-domain.example/chat`, plus
+   - _Site URL_: `https://your-domain.example`
+   - _Redirect URLs_: `https://your-domain.example/chat`, plus
      `http://localhost:3000/chat` for local development.
 
    OAuth and email-confirmation links land on an error page if the exact URL is not
    listed. This is the most common cause of "sign-in worked locally but not in
    production".
+
 4. **Google OAuth (if enabled)** — add the Supabase callback
    (`https://<project-ref>.supabase.co/auth/v1/callback`) to the authorised redirect
    URIs of your Google OAuth client, then set `VITE_ENABLE_GOOGLE_AUTH=true` and
@@ -430,9 +490,9 @@ The application ships its own observability; there is no external APM dependency
 
 **Health endpoints**
 
-| Endpoint | Auth | Use |
-|---|---|---|
-| `GET /api/public/health` | none | Load balancer probe. 200 healthy / 503 unhealthy. |
+| Endpoint                        | Auth                      | Use                                                                                    |
+| ------------------------------- | ------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /api/public/health`        | none                      | Load balancer probe. 200 healthy / 503 unhealthy.                                      |
 | `GET /api/public/health?deep=1` | `INGESTION_WORKER_SECRET` | Post-deploy verification. Also pings the AI provider — costs money, so do not poll it. |
 
 **Telemetry tables**
@@ -440,7 +500,7 @@ The application ships its own observability; there is no external APM dependency
 - `telemetry_events` — structured application events (ingestion lifecycle, chat
   outcomes, auth failures, rate-limit hits, browser exceptions). Redaction-safe.
 - `query_traces` — per-query retrieval detail: candidate counts, fusion and rerank
-  scores, evidence-gate outcome, latency. This is what tells you *why* an answer was
+  scores, evidence-gate outcome, latency. This is what tells you _why_ an answer was
   refused.
 - `rate_limit_events` — the limiter's own ledger.
 
@@ -456,14 +516,14 @@ match a telemetry row — without any of them having to paste sensitive content.
 
 **What to alert on**
 
-| Signal | Why it matters |
-|---|---|
-| `/api/public/health` 503 | A third-party dependency is down — wait or fail over. |
-| `/api/public/health` 500 | Our fault, and retrying will not fix it: unapplied migrations, a missing SQL function, missing configuration, or a bucket that has been made public. Read `checks[].detail`. |
-| Rising `ingestion_jobs` rows in `failed` | Provider quota, malformed PDFs, or a bad deploy. |
-| Rising evidence-gate refusals | Retrieval quality regression, or a corpus that genuinely lacks answers. |
-| `client.unhandled_error` volume | A browser-side regression the server sees as success. |
-| Rate-limit hits climbing | Either abuse, or limits set too tight for real usage. |
+| Signal                                   | Why it matters                                                                                                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/public/health` 503                 | A third-party dependency is down — wait or fail over.                                                                                                                        |
+| `/api/public/health` 500                 | Our fault, and retrying will not fix it: unapplied migrations, a missing SQL function, missing configuration, or a bucket that has been made public. Read `checks[].detail`. |
+| Rising `ingestion_jobs` rows in `failed` | Provider quota, malformed PDFs, or a bad deploy.                                                                                                                             |
+| Rising evidence-gate refusals            | Retrieval quality regression, or a corpus that genuinely lacks answers.                                                                                                      |
+| `client.unhandled_error` volume          | A browser-side regression the server sees as success.                                                                                                                        |
+| Rate-limit hits climbing                 | Either abuse, or limits set too tight for real usage.                                                                                                                        |
 
 ---
 
@@ -502,7 +562,7 @@ Before applying migrations to production:
    - **Additive** (new table, new column, new index) — safe. Roll back the application
      alone; the extra object sits unused.
    - **Destructive** (drop, type change, backfill) — the application cannot be rolled
-     back independently. Write and rehearse a forward-fix migration *before*
+     back independently. Write and rehearse a forward-fix migration _before_
      deploying, or restore from the snapshot.
 3. Prefer expand/contract for anything risky: deploy the additive migration, deploy
    code that works with both shapes, then remove the old shape in a later release.

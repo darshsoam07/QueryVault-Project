@@ -30,6 +30,20 @@ const MISMATCH_CODES = new Set([
   "CONFIG_SECRET_IN_PUBLIC",
 ]);
 
+/**
+ * Dedup key for the second validation pass.
+ *
+ * A project mismatch is deduped by code alone: the public pass re-reports the
+ * same disagreement with more variable names attached, and two findings that
+ * describe one fault make the actionable one harder to see. Mirror mismatches
+ * keep their variables in the key, because each pair is a separate fault.
+ */
+function dedupKey(finding: ConfigFinding): string {
+  return finding.code === "CONFIG_PROJECT_MISMATCH"
+    ? finding.code
+    : `${finding.code}:${finding.variables.join(",")}`;
+}
+
 function readEnv(): Record<string, string | undefined> {
   const names = [
     "VITE_SUPABASE_URL",
@@ -70,10 +84,10 @@ export function collectBootFindings(
   ].some((name) => (env[name] ?? "").trim().length > 0);
 
   if (publicPresent) {
-    const seen = new Set(findings.map((f) => `${f.code}:${f.variables.join(",")}`));
+    const seen = new Set(findings.map(dedupKey));
     for (const finding of validateSupabaseConfig(env, ["public", "server"])) {
       if (!MISMATCH_CODES.has(finding.code)) continue;
-      const key = `${finding.code}:${finding.variables.join(",")}`;
+      const key = dedupKey(finding);
       if (seen.has(key)) continue;
       seen.add(key);
       findings.push(finding);
@@ -137,5 +151,37 @@ export function assertBootConfig(
 
   const ref = projectRefFromUrl(env["SUPABASE_URL"]) ?? env["SUPABASE_PROJECT_ID"] ?? "unknown";
   console.info(`[config] ok — supabase project ${ref}, release ${env["QV_RELEASE"] ?? "dev"}`);
+  return findings;
+}
+
+/**
+ * Process-wide memo key.
+ *
+ * Deliberately on `globalThis` rather than in module scope. Nitro builds the
+ * startup-plugin graph and the SSR service graph separately, so this module is
+ * emitted into both chunks and each copy would have its own module state — which
+ * is exactly what happened: a healthy server logged its startup line twice, once
+ * at boot and once on the first request.
+ */
+export const BOOT_CHECK_FLAG = "__queryvault_boot_config_checked__";
+
+/**
+ * Runs `assertBootConfig` exactly once per process, from whichever entry point
+ * reaches it first.
+ *
+ * There are two, because the Nitro output splits: the startup plugin runs before
+ * the listener accepts connections, while the SSR entry chunk is imported lazily
+ * on the first request. The plugin is the one that matters — a container whose
+ * configuration cannot serve a request must not stay up passing health checks —
+ * and the SSR call is the backstop for any host that skips Nitro plugins.
+ *
+ * A failure is never cached: the second caller must not be told the check passed.
+ */
+export function ensureBootConfigChecked(): ConfigFinding[] {
+  const store = globalThis as Record<string, unknown>;
+  const cached = store[BOOT_CHECK_FLAG] as ConfigFinding[] | undefined;
+  if (cached) return cached;
+  const findings = assertBootConfig();
+  store[BOOT_CHECK_FLAG] = findings;
   return findings;
 }

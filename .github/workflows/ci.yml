@@ -81,6 +81,36 @@ jobs:
           QV_ALLOW_PLACEHOLDER_CONFIG: "1"
         run: npm run build
 
+      # Asserts the boot guard actually runs at startup, which no other gate can.
+      # It is registered through a cast (@lovable.dev/vite-tanstack-config forwards
+      # the whole `nitro` object but types only preset/output/cloudflare), so
+      # `tsc` cannot notice it going missing — and the failure it prevents is a
+      # container that comes up, passes its liveness probe and 500s every request.
+      #
+      # No env is set here on purpose: the server tier is then entirely absent,
+      # which is fatal, so a working guard exits non-zero before it ever listens.
+      # No secret is involved in either outcome.
+      - name: Assert configuration is validated before the listener starts
+        run: |
+          set +e
+          timeout 30 node .output/server/index.mjs > boot.log 2>&1
+          status=$?
+          set -e
+          cat boot.log
+          if [ "$status" -eq 0 ] || [ "$status" -eq 124 ]; then
+            echo "::error::Server did not refuse to start with no Supabase configuration (exit $status)"
+            exit 1
+          fi
+          if grep -qi "listening" boot.log; then
+            echo "::error::Server accepted connections before validating configuration"
+            exit 1
+          fi
+          grep -q "Refusing to start" boot.log || {
+            echo "::error::Boot guard did not run; expected a 'Refusing to start' report"
+            exit 1
+          }
+          echo "ok: refused to start before listening"
+
       # Last line of defence on the secret boundary. Matches secret *values*, not
       # names: the bare literal `sb_secret_` legitimately appears in the bundle
       # inside a `startsWith` guard that rejects a service-role key handed to the

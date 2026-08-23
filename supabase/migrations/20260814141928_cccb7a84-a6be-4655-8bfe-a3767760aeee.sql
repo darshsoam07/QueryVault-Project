@@ -55,8 +55,27 @@ CREATE POLICY ingestion_jobs_select_own ON public.ingestion_jobs
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS ingestion_jobs_insert_own ON public.ingestion_jobs;
+-- WITH CHECK has to prove ownership of the *document*, not just of the job row.
+-- `auth.uid() = user_id` alone lets any authenticated caller enqueue a job whose
+-- document_id belongs to someone else: the row looks like theirs, so the policy
+-- passes. The worker then refuses to act on it, because every document read below
+-- is scoped by user_id as well -- but the insert has already taken the single live
+-- slot for that document (ingestion_jobs_one_live_per_document is unique on
+-- document_id alone), so the real owner's upload can no longer enqueue. That is a
+-- cross-tenant denial of service reachable from any signed-in session.
+--
+-- The subquery is evaluated as the caller, so RLS on documents already limits it
+-- to their own rows; the explicit `d.user_id = auth.uid()` keeps the check correct
+-- on its own terms rather than depending on another table's policy.
 CREATE POLICY ingestion_jobs_insert_own ON public.ingestion_jobs
-  FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+  FOR INSERT TO authenticated WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.documents d
+      WHERE d.id = document_id
+        AND d.user_id = auth.uid()
+    )
+  );
 
 -- Only one live job per document: retries reuse the same row.
 CREATE UNIQUE INDEX IF NOT EXISTS ingestion_jobs_one_live_per_document
