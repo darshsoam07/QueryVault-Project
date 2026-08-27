@@ -234,7 +234,7 @@ export function KnowledgePanel({
               key={doc.id}
               className={cn(
                 "group rounded-lg border border-transparent bg-surface/40 px-2.5 py-2 transition-colors hover:bg-surface-raised/70",
-                isSelected && "border-amethyst/50 bg-amethyst/10",
+                isSelected && "border-cyan/50 bg-cyan/5",
               )}
             >
               <div className="flex items-start gap-2">
@@ -246,7 +246,7 @@ export function KnowledgePanel({
                   <FileText
                     className={cn(
                       "mt-0.5 h-3.5 w-3.5 shrink-0",
-                      isSelected ? "text-amethyst" : "text-muted-foreground",
+                      isSelected ? "text-signal" : "text-muted-foreground",
                     )}
                   />
                   <span className="min-w-0 flex-1">
@@ -310,7 +310,7 @@ export function KnowledgePanel({
       {selected.length > 0 && (
         <Badge
           variant="outline"
-          className="justify-center border-amethyst/40 bg-amethyst/10 text-[11px] font-normal text-foreground"
+          className="justify-center border-cyan/40 bg-cyan/10 text-[11px] font-normal text-foreground"
         >
           Scoped to {selected.length} document{selected.length > 1 ? "s" : ""}
         </Badge>

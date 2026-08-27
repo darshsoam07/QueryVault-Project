@@ -78,7 +78,7 @@ export function CitationsSection() {
     <section ref={sectionRef} className="border-y border-border/50 bg-surface/20">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-center">
         <header>
-          <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
             Citations
           </span>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -97,7 +97,7 @@ export function CitationsSection() {
 
         {/* Same surface treatment as the chat transcript, so what you see here is
             what you get after signing in. */}
-        <div data-answer-card className="glass-panel rounded-2xl p-5">
+        <div data-answer-card className="glass-panel rounded-xl p-5">
           <div className="flex items-center gap-2 border-b border-border/50 pb-3">
             <Quote className="h-3.5 w-3.5 text-cyan" />
             <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -124,17 +124,14 @@ export function CitationsSection() {
                   <button
                     type="button"
                     data-source-pill
-                    className="inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
+                    className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-cyan/40 hover:bg-cyan/5"
                   >
-                    <span className="text-amethyst">[{source.sourceId}]</span>
+                    <span className="text-signal">[{source.sourceId}]</span>
                     <span className="max-w-[140px] truncate">{source.filename}</span>
                     <span className="text-muted-foreground">p{source.page}</span>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-96 border-border/70 bg-popover/95 backdrop-blur"
-                >
+                <PopoverContent align="start" className="w-96 border-border/70 bg-popover">
                   <div className="flex items-center gap-2 border-b border-border/60 pb-2">
                     <FileText className="h-3.5 w-3.5 text-cyan" />
                     <span className="truncate text-xs font-medium text-foreground">
@@ -161,7 +158,7 @@ function Marker({ id }: { id: string }) {
   return (
     <sup
       data-answer-marker
-      className="ml-0.5 rounded border border-amethyst/35 bg-amethyst/10 px-1 font-mono text-[9px] text-amethyst"
+      className="ml-0.5 rounded border border-cyan/40 bg-cyan/10 px-1 font-mono text-[9px] text-signal"
     >
       {id}
     </sup>

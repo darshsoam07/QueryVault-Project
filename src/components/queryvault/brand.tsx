@@ -21,7 +21,7 @@ export function Wordmark({ className }: { className?: string }) {
         className,
       )}
     >
-      Query<span className="text-gradient-brand">Vault</span>
+      Query<span className="text-cyan">Vault</span>
     </span>
   );
 }

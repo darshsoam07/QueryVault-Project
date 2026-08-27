@@ -36,13 +36,9 @@ export function ClosingCta() {
         <Reveal
           stagger="normal"
           delay={0.1}
-          className="mt-8 flex items-center justify-center gap-3"
+          className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
-          <Button
-            size="lg"
-            asChild
-            className="bg-gradient-brand text-primary-foreground shadow-[var(--glow-amethyst)] transition-opacity hover:opacity-90"
-          >
+          <Button size="lg" asChild>
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
               <ArrowRight className="ml-1.5 h-4 w-4" />

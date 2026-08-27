@@ -5,8 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * QueryVault design system — deep void dark UI.
- * Electric Cyan + Vivid Amethyst accents. All colors are oklch tokens.
+ * QueryVault design system — graphite dark UI.
+ * Off-white type on near-black surfaces, one desaturated cool-gray/cyan signal
+ * color. No gradient brand language, no glow, no glass. All colors are oklch.
  */
 
 @theme inline {
@@ -39,8 +40,8 @@
   --color-ring-offset-background: var(--background);
   --color-cyan: var(--cyan);
   --color-cyan-foreground: var(--cyan-foreground);
-  --color-amethyst: var(--amethyst);
-  --color-amethyst-foreground: var(--amethyst-foreground);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-chart-1: var(--chart-1);
@@ -61,63 +62,59 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  /* Tight radii: 8px base puts --radius-md at 6px. */
+  --radius: 0.5rem;
 
-  /* deep void */
-  --background: oklch(0.145 0.006 264);
-  --foreground: oklch(0.968 0.003 247);
-  --surface: oklch(0.185 0.008 265);
-  --surface-raised: oklch(0.222 0.01 265);
+  /* near-black / graphite */
+  --background: oklch(0.135 0.004 250); /* ~#070809 */
+  --foreground: oklch(0.955 0.003 240); /* ~#f1f3f4 */
+  --surface: oklch(0.165 0.005 250); /* ~#0c0e10 */
+  --surface-raised: oklch(0.192 0.005 250); /* ~#111315 */
 
-  --card: oklch(0.185 0.008 265);
-  --card-foreground: oklch(0.968 0.003 247);
-  --popover: oklch(0.198 0.009 265);
-  --popover-foreground: oklch(0.968 0.003 247);
+  --card: oklch(0.165 0.005 250);
+  --card-foreground: oklch(0.955 0.003 240);
+  --popover: oklch(0.18 0.005 250);
+  --popover-foreground: oklch(0.955 0.003 240);
 
-  /* Vivid Amethyst is the primary action color */
-  --primary: oklch(0.606 0.216 293);
-  --primary-foreground: oklch(0.99 0.002 247);
-  --amethyst: oklch(0.606 0.216 293);
-  --amethyst-foreground: oklch(0.99 0.002 247);
+  /* Primary action is off-white ink, not a hue. */
+  --primary: oklch(0.90 0.004 240); /* ~#dce3e7 */
+  --primary-foreground: oklch(0.16 0.004 250);
 
-  /* Electric Cyan */
-  --cyan: oklch(0.79 0.135 205);
-  --cyan-foreground: oklch(0.16 0.01 265);
+  /* Desaturated cool-gray/cyan — the only chromatic signal in the UI. */
+  --cyan: oklch(0.74 0.03 220); /* ~#9bb8c5 */
+  --cyan-foreground: oklch(0.16 0.01 250);
+  --signal: oklch(0.79 0.032 215); /* brighter end of the same ramp, for markers */
+  --signal-foreground: oklch(0.16 0.01 250);
 
-  --secondary: oklch(0.245 0.011 265);
-  --secondary-foreground: oklch(0.94 0.004 247);
-  --muted: oklch(0.245 0.011 265);
-  --muted-foreground: oklch(0.68 0.014 260);
-  --accent: oklch(0.27 0.015 275);
-  --accent-foreground: oklch(0.96 0.003 247);
+  --secondary: oklch(0.205 0.005 250);
+  --secondary-foreground: oklch(0.92 0.003 240);
+  --muted: oklch(0.205 0.005 250);
+  --muted-foreground: oklch(0.70 0.005 230); /* ~#9da3a8 */
+  --accent: oklch(0.225 0.005 250);
+  --accent-foreground: oklch(0.94 0.003 240);
 
-  --destructive: oklch(0.62 0.21 24);
-  --destructive-foreground: oklch(0.98 0.003 247);
+  --destructive: oklch(0.62 0.19 24);
+  --destructive-foreground: oklch(0.97 0.003 240);
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.606 0.216 293);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.74 0.03 220);
 
-  --chart-1: oklch(0.79 0.135 205);
-  --chart-2: oklch(0.606 0.216 293);
-  --chart-3: oklch(0.7 0.16 320);
-  --chart-4: oklch(0.75 0.15 165);
-  --chart-5: oklch(0.72 0.17 60);
+  /* Desaturated, cool-leaning series for the admin charts. */
+  --chart-1: oklch(0.74 0.03 220);
+  --chart-2: oklch(0.68 0.008 250);
+  --chart-3: oklch(0.58 0.02 230);
+  --chart-4: oklch(0.48 0.008 250);
+  --chart-5: oklch(0.82 0.003 240);
 
-  --sidebar: oklch(0.165 0.007 265);
-  --sidebar-foreground: oklch(0.93 0.004 247);
-  --sidebar-primary: oklch(0.606 0.216 293);
-  --sidebar-primary-foreground: oklch(0.99 0.002 247);
-  --sidebar-accent: oklch(0.245 0.011 265);
-  --sidebar-accent-foreground: oklch(0.96 0.003 247);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.606 0.216 293);
-
-  --gradient-brand: linear-gradient(100deg, var(--cyan), var(--amethyst));
-  --glow-amethyst: 0 0 0 1px color-mix(in oklab, var(--amethyst) 35%, transparent),
-    0 8px 40px -12px color-mix(in oklab, var(--amethyst) 55%, transparent);
-  --glow-cyan: 0 0 0 1px color-mix(in oklab, var(--cyan) 30%, transparent),
-    0 8px 40px -12px color-mix(in oklab, var(--cyan) 45%, transparent);
+  --sidebar: oklch(0.15 0.004 250);
+  --sidebar-foreground: oklch(0.92 0.003 240);
+  --sidebar-primary: oklch(0.90 0.004 240);
+  --sidebar-primary-foreground: oklch(0.16 0.004 250);
+  --sidebar-accent: oklch(0.205 0.005 250);
+  --sidebar-accent-foreground: oklch(0.94 0.003 240);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.74 0.03 220);
 }
 
 .dark {
@@ -138,10 +135,13 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    /* Guard against sub-pixel overflow from decorative layers (hero canvas,
+       grid backdrop) — `clip`, not `hidden`, so the sticky header keeps working. */
+    overflow-x: clip;
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--amethyst) 40%, transparent);
+    background: color-mix(in oklab, var(--signal) 30%, transparent);
   }
 
   ::-webkit-scrollbar {
@@ -163,35 +163,36 @@
   }
 }
 
-@utility text-gradient-brand {
-  background-image: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-@utility bg-gradient-brand {
-  background-image: var(--gradient-brand);
-}
-
+/*
+ * Flat content panel. This used to be translucent + backdrop-blur ("glass");
+ * the name is kept because it marks "secondary content surface" at every call
+ * site, but the treatment is now an opaque raised panel with a subtle border.
+ */
 @utility glass-panel {
-  background-color: color-mix(in oklab, var(--foreground) 5%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border);
 }
 
+/*
+ * Ambient page layer. The old version was two radial color washes; the
+ * replacement is a faint engineering grid — the same "this is a data
+ * system" cue, without the color. Inert under reduced motion, and low enough
+ * contrast (≈4% white) to never interfere with text.
+ */
 @utility grid-void {
+  background-color: var(--background);
   background-image:
-    radial-gradient(
-      ellipse 80% 60% at 50% -10%,
-      color-mix(in oklab, var(--amethyst) 16%, transparent),
-      transparent 70%
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--foreground) 3.5%, transparent) 1px,
+      transparent 1px
     ),
-    radial-gradient(
-      ellipse 60% 50% at 85% 100%,
-      color-mix(in oklab, var(--cyan) 10%, transparent),
-      transparent 70%
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--foreground) 3.5%, transparent) 1px,
+      transparent 1px
     );
+  background-size: 72px 72px;
 }
 
 @keyframes qv-rise {
