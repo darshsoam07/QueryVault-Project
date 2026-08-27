@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * QueryVault design system — deep void dark UI.
- * Electric Cyan + Vivid Amethyst accents. All colors are oklch tokens.
+ * QueryVault design system — graphite engineering UI.
+ * Neutral cool-gray signal color. No purple, no cyan.
  */
 
 @theme inline {
@@ -63,61 +63,59 @@
 :root {
   --radius: 0.75rem;
 
-  /* deep void */
-  --background: oklch(0.145 0.006 264);
-  --foreground: oklch(0.968 0.003 247);
-  --surface: oklch(0.185 0.008 265);
-  --surface-raised: oklch(0.222 0.01 265);
+  /* graphite base */
+  --background: #050607;
+  --foreground: #f1f3f4;
+  --surface: #0b0d0f;
+  --surface-raised: #101214;
 
-  --card: oklch(0.185 0.008 265);
-  --card-foreground: oklch(0.968 0.003 247);
-  --popover: oklch(0.198 0.009 265);
-  --popover-foreground: oklch(0.968 0.003 247);
+  --card: #0b0d0f;
+  --card-foreground: #f1f3f4;
+  --popover: #0d0f11;
+  --popover-foreground: #f1f3f4;
 
-  /* Vivid Amethyst is the primary action color */
-  --primary: oklch(0.606 0.216 293);
-  --primary-foreground: oklch(0.99 0.002 247);
-  --amethyst: oklch(0.606 0.216 293);
-  --amethyst-foreground: oklch(0.99 0.002 247);
+  /* neutral primary — light button fill */
+  --primary: #e8eaec;
+  --primary-foreground: #0a0c0e;
 
-  /* Electric Cyan */
-  --cyan: oklch(0.79 0.135 205);
-  --cyan-foreground: oklch(0.16 0.01 265);
+  /* signal color — cool gray, used where purple/cyan were */
+  --amethyst: #9aaeb8;
+  --amethyst-foreground: #0a0c0e;
+  --cyan: #9aaeb8;
+  --cyan-foreground: #0a0c0e;
 
-  --secondary: oklch(0.245 0.011 265);
-  --secondary-foreground: oklch(0.94 0.004 247);
-  --muted: oklch(0.245 0.011 265);
-  --muted-foreground: oklch(0.68 0.014 260);
-  --accent: oklch(0.27 0.015 275);
-  --accent-foreground: oklch(0.96 0.003 247);
+  --secondary: #151819;
+  --secondary-foreground: #d4d8dc;
+  --muted: #151819;
+  --muted-foreground: #646a70;
+  --accent: #1b1f22;
+  --accent-foreground: #e0e3e6;
 
-  --destructive: oklch(0.62 0.21 24);
-  --destructive-foreground: oklch(0.98 0.003 247);
+  --destructive: #c44040;
+  --destructive-foreground: #f1f3f4;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.606 0.216 293);
+  --border: #1b1f22;
+  --input: #1b1f22;
+  --ring: #9aaeb8;
 
-  --chart-1: oklch(0.79 0.135 205);
-  --chart-2: oklch(0.606 0.216 293);
-  --chart-3: oklch(0.7 0.16 320);
-  --chart-4: oklch(0.75 0.15 165);
-  --chart-5: oklch(0.72 0.17 60);
+  --chart-1: #9aaeb8;
+  --chart-2: #7a8e98;
+  --chart-3: #b0bec5;
+  --chart-4: #78909c;
+  --chart-5: #a0aeb6;
 
-  --sidebar: oklch(0.165 0.007 265);
-  --sidebar-foreground: oklch(0.93 0.004 247);
-  --sidebar-primary: oklch(0.606 0.216 293);
-  --sidebar-primary-foreground: oklch(0.99 0.002 247);
-  --sidebar-accent: oklch(0.245 0.011 265);
-  --sidebar-accent-foreground: oklch(0.96 0.003 247);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.606 0.216 293);
+  --sidebar: #080a0c;
+  --sidebar-foreground: #d4d8dc;
+  --sidebar-primary: #e8eaec;
+  --sidebar-primary-foreground: #0a0c0e;
+  --sidebar-accent: #151819;
+  --sidebar-accent-foreground: #e0e3e6;
+  --sidebar-border: #1b1f22;
+  --sidebar-ring: #9aaeb8;
 
-  --gradient-brand: linear-gradient(100deg, var(--cyan), var(--amethyst));
-  --glow-amethyst: 0 0 0 1px color-mix(in oklab, var(--amethyst) 35%, transparent),
-    0 8px 40px -12px color-mix(in oklab, var(--amethyst) 55%, transparent);
-  --glow-cyan: 0 0 0 1px color-mix(in oklab, var(--cyan) 30%, transparent),
-    0 8px 40px -12px color-mix(in oklab, var(--cyan) 45%, transparent);
+  --gradient-brand: linear-gradient(100deg, #d0d4d8, #f1f3f4);
+  --glow-amethyst: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --glow-cyan: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .dark {
@@ -141,7 +139,7 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--amethyst) 40%, transparent);
+    background: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   ::-webkit-scrollbar {
@@ -152,13 +150,13 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklab, var(--foreground) 12%, transparent);
+    background: color-mix(in srgb, var(--foreground) 12%, transparent);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklab, var(--foreground) 22%, transparent);
+    background: color-mix(in srgb, var(--foreground) 22%, transparent);
     background-clip: content-box;
   }
 }
@@ -175,21 +173,29 @@
 }
 
 @utility glass-panel {
-  background-color: color-mix(in oklab, var(--foreground) 5%, transparent);
+  background-color: color-mix(in srgb, var(--foreground) 5%, transparent);
   backdrop-filter: blur(14px);
-  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
 @utility grid-void {
   background-image:
+    /* engineering grid — vertical lines */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.02) 0 1px,
+      transparent 1px 120px
+    ),
+    /* engineering grid — horizontal lines */
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.02) 0 1px,
+      transparent 1px 120px
+    ),
+    /* very subtle center glow — warm gray, not purple */
     radial-gradient(
       ellipse 80% 60% at 50% -10%,
-      color-mix(in oklab, var(--amethyst) 16%, transparent),
-      transparent 70%
-    ),
-    radial-gradient(
-      ellipse 60% 50% at 85% 100%,
-      color-mix(in oklab, var(--cyan) 10%, transparent),
+      rgba(154, 174, 184, 0.04),
       transparent 70%
     );
 }
@@ -281,3 +287,4 @@ html.lenis body {
     animation-iteration-count: infinite !important;
   }
 }
+

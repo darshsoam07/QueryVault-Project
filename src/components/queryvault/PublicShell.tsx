@@ -93,7 +93,7 @@ function SiteHeader() {
             <Button
               size="sm"
               asChild
-              className="bg-gradient-brand text-primary-foreground hover:opacity-90"
+              className="bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
             >
               <Link to={session ? "/chat" : "/auth"}>{session ? "Open workspace" : "Sign in"}</Link>
             </Button>

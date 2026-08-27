@@ -41,14 +41,19 @@ export function ClosingCta() {
           <Button
             size="lg"
             asChild
-            className="bg-gradient-brand text-primary-foreground shadow-[var(--glow-amethyst)] transition-opacity hover:opacity-90"
+            className="bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
           >
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
-          <Button size="lg" variant="outline" asChild className="bg-surface/40">
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="border-border bg-surface/40 text-foreground hover:bg-surface/80"
+          >
             <Link to="/reference">Read the reference</Link>
           </Button>
         </Reveal>
