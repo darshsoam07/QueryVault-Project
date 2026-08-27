@@ -124,9 +124,9 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
             <button
               type="button"
               data-source-pill
-              className="group inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
+              className="group inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-cyan/40 hover:bg-cyan/5"
             >
-              <span className="text-amethyst">[{source.sourceId ?? `source_${index + 1}`}]</span>
+              <span className="text-signal">[{source.sourceId ?? `source_${index + 1}`}]</span>
               <span className="max-w-[140px] truncate">{source.filename}</span>
               <span className="text-muted-foreground">p{source.page}</span>
             </button>
@@ -260,7 +260,7 @@ function ThreadPage() {
             <div className="flex flex-col items-center justify-center py-16 text-center animate-rise">
               <VaultMark className="h-12 w-12" />
               <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-                Ask your <span className="text-gradient-brand">knowledge base</span>
+                Ask your <span className="text-cyan">knowledge base</span>
               </h1>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
                 Every answer is retrieved from your indexed PDFs and cited back to the exact page.
@@ -272,9 +272,9 @@ function ThreadPage() {
                     key={starter}
                     type="button"
                     onClick={() => send(starter)}
-                    className="glass-panel group flex items-center gap-2.5 rounded-xl px-4 py-3 text-left text-[13px] text-muted-foreground transition-all hover:border-amethyst/40 hover:text-foreground"
+                    className="glass-panel group flex items-center gap-2.5 rounded-lg px-4 py-3 text-left text-[13px] text-muted-foreground transition-colors hover:border-cyan/40 hover:text-foreground"
                   >
-                    <Sparkle className="h-3.5 w-3.5 shrink-0 text-amethyst" />
+                    <Sparkle className="h-3.5 w-3.5 shrink-0 text-cyan" />
                     {starter}
                   </button>
                 ))}

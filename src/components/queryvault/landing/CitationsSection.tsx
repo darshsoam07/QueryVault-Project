@@ -124,9 +124,9 @@ export function CitationsSection() {
                   <button
                     type="button"
                     data-source-pill
-                    className="inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
+                    className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-cyan/40 hover:bg-cyan/5"
                   >
-                    <span className="text-amethyst">[{source.sourceId}]</span>
+                    <span className="text-signal">[{source.sourceId}]</span>
                     <span className="max-w-[140px] truncate">{source.filename}</span>
                     <span className="text-muted-foreground">p{source.page}</span>
                   </button>
@@ -161,7 +161,7 @@ function Marker({ id }: { id: string }) {
   return (
     <sup
       data-answer-marker
-      className="ml-0.5 rounded border border-amethyst/35 bg-amethyst/10 px-1 font-mono text-[9px] text-amethyst"
+      className="ml-0.5 rounded border border-cyan/40 bg-cyan/10 px-1 font-mono text-[9px] text-signal"
     >
       {id}
     </sup>

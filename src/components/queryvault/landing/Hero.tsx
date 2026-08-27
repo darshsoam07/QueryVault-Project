@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowRight, ChevronDown, FileSearch } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 
-import { VantaFog } from "@/components/motion/VantaFog";
+import { QueryVaultField } from "@/components/visual/QueryVaultField";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { gsap, SplitText } from "@/lib/motion/gsap";
@@ -148,12 +148,12 @@ export function Hero() {
       ref={sectionRef}
       className="relative isolate flex min-h-[88vh] items-center overflow-hidden"
     >
-      <VantaFog />
+      <QueryVaultField />
 
       <div ref={contentRef} className="relative mx-auto max-w-3xl px-6 pb-24 pt-16 text-center">
         <span
           data-hero-badge
-          className="inline-flex items-center gap-2 rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 font-mono text-[11px] text-foreground"
+          className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-surface px-3 py-1 font-mono text-[11px] text-muted-foreground"
         >
           <FileSearch className="h-3 w-3 text-cyan" />
           Retrieval-augmented generation
@@ -161,11 +161,11 @@ export function Hero() {
 
         <h1
           data-hero-headline
-          className="mt-6 text-5xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl"
+          className="mt-6 text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl"
         >
           Your documents,
           <br />
-          <span className="text-gradient-brand">answerable.</span>
+          <span className="text-cyan">answerable.</span>
         </h1>
 
         <p
@@ -177,12 +177,7 @@ export function Hero() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button
-            data-hero-cta
-            size="lg"
-            asChild
-            className="bg-gradient-brand text-primary-foreground shadow-[var(--glow-amethyst)] transition-opacity hover:opacity-90"
-          >
+          <Button data-hero-cta size="lg" asChild className="transition-opacity hover:opacity-90">
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
               <ArrowRight className="ml-1.5 h-4 w-4" />

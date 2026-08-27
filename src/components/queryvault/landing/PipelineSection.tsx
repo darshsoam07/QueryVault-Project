@@ -129,7 +129,7 @@ export function PipelineSection() {
         {/* Rail track. Absolutely positioned so the fill can scale without
             reflowing the list beside it. */}
         <div aria-hidden="true" className="absolute bottom-2 left-[15px] top-2 w-px bg-border/70">
-          <div data-rail-fill className="bg-gradient-brand h-full w-px origin-top" />
+          <div data-rail-fill className="h-full w-px origin-top bg-cyan/50" />
         </div>
 
         {STEPS.map((step, index) => (
@@ -139,8 +139,8 @@ export function PipelineSection() {
               aria-hidden="true"
               className={
                 step.emphasis
-                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-amethyst/60 bg-amethyst/15 font-mono text-[11px] text-foreground shadow-[var(--glow-amethyst)]"
-                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-surface font-mono text-[11px] text-muted-foreground"
+                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-md border border-cyan/50 bg-cyan/10 font-mono text-[11px] text-foreground"
+                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-surface font-mono text-[11px] text-muted-foreground"
               }
             >
               {String(index + 1).padStart(2, "0")}
@@ -148,7 +148,7 @@ export function PipelineSection() {
             <h3 className="text-[15px] font-semibold text-foreground">
               {step.title}
               {step.emphasis && (
-                <span className="ml-2 rounded border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 align-middle font-mono text-[10px] text-amethyst">
+                <span className="ml-2 rounded border border-cyan/40 bg-cyan/10 px-1.5 py-0.5 align-middle font-mono text-[10px] text-signal">
                   load-bearing
                 </span>
               )}

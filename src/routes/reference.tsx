@@ -438,7 +438,7 @@ function ReferencePage() {
         */}
         <Reveal stagger="normal" immediate>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Python <span className="text-gradient-brand">RAG reference</span>
+            Python <span className="text-cyan">RAG reference</span>
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             The same architecture this app runs, expressed as a self-hosted Python service:

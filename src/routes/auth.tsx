@@ -147,7 +147,7 @@ function AuthPage() {
             </p>
           </div>
 
-          <div data-auth-card className="glass-panel rounded-2xl p-6 shadow-[var(--glow-amethyst)]">
+          <div data-auth-card className="glass-panel rounded-xl p-6">
             <h1 className="text-base font-semibold text-foreground">
               {mode === "signin" ? "Sign in to your vault" : "Create your vault"}
             </h1>
@@ -188,7 +188,7 @@ function AuthPage() {
                 type="submit"
                 data-auth-field
                 disabled={busy}
-                className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90"
+                className="w-full hover:opacity-90"
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {mode === "signin" ? "Sign in" : "Create account"}

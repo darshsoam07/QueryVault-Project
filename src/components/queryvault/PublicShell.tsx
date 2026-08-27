@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
  * Sticky site header for the public surfaces.
  *
  * The background only appears once the page has scrolled: over the hero it would
- * cut a hard band across the fog, and at the top of the page there is nothing to
- * separate the header from.
+ * cut a hard band across the field, and at the top of the page there is nothing
+ * to separate the header from.
  */
 function SiteHeader() {
   const { session } = useAuth();
@@ -90,11 +90,7 @@ function SiteHeader() {
             <Button variant="ghost" size="sm" asChild>
               <Link to="/reference">Python reference</Link>
             </Button>
-            <Button
-              size="sm"
-              asChild
-              className="bg-gradient-brand text-primary-foreground hover:opacity-90"
-            >
+            <Button size="sm" asChild className="hover:opacity-90">
               <Link to={session ? "/chat" : "/auth"}>{session ? "Open workspace" : "Sign in"}</Link>
             </Button>
           </nav>
