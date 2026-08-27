@@ -131,10 +131,7 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
               <span className="text-muted-foreground">p{source.page}</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-96 border-border/70 bg-popover/95 backdrop-blur"
-          >
+          <PopoverContent align="start" className="w-96 border-border/70 bg-popover">
             <div className="flex items-center gap-2 border-b border-border/60 pb-2">
               <FileText className="h-3.5 w-3.5 text-cyan" />
               <span className="truncate text-xs font-medium text-foreground">

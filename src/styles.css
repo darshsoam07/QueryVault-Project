@@ -174,8 +174,8 @@
 }
 
 /*
- * Ambient page layer. The old version was two radial amethyst/cyan washes;
- * the replacement is a faint engineering grid — the same "this is a data
+ * Ambient page layer. The old version was two radial color washes; the
+ * replacement is a faint engineering grid — the same "this is a data
  * system" cue, without the color. Inert under reduced motion, and low enough
  * contrast (≈4% white) to never interfere with text.
  */

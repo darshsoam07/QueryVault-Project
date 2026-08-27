@@ -113,7 +113,7 @@ export function PipelineSection() {
   return (
     <section ref={sectionRef} className="mx-auto max-w-4xl px-6 py-24">
       <header className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
           The pipeline
         </span>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">

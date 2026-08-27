@@ -176,8 +176,8 @@ export function Hero() {
           from what it retrieves — with page-level citations attached to every response.
         </p>
 
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Button data-hero-cta size="lg" asChild className="transition-opacity hover:opacity-90">
+        <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
+          <Button data-hero-cta size="lg" asChild>
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
               <ArrowRight className="ml-1.5 h-4 w-4" />

@@ -49,13 +49,19 @@ export interface StructureFlowOptions {
   color: number;
 }
 
-export const STRUCTURE_FLOW_DEFAULTS: StructureFlowOptions = {
+const STRUCTURE_FLOW_DEFAULTS: StructureFlowOptions = {
   speed: 0.5,
   pointSize: 0.055,
   opacity: 0.28,
   count: 1400,
   color: 0x9bb8c5,
 };
+
+/**
+ * Fixed uTime for the reduced-motion still frame. Any mid-cycle value works;
+ * 12s was picked because the counter-rotating strands are well spread by then.
+ */
+const STILL_FRAME_TIME = 12;
 
 /** Vertical extent of the vortex cylinder, in world units. */
 const FIELD_HEIGHT = 14;
@@ -188,7 +194,7 @@ export class StructureFlowBackground {
 
   /** One frame, drawn once — used for reduced motion so the field is still. */
   renderStill(): void {
-    this.material.uniforms["uTime"]!.value = 12;
+    this.material.uniforms["uTime"]!.value = STILL_FRAME_TIME;
     this.renderer.render(this.scene, this.camera);
   }
 

@@ -80,7 +80,7 @@ export function TrustSection() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-24">
       <Reveal as="header" className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
           What it will not do
         </span>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -95,7 +95,7 @@ export function TrustSection() {
 
       <Reveal stagger="loose" className="mt-12 grid gap-4 md:grid-cols-3">
         {PILLARS.map((pillar) => (
-          <article key={pillar.title} className="glass-panel rounded-2xl p-5">
+          <article key={pillar.title} className="glass-panel rounded-xl p-5">
             <pillar.icon className="h-4 w-4 text-cyan" />
             <h3 className="mt-3 text-sm font-semibold text-foreground">{pillar.title}</h3>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
