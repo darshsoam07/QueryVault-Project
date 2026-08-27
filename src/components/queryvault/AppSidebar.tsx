@@ -3,6 +3,9 @@ import { KnowledgePanel } from "@/components/queryvault/KnowledgePanel";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
+import { gsap } from "@/lib/motion/gsap";
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
@@ -15,6 +18,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 
 export type ThreadRow = { id: string; title: string; updated_at: string };
@@ -53,6 +57,8 @@ export function AppSidebar({
   const queryClient = useQueryClient();
   const params = useParams({ strict: false }) as { threadId?: string };
   const { data: threads = [] } = useThreads(userId);
+  const listRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
 
   const createThread = useMutation({
     mutationFn: async () => {
@@ -83,6 +89,38 @@ export function AppSidebar({
     },
     onError: (error) => toast.error(userMessage(error, "Could not delete that conversation.")),
   });
+
+  /**
+   * The conversation list arrives asynchronously, so it pops into an empty
+   * column. A 200 ms stagger covers that transition and nothing more — this is
+   * the workspace, where speed is the feature.
+   *
+   * `hasAnimated` is the important part. The threads query is invalidated on
+   * every create and delete, and re-running the stagger each time a refetch
+   * resolved would make the sidebar twitch during ordinary use. It runs once per
+   * time the list becomes visible, then never again.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    if (threads.length === 0) return;
+    const el = listRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from("[data-thread-row]", {
+        x: -8,
+        opacity: 0,
+        duration: DUR.micro,
+        ease: EASE.soft,
+        stagger: STAGGER.tight,
+      });
+    }, el);
+
+    return () => ctx.revert();
+  }, [threads.length, collapsed]);
 
   if (collapsed) {
     return (
@@ -140,7 +178,7 @@ export function AppSidebar({
         <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
           Conversations
         </p>
-        <div className="space-y-0.5">
+        <div ref={listRef} className="space-y-0.5">
           {threads.length === 0 && (
             <p className="px-1 py-2 text-xs text-muted-foreground">No conversations yet.</p>
           )}
@@ -149,6 +187,7 @@ export function AppSidebar({
             return (
               <div
                 key={thread.id}
+                data-thread-row
                 className={cn(
                   "group flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent",
                   active && "bg-sidebar-accent",

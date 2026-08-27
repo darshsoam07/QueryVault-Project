@@ -17,12 +17,15 @@ import {
   listQueryTraces,
   listRecentEvents,
 } from "@/lib/admin.functions";
+import { gsap } from "@/lib/motion/gsap";
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { DUR, EASE } from "@/lib/motion/tokens";
 import { pct } from "@/lib/observability/metrics";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Activity, ArrowLeft, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -139,6 +142,13 @@ function AdminPage() {
   );
 }
 
+/**
+ * Leading number plus whatever trails it, so a count-up can drive the digits and
+ * leave the unit alone: `1234` → `1234` + ``, `48 ms` → `48` + ` ms`,
+ * `12.4%` → `12.4` + `%`. `—` does not match, and is left as-is.
+ */
+const LEADING_NUMBER = /^(\d+(?:\.\d+)?)(.*)$/;
+
 function Metric({
   label,
   value,
@@ -148,10 +158,60 @@ function Metric({
   value: string;
   hint?: string | undefined;
 }) {
+  const valueRef = useRef<HTMLParagraphElement>(null);
+  const hasAnimated = useRef(false);
+
+  /**
+   * Count-up on first load only.
+   *
+   * `MetricsPanel` refetches every 30 seconds. Re-running this on each refetch
+   * would mean the numbers an operator is trying to read are scrambling once a
+   * minute — the animation would actively destroy the thing it decorates. So it
+   * fires once, when the figure first appears, and never again.
+   *
+   * Killing the tween in cleanup is enough: React commits the new text before
+   * running effect cleanups, so a mid-flight value change lands on the fresh
+   * number rather than the one we were counting toward.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    const el = valueRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const match = LEADING_NUMBER.exec(value);
+    const digits = match?.[1];
+    if (!digits) return;
+
+    const suffix = match?.[2] ?? "";
+    const dot = digits.indexOf(".");
+    const decimals = dot === -1 ? 0 : digits.length - dot - 1;
+    const counter = { value: 0 };
+
+    const tween = gsap.to(counter, {
+      value: Number(digits),
+      duration: DUR.card,
+      ease: EASE.out,
+      onUpdate: () => {
+        el.textContent = `${counter.value.toFixed(decimals)}${suffix}`;
+      },
+    });
+
+    return () => {
+      tween.kill();
+    };
+  }, [value]);
+
   return (
-    <Card className="border-border/60 bg-card/40 p-4">
+    <Card data-metric-card className="border-border/60 bg-card/40 p-4">
       <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+      {/* The final figure is already the rendered text — the tween overwrites it
+          and lands back on the same string, so nothing is hidden without JS. */}
+      <p ref={valueRef} className="mt-2 text-2xl font-semibold tabular-nums">
+        {value}
+      </p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </Card>
   );
@@ -163,11 +223,44 @@ function ms(value: unknown): string {
 
 function MetricsPanel({ windowMinutes }: { windowMinutes: number }) {
   const load = useServerFn(getObservabilitySummary);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
   const query = useQuery({
     queryKey: ["observability-summary", windowMinutes],
     queryFn: () => load({ data: { windowMinutes } }),
     refetchInterval: 30_000,
   });
+
+  /**
+   * One pass of the cards as the grid first fills in.
+   *
+   * `stagger: { amount: … }` rather than `each`, because there are nineteen
+   * cards: a per-card delay would leave the last one arriving most of a second
+   * after the first. `amount` spreads a fixed total across however many exist, so
+   * the whole sequence stays inside half a second no matter how the panel grows.
+   *
+   * Once only — same reasoning as the count-up. Refetches must not re-animate.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    const el = panelRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from("[data-metric-card]", {
+        y: 10,
+        opacity: 0,
+        duration: DUR.micro,
+        ease: EASE.soft,
+        stagger: { amount: 0.25 },
+      });
+    }, el);
+
+    return () => ctx.revert();
+  }, [query.isSuccess]);
 
   if (query.isLoading) return <p className="text-sm text-muted-foreground">Loading metrics…</p>;
   if (query.isError) return <p className="text-sm text-destructive">Metrics unavailable.</p>;
@@ -176,7 +269,7 @@ function MetricsPanel({ windowMinutes }: { windowMinutes: number }) {
   const answered = s.rag.answers || 0;
 
   return (
-    <div className="space-y-8">
+    <div ref={panelRef} className="space-y-8">
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
           API

@@ -1,8 +1,13 @@
-import { VaultMark, Wordmark } from "@/components/queryvault/brand";
+import { Reveal } from "@/components/motion/Reveal";
+import { PublicShell } from "@/components/queryvault/PublicShell";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Copy } from "lucide-react";
+import { gsap } from "@/lib/motion/gsap";
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { DUR, EASE } from "@/lib/motion/tokens";
+import { createFileRoute } from "@tanstack/react-router";
+import { Copy } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reference")({
@@ -372,6 +377,29 @@ pytest==8.3.4`,
 ];
 
 function CodeBlock({ code }: { code: string }) {
+  const preRef = useRef<HTMLPreElement>(null);
+
+  /**
+   * One short crossfade when the selected file changes. Radix unmounts inactive
+   * `TabsContent`, so the active block mounts fresh on every switch and this
+   * fires exactly once per switch.
+   *
+   * Opacity only, no `y`. Code sliding under your eyes reads as noise rather
+   * than expression, and at `DUR.micro` the fade is short enough that it never
+   * stands between you and the thing you clicked to read.
+   */
+  useLayoutEffect(() => {
+    const el = preRef.current;
+    if (!el) return;
+    if (prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from(el, { opacity: 0, duration: DUR.micro, ease: EASE.soft });
+    }, el);
+
+    return () => ctx.revert();
+  }, [code]);
+
   return (
     <div className="relative">
       <Button
@@ -386,7 +414,13 @@ function CodeBlock({ code }: { code: string }) {
       >
         <Copy className="text-muted-foreground" />
       </Button>
-      <pre className="max-h-[62vh] overflow-auto rounded-xl border border-border/60 bg-surface/60 p-4 font-mono text-[12px] leading-relaxed text-foreground">
+      {/* `data-lenis-prevent` keeps a wheel inside the code block scrolling the
+          code block, instead of Lenis swallowing it and moving the page. */}
+      <pre
+        ref={preRef}
+        data-lenis-prevent
+        className="max-h-[62vh] overflow-auto rounded-xl border border-border/60 bg-surface/60 p-4 font-mono text-[12px] leading-relaxed text-foreground"
+      >
         <code>{code}</code>
       </pre>
     </div>
@@ -395,38 +429,31 @@ function CodeBlock({ code }: { code: string }) {
 
 function ReferencePage() {
   return (
-    <main className="grid-void min-h-screen">
-      <div className="mx-auto max-w-4xl px-6 py-10">
-        <div className="flex items-center justify-between">
-          <Link
-            to="/chat"
-            className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-cyan"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to workspace
-          </Link>
-          <div className="flex items-center gap-2">
-            <VaultMark className="h-5 w-5" />
-            <Wordmark className="text-[13px]" />
-          </div>
-        </div>
-
-        <h1 className="mt-8 text-3xl font-semibold tracking-tight text-foreground">
-          Python <span className="text-gradient-brand">RAG reference</span>
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          The same architecture this app runs, expressed as a self-hosted Python service: LangChain
-          loaders, recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma index, and
-          a FastAPI query API with citations and streaming.
-        </p>
-        <p className="mt-4 max-w-2xl rounded-lg border border-border/60 bg-surface/40 p-4 text-sm leading-relaxed text-muted-foreground">
-          A complete, runnable version of this stack ships in the repository under{" "}
-          <code className="font-mono text-foreground">local-stack/</code> — FastAPI + LangChain +
-          persistent Chroma + HuggingFace <code className="font-mono">all-MiniLM-L6-v2</code> +
-          Ollama <code className="font-mono">llama3</code>, with a React/Vite frontend, SQLite chat
-          history and a Docker Compose file. See{" "}
-          <code className="font-mono text-foreground">local-stack/README.md</code> to run it.
-        </p>
+    <PublicShell>
+      <div className="mx-auto max-w-4xl px-6 pb-24 pt-8">
+        {/*
+          `immediate` rather than a ScrollTrigger: this block is above the fold on
+          every viewport, so a trigger at `top 85%` would fire on the same frame
+          anyway — it would just cost a ScrollTrigger to do it.
+        */}
+        <Reveal stagger="normal" immediate>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+            Python <span className="text-gradient-brand">RAG reference</span>
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            The same architecture this app runs, expressed as a self-hosted Python service:
+            LangChain loaders, recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma
+            index, and a FastAPI query API with citations and streaming.
+          </p>
+          <p className="mt-4 max-w-2xl rounded-lg border border-border/60 bg-surface/40 p-4 text-sm leading-relaxed text-muted-foreground">
+            A complete, runnable version of this stack ships in the repository under{" "}
+            <code className="font-mono text-foreground">local-stack/</code> — FastAPI + LangChain +
+            persistent Chroma + HuggingFace <code className="font-mono">all-MiniLM-L6-v2</code> +
+            Ollama <code className="font-mono">llama3</code>, with a React/Vite frontend, SQLite
+            chat history and a Docker Compose file. See{" "}
+            <code className="font-mono text-foreground">local-stack/README.md</code> to run it.
+          </p>
+        </Reveal>
 
         <Tabs defaultValue="structure" className="mt-8">
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-surface/50 p-1">
@@ -443,16 +470,19 @@ function ReferencePage() {
           ))}
         </Tabs>
 
-        <section className="mt-10 rounded-xl border border-border/60 bg-surface/40 p-5">
+        <Reveal as="section" className="mt-10 rounded-xl border border-border/60 bg-surface/40 p-5">
           <h2 className="text-sm font-semibold text-foreground">Run it locally</h2>
-          <pre className="mt-3 overflow-x-auto font-mono text-[12px] leading-relaxed text-muted-foreground">
+          <pre
+            data-lenis-prevent
+            className="mt-3 overflow-x-auto font-mono text-[12px] leading-relaxed text-muted-foreground"
+          >
             {`ollama pull llama3.1:8b && ollama pull nomic-embed-text
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000`}
           </pre>
-        </section>
+        </Reveal>
       </div>
-    </main>
+    </PublicShell>
   );
 }

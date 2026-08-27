@@ -17,6 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
+import { gsap } from "@/lib/motion/gsap";
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
 import type { SourceNode } from "@/routes/api/chat";
 import { useChatShell } from "@/routes/chat";
 import { cn } from "@/lib/utils";
@@ -25,7 +28,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { FileText, Layers, Sparkle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/chat/$threadId")({
@@ -76,9 +79,42 @@ function retrievalMetrics(source: SourceNode): string {
 }
 
 function SourceRail({ sources }: { sources: SourceNode[] }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
+
+  /**
+   * The pills land after the answer has finished streaming, which is the moment
+   * the answer becomes checkable — the one thing in the transcript worth pulling
+   * the eye toward. A ~200 ms stagger does that; CSS can't, because the delay has
+   * to be per-child and the count isn't known until the sources arrive.
+   *
+   * Guarded so it runs once per rail. `messages` changes on every streamed token,
+   * and re-staggering the pills on each of those would be a strobe.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    const el = railRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from("[data-source-pill]", {
+        y: 6,
+        opacity: 0,
+        duration: DUR.micro,
+        ease: EASE.soft,
+        stagger: STAGGER.tight,
+      });
+    }, el);
+
+    return () => ctx.revert();
+  }, [sources.length]);
+
   if (sources.length === 0) return null;
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+    <div ref={railRef} className="mt-3 flex flex-wrap items-center gap-1.5">
       <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
         Sources
       </span>
@@ -87,6 +123,7 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
           <PopoverTrigger asChild>
             <button
               type="button"
+              data-source-pill
               className="group inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
             >
               <span className="text-amethyst">[{source.sourceId ?? `source_${index + 1}`}]</span>
@@ -252,7 +289,22 @@ function ThreadPage() {
               .join("");
 
             return (
-              <Message from={message.role} key={message.id} className="animate-rise">
+              /*
+                `animate-rise` — the existing CSS keyframe — stays for assistant
+                messages: transform + opacity, 400 ms, an expo-ish curve. It is
+                already what the motion rules ask for, and it costs no JS on a
+                path that re-renders on every streamed token.
+
+                It is deliberately *not* applied to the user's own message. They
+                just pressed enter; nothing needs to announce that the text
+                exists, and an 8px rise there only adds perceived latency at the
+                most latency-sensitive moment in the app.
+              */
+              <Message
+                from={message.role}
+                key={message.id}
+                className={cn(message.role === "assistant" && "animate-rise")}
+              >
                 <MessageContent
                   className={cn(
                     message.role === "user"
