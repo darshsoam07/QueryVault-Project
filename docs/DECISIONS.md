@@ -1,4 +1,4 @@
-# Architecture Decision Records
+ï»¿# Architecture Decision Records
 
 Short records of the choices that shaped the design. Each ADR covers *why* this choice was made and what the alternatives were.
 
@@ -72,9 +72,9 @@ Short records of the choices that shaped the design. Each ADR covers *why* this 
 **Decision.** `trigger_ingestion_worker()` reads Vault secrets at call time. If either is `NULL`, it returns `false` and sends no request. The cron job keeps firing, the worker keeps draining the moment both secrets appear.
 
 **Why.**
-- No "secret missing ? request sent unauthenticated" failure mode.
-- No "secret missing ? exception ? cron job disabled" mode either.
-- The worker endpoint itself is also fail-closed: missing `INGESTION_WORKER_SECRET` env var ? immediate 401, no fallback path.
+- No "secret missing --> request sent unauthenticated" failure mode.
+- No "secret missing --> exception --> cron job disabled" mode either.
+- The worker endpoint itself is also fail-closed: missing `INGESTION_WORKER_SECRET` env var --> immediate 401, no fallback path.
 
 **Alternatives considered.**
 - **Fail-open with a warning:** rejected. A scheduler that fires unauthenticated requests even "occasionally" is a footgun.
@@ -122,4 +122,4 @@ Short records of the choices that shaped the design. Each ADR covers *why* this 
 - **Document-only convention ("don't put it in VITE_"):** inadequate. Conventions are forgotten; automated checks are not.
 - **Separate service for admin ops:** valid at larger scale, overkill here.
 
-**Trade-offs.** Slightly more validation logic at boot. Acceptable — it runs once, not per-request.
+**Trade-offs.** Slightly more validation logic at boot. Acceptable -- it runs once, not per-request.
