@@ -1,4 +1,9 @@
-# QueryVault — Local Multi-Document RAG Stack
+# Archived/reference local RAG stack — not used by the production QueryVault application
+
+> This directory is a self-contained FastAPI + Chroma + Ollama reference implementation.
+> It is **not** connected to Supabase and is not used by the production TanStack Start
+> QueryVault application, its deployment, CI, or tests. Keep it only for local RAG
+> experimentation; use the repository root application for production work.
 
 A real, working Retrieval-Augmented Generation application that runs entirely on your
 machine: FastAPI + LangChain + Chroma + HuggingFace embeddings + Ollama (Llama 3),

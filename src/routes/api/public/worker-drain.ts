@@ -2,10 +2,10 @@
  * Durable ingestion drain. Called by the database scheduler (pg_cron + pg_net)
  * every minute so queued and retrying jobs make progress with no browser open.
  *
- * Auth (either, both server-only, never in client code):
- *  - `x-worker-secret`  — env shared secret (manual/ops invocation)
- *  - `x-worker-token`   — scheduler token stored in `public.worker_credentials`,
- *                          readable only by the service role.
+ * Auth: `x-worker-secret` — the server-only shared secret used by both the
+ * Supabase scheduler and manual/operations invocations. It is intentionally
+ * the only accepted mechanism, so every production caller has one audited,
+ * timing-safe authorization path.
  * No PII is ever returned.
  */
 import { createFileRoute } from "@tanstack/react-router";
@@ -20,18 +20,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 async function isAuthorized(request: Request): Promise<boolean> {
   const envSecret = process.env["INGESTION_WORKER_SECRET"];
   const provided = request.headers.get("x-worker-secret");
-  if (envSecret && provided && timingSafeEqual(provided, envSecret)) return true;
-
-  const token = request.headers.get("x-worker-token");
-  if (!token) return false;
-
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("worker_credentials")
-    .select("token")
-    .eq("name", "scheduler")
-    .maybeSingle();
-  return Boolean(data?.token) && timingSafeEqual(token, data!.token);
+  return Boolean(envSecret && provided && timingSafeEqual(provided, envSecret));
 }
 
 export const Route = createFileRoute("/api/public/worker-drain")({

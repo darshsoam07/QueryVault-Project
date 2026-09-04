@@ -89,7 +89,7 @@ cp .env.example .env
 | `SUPABASE_PROJECT_ID`                                     | Yes                        | Same value.                                                                                                                                                                                                                                  |
 | `SUPABASE_SERVICE_ROLE_KEY`                               | Yes                        | **SECRET. Bypasses RLS entirely — full read/write across every tenant.** Used only by server-authoritative writers (ingestion worker, admin functions). Never log it, never commit it, never send it to a browser.                           |
 | `OPENAI_API_KEY` _or_ `LOVABLE_API_KEY` _or_ `AI_API_KEY` | Yes                        | **SECRET.** Provider credential; see [AI provider configuration](#6-ai-provider-configuration). Without one, ingestion fails at the embedding step and `/api/chat` returns `NOT_CONFIGURED` — it fails closed, it does not silently degrade. |
-| `INGESTION_WORKER_SECRET`                                 | Yes                        | **SECRET.** Bearer token authorising `POST /api/public/worker-drain` and the deep health probe. Generate with `openssl rand -hex 32`.                                                                                                        |
+| `INGESTION_WORKER_SECRET`                                 | Yes                        | **SECRET.** Value for the `x-worker-secret` header authorising `POST /api/public/worker-drain` and the deep health probe. Generate with `openssl rand -hex 32`; store the same value in Supabase Vault for the scheduler.                  |
 | `PORT`                                                    | No (default `3000`)        |                                                                                                                                                                                                                                              |
 | `HOST`                                                    | No (default `0.0.0.0`)     | Keep `0.0.0.0` in a container or the health check cannot reach it.                                                                                                                                                                           |
 | `QV_RELEASE`                                              | Recommended                | Stamped onto telemetry so you can attribute a regression to a deploy. Set it to the image tag or git SHA.                                                                                                                                    |
@@ -141,7 +141,7 @@ disagrees between the URL / `PROJECT_ID` / key claims, a key carrying the wrong
 Two things are **warnings**, not boot failures, because the server is still
 useful without them: no AI provider key (`/api/chat` returns a structured
 `NOT_CONFIGURED`) and no `INGESTION_WORKER_SECRET` (those endpoints fall back to
-`worker_credentials` and stay fail-closed).
+the worker endpoint and deep probe stay fail-closed).
 
 Findings name variables and report derived non-secret facts — a project ref, a
 JWT `role`. **No configuration value is ever printed**, in a log line or in an
@@ -326,7 +326,7 @@ Rules that are not negotiable:
 Check reachability without deploying a chat request:
 
 ```bash
-curl -H "Authorization: Bearer $INGESTION_WORKER_SECRET" \
+curl -H "x-worker-secret: $INGESTION_WORKER_SECRET" \
   "https://your-domain.example/api/public/health?deep=1"
 ```
 
@@ -434,12 +434,27 @@ The practical consequence: an instance pointed at a project whose migrations wer
 applied reports `database: down` and fails readiness, instead of passing the probe and
 taking traffic.
 
-**Ingestion worker.** Each replica drains its own queue in-process, up to
-`QV_MAX_CONCURRENT_INGESTIONS` at a time. To drive draining externally (required on
-serverless), call:
+**Ingestion worker.** The browser can opportunistically begin an upload's first job,
+but durable progress does not depend on that request. The Supabase-native scheduler
+uses `pg_cron` to invoke the existing authenticated endpoint once per minute through
+`pg_net`; the Node application then claims up to three due jobs using `SKIP LOCKED`.
+Retries and abandoned locks therefore continue without an open browser. Replicas can
+also drain safely because claiming remains atomic.
+
+Before enabling the schedule, create these two secrets in **Supabase Dashboard →
+Vault** (not in a migration or repository):
+
+- `queryvault_worker_drain_url` — the full deployed HTTPS URL ending in
+  `/api/public/worker-drain`.
+- `queryvault_ingestion_worker_secret` — the same value injected into the app as
+  `INGESTION_WORKER_SECRET`.
+
+The scheduler is a fail-closed no-op until both are present. It sends the canonical
+`x-worker-secret` header; neither the endpoint nor the scheduler accepts bearer
+authentication. To invoke the same worker manually, call:
 
 ```bash
-curl -X POST -H "Authorization: Bearer $INGESTION_WORKER_SECRET" \
+curl -X POST -H "x-worker-secret: $INGESTION_WORKER_SECRET" \
   https://your-domain.example/api/public/worker-drain
 ```
 

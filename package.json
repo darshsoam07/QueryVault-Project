@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "build:node": "NITRO_PRESET=node-server vite build",
+    "build:node": "cross-env NITRO_PRESET=node-server vite build",
     "start": "HOST=${HOST:-0.0.0.0} PORT=${PORT:-3000} node .output/server/index.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
@@ -98,6 +98,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
     "@vitest/coverage-v8": "^4.1.10",
+    "cross-env": "^7.0.3",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",

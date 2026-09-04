@@ -117,8 +117,8 @@ export function collectBootFindings(
       code: "CONFIG_MISSING",
       variables: ["INGESTION_WORKER_SECRET"],
       message:
-        "INGESTION_WORKER_SECRET is not set. The external worker-drain trigger and the " +
-        "deep health probe fall back to worker_credentials and stay fail-closed.",
+        "INGESTION_WORKER_SECRET is not set. The external worker-drain trigger and deep " +
+        "health probe remain unavailable; configure the same secret in Supabase Vault for scheduling.",
     });
   }
 

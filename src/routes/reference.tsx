@@ -441,16 +441,17 @@ function ReferencePage() {
             Python <span className="text-gradient-brand">RAG reference</span>
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            The same architecture this app runs, expressed as a self-hosted Python service:
-            LangChain loaders, recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma
-            index, and a FastAPI query API with citations and streaming.
+            An archived, self-hosted Python RAG reference implementation: LangChain loaders,
+            recursive chunking at 1000/200, Ollama embeddings, a persisted Chroma index, and a
+            FastAPI query API with citations and streaming. It is separate from this app's
+            Supabase-backed production architecture.
           </p>
           <p className="mt-4 max-w-2xl rounded-lg border border-border/60 bg-surface/40 p-4 text-sm leading-relaxed text-muted-foreground">
-            A complete, runnable version of this stack ships in the repository under{" "}
+            The archived/reference stack lives under{" "}
             <code className="font-mono text-foreground">local-stack/</code> — FastAPI + LangChain +
             persistent Chroma + HuggingFace <code className="font-mono">all-MiniLM-L6-v2</code> +
             Ollama <code className="font-mono">llama3</code>, with a React/Vite frontend, SQLite
-            chat history and a Docker Compose file. See{" "}
+            chat history and a Docker Compose file. It is not deployed or used by this product. See{" "}
             <code className="font-mono text-foreground">local-stack/README.md</code> to run it.
           </p>
         </Reveal>

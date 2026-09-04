@@ -149,7 +149,7 @@ Postgres, with schema in [`supabase/migrations/`](./supabase/migrations).
 | `messages` | Messages with validated citations |
 | `profiles` | Per-user display metadata, created on sign-up by trigger |
 | `user_roles` | Role assignments (`admin`, `operator`) for the operator views |
-| `worker_credentials` | Hashed worker secrets for the ingestion/health endpoints |
+| `worker_credentials` | Legacy server-only worker credential record; production scheduling uses Supabase Vault |
 | `ingestion_jobs` | Durable work queue with lock/attempt/failure state |
 | `telemetry_events` | Structured application events |
 | `query_traces` | Per-query retrieval diagnostics |

@@ -150,7 +150,10 @@ export function Hero() {
     >
       <QueryVaultField />
 
-      <div ref={contentRef} className="relative z-10 mx-auto max-w-3xl px-6 pb-24 pt-16 text-center">
+      <div
+        ref={contentRef}
+        className="relative z-10 mx-auto max-w-3xl px-6 pb-24 pt-16 text-center"
+      >
         <span
           data-hero-badge
           className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 font-mono text-[11px] text-muted-foreground"

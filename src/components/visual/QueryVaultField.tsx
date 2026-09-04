@@ -124,10 +124,7 @@ export function QueryVaultField({ className }: { className?: string }) {
     <div
       ref={hostRef}
       aria-hidden="true"
-      className={cn(
-        "pointer-events-none absolute inset-0 z-0 overflow-hidden",
-        className,
-      )}
+      className={cn("pointer-events-none absolute inset-0 z-0 overflow-hidden", className)}
       style={{
         opacity: ready ? 0.75 : 0,
         transition: "opacity 0.6s ease-out",

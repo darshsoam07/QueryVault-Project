@@ -34,7 +34,7 @@ docker run --rm -p 3000:3000 \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
   --cap-drop ALL --security-opt no-new-privileges:true \
   --user 1000:1000 \
-  -e SUPABASE_URL -e SUPABASE_PUBLISHABLE_KEY -e SUPABASE_SERVICE_ROLE_KEY \
+  -e SUPABASE_URL -e SUPABASE_PUBLISHABLE_KEY -e SUPABASE_PROJECT_ID -e SUPABASE_SERVICE_ROLE_KEY \
   -e LOVABLE_API_KEY -e INGESTION_WORKER_SECRET -e QV_RELEASE \
   queryvault:local
 ```
@@ -47,6 +47,7 @@ Server-only (runtime injection: ECS task definition `secrets` → Secrets Manage
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_PROJECT_ID`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `LOVABLE_API_KEY`
 - `INGESTION_WORKER_SECRET`
