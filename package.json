@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "eval": "bun evaluation/runner.ts",
     "eval:gate": "bun evaluation/runner.ts --gate"
