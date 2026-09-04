@@ -1,7 +1,7 @@
 # QueryVault
 
 > Multi-tenant RAG platform with grounded citations and durable document ingestion.
-> [Architecture](./ARCHITECTURE.md) � [Deployment](./docs/DEPLOYMENT.md) � [Security](./docs/SECURITY.md) � [Decisions](./docs/DECISIONS.md)
+> [Architecture](./ARCHITECTURE.md) · [Deployment](./docs/DEPLOYMENT.md) · [Security](./docs/SECURITY.md) · [Decisions](./docs/DECISIONS.md)
 
 ## What it is
 
@@ -17,22 +17,26 @@ Built as a multi-tenant SaaS: every row is protected by Postgres Row-Level Secur
 - **Hybrid retrieval**: pgvector HNSW + Postgres FTS, fused with reciprocal rank
 - **254 tests passing**, 0 lint errors, 0 TypeScript errors, Windows + Linux builds
 
+## Screenshots
+
+_Screenshots will be added shortly._
+
 ## Architecture
 
 ```
-User ? TanStack Start (Node 22) ? Supabase (Auth + Storage + pgvector)
-                                        ?
-                               ingestion_jobs (queue)
-                                        ?
-                               pg_cron every minute
-                                        ?
-                          worker-drain (x-worker-secret)
-                                        ?
-                             chunk ? embed ? HNSW index
-                                        ?
-                             query ? hybrid retrieval
-                                        ?
-                         evidence gate ? response with citations
+User --> TanStack Start (Node 22) --> Supabase (Auth + Storage + pgvector)
+                                              |
+                                     ingestion_jobs (queue)
+                                              |
+                                     pg_cron every minute
+                                              |
+                                worker-drain (x-worker-secret)
+                                              |
+                                   chunk --> embed --> HNSW index
+                                              |
+                                   query --> hybrid retrieval
+                                              |
+                               evidence gate --> response with citations
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown.
@@ -77,25 +81,25 @@ npm run dev
 
 ```
 src/
-+-- routes/
-�   +-- api/public/worker-drain.ts   ? authenticated background worker
-�   +-- reference.tsx                ? UI for archived local-stack reference
-+-- lib/
-�   +-- config/                      ? boot validation, env parsing
-�   +-- retrieval/                   ? hybrid retrieval + evidence gating
-�   +-- ingestion/                   ? chunk ? embed ? index pipeline
-�   +-- __tests__/                   ? scheduler, RAG, RLS tests
-+-- components/
-+-- ...
+├── routes/
+│   ├── api/public/worker-drain.ts   ← authenticated background worker
+│   └── reference.tsx                ← UI for archived local-stack reference
+├── lib/
+│   ├── config/                      ← boot validation, env parsing
+│   ├── retrieval/                   ← hybrid retrieval + evidence gating
+│   ├── ingestion/                   ← chunk → embed → index pipeline
+│   └── __tests__/                   ← scheduler, RAG, RLS tests
+├── components/
+└── ...
 supabase/
-+-- migrations/
-    +-- 20260904000000_schedule_ingestion_worker.sql  ? pg_cron scheduler
+└── migrations/
+    └── 20260904000000_schedule_ingestion_worker.sql  ← pg_cron scheduler
 docs/
-+-- DEPLOYMENT.md
-+-- DOCKER.md
-+-- SECURITY.md
-+-- TESTING.md
-+-- DECISIONS.md
+├── DEPLOYMENT.md
+├── DOCKER.md
+├── SECURITY.md
+├── TESTING.md
+└── DECISIONS.md
 ```
 
 ## Testing
