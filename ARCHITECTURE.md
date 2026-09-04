@@ -1,4 +1,4 @@
-# Architecture
+ï»¿# Architecture
 
 This document describes how QueryVault works end-to-end. For setup instructions, see [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). For the reasoning behind key choices, see [docs/DECISIONS.md](./docs/DECISIONS.md).
 
@@ -8,35 +8,35 @@ This document describes how QueryVault works end-to-end. For setup instructions,
 
 ```
 +-------------+
-¦   Browser   ¦
-¦  (React +   ¦
-¦  TanStack)  ¦
-+-------------+
-       ¦ HTTPS
-       ?
+|   Browser   |
+|  (React +   |
+|  TanStack)  |
++------+------+
+       | HTTPS
+       v
 +---------------------------------+
-¦  TanStack Start (Nitro / Node)  ¦
-¦  -----------------------------  ¦
-¦  • Page routes                  ¦
-¦  • /api/public/worker-drain     ¦
-¦  • Auth, RLS-aware queries      ¦
+| TanStack Start (Nitro / Node)   |
+| ------------------------------- |
+| * Page routes                   |
+| * /api/public/worker-drain      |
+| * Auth, RLS-aware queries       |
++------+--------------------------+
+       | Service-role (server-only)
+       v
 +---------------------------------+
-       ¦ Service-role (server-only)
-       ?
+|           Supabase              |
+| ------------------------------- |
+| * Postgres + pgvector           |
+| * Auth (Google OAuth + email)   |
+| * Storage (document uploads)    |
+| * Vault (secret storage)        |
+| * pg_cron + pg_net (scheduler)  |
 +---------------------------------+
-¦           Supabase              ¦
-¦  -----------------------------  ¦
-¦  • Postgres + pgvector          ¦
-¦  • Auth (Google OAuth + email)  ¦
-¦  • Storage (document uploads)   ¦
-¦  • Vault (secret storage)       ¦
-¦  • pg_cron + pg_net (scheduler) ¦
+       |
+       | HTTPS (OpenAI API)
+       v
 +---------------------------------+
-       ¦
-       ¦ HTTPS (OpenAI API)
-       ?
-+---------------------------------+
-¦  OpenAI text-embedding-3-small  ¦
+| OpenAI text-embedding-3-small   |
 +---------------------------------+
 ```
 
@@ -50,48 +50,48 @@ A document flows through these stages after upload:
 
 ```
 User uploads PDF/DOCX
-       ¦
-       ?
+       |
+       v
 Supabase Storage (server-validated upload)
-       ¦
-       ?
-ingestion_jobs table  ? durable queue, queued state
-       ¦
-       ¦ (browser may trigger first drain opportunistically,
-       ¦  but the scheduler is the source of truth)
-       ?
+       |
+       v
+ingestion_jobs table  <-- durable queue, queued state
+       |
+       | (browser may trigger first drain opportunistically,
+       |  but the scheduler is the source of truth)
+       v
 pg_cron fires every 60 seconds
-       ¦
-       ?
+       |
+       v
 public.trigger_ingestion_worker()
-  • reads queryvault_worker_drain_url from vault.decrypted_secrets
-  • reads queryvault_ingestion_worker_secret from vault.decrypted_secrets
-  • if either is NULL ? RETURN false (fail-closed, no request sent)
-  • if both present ? pg_net.http_post(url, headers: { x-worker-secret })
-       ¦
-       ?
+  * reads queryvault_worker_drain_url from vault.decrypted_secrets
+  * reads queryvault_ingestion_worker_secret from vault.decrypted_secrets
+  * if either is NULL --> RETURN false (fail-closed, no request sent)
+  * if both present --> pg_net.http_post(url, headers: { x-worker-secret })
+       |
+       v
 POST /api/public/worker-drain
-  • timingSafeEqual(provided, process.env.INGESTION_WORKER_SECRET)
-  • 401 if mismatch, 200 if authorized
-       ¦
-       ?
+  * timingSafeEqual(provided, process.env.INGESTION_WORKER_SECRET)
+  * 401 if mismatch, 200 if authorized
+       |
+       v
 drainIngestionJobs({ maxJobs: 3 })
-  • SELECT ... FOR UPDATE SKIP LOCKED  (atomic claim)
-       ¦
-       ?
+  * SELECT ... FOR UPDATE SKIP LOCKED  (atomic claim)
+       |
+       v
 For each claimed job:
   +--------------------------------+
-  ¦ 1. Download file from Storage  ¦
-  ¦ 2. Extract text                ¦
-  ¦ 3. Chunk with overlap          ¦
-  ¦ 4. Embed each chunk            ¦
-  ¦ 5. Insert into document_chunks ¦
-  ¦    (pgvector HNSW index)       ¦
-  ¦ 6. Mark job completed          ¦
+  | 1. Download file from Storage  |
+  | 2. Extract text                |
+  | 3. Chunk with overlap          |
+  | 4. Embed each chunk            |
+  | 5. Insert into document_chunks |
+  |    (pgvector HNSW index)       |
+  | 6. Mark job completed          |
   +--------------------------------+
-       ¦
-       ¦  on failure: retry with exponential backoff
-       ?
+       |
+       |  on failure: retry with exponential backoff
+       v
 pg_cron fires again next minute
   (cycle continues until queue empty)
 ```
@@ -104,37 +104,37 @@ pg_cron fires again next minute
 
 ```
 User asks a question
-       ¦
-       ?
+       |
+       v
 Embed the query (OpenAI)
-       ¦
-       ?
+       |
+       v
 Hybrid retrieval:
   +----------------------------------------+
-  ¦                                        ¦
-  ¦  pgvector HNSW search --+             ¦
-  ¦  (top 20 by cosine)     ¦             ¦
-  ¦                         +-? RRF fusion¦
-  ¦  Postgres FTS search  --+             ¦
-  ¦  (top 20 by ts_rank)                  ¦
-  ¦                                        ¦
+  |                                        |
+  |  pgvector HNSW search ---+            |
+  |  (top 20 by cosine)      |            |
+  |                          +--> RRF     |
+  |  Postgres FTS search  ---+    fusion  |
+  |  (top 20 by ts_rank)                  |
+  |                                        |
   +----------------------------------------+
-       ¦
-       ?
-Top 10 fused chunks ? LLM prompt
-       ¦
-       ?
+       |
+       v
+Top 10 fused chunks --> LLM prompt
+       |
+       v
 Evidence gating:
-  • LLM must cite at least one chunk ID
-  • Each cited chunk must actually appear in the retrieved set
-  • If a claim has no citation ? reject the response
-       ¦
-       ?
+  * LLM must cite at least one chunk ID
+  * Each cited chunk must actually appear in the retrieved set
+  * If a claim has no citation --> reject the response
+       |
+       v
 Response with inline citations:
   "The policy was updated in Q1 [doc:handbook.pdf, chunk:42]."
 ```
 
-The evidence gate is the part that makes this "grounded RAG" rather than "chatbot that sometimes cites things." Ungrounded answers are rejected before they're shown to the user.
+The evidence gate is the part that makes this "grounded RAG" rather than "chatbot that sometimes cites things." Ungrounded answers are rejected before they are shown to the user.
 
 ---
 
@@ -161,7 +161,7 @@ x-worker-secret: <INGESTION_WORKER_SECRET>
 | Deep health probe | Same env var, same header |
 
 - `timingSafeEqual` protects against timing attacks
-- Missing env var ? immediate 401 (fail-closed, no fallback)
+- Missing env var --> immediate 401 (fail-closed, no fallback)
 - No secret values in any log output
 - Grep confirmed **zero** occurrences of `Authorization: Bearer` in the repo
 
@@ -185,16 +185,16 @@ The `validateSupabaseConfig` boot check rejects any setup where `SUPABASE_SERVIC
 
 ```
 +--------------------------------------------+
-¦        Docker container (Node 22 slim)     ¦
-¦  --------------------------------------    ¦
-¦  • Non-root user (uid 1000)                ¦
-¦  • .output/server/index.mjs               ¦
-¦  • HEALTHCHECK via Node fetch              ¦
-¦  • SIGTERM reaches PID 1                   ¦
+|        Docker container (Node 22 slim)     |
+|  ----------------------------------------  |
+|  * Non-root user (uid 1000)                |
+|  * .output/server/index.mjs               |
+|  * HEALTHCHECK via Node fetch              |
+|  * SIGTERM reaches PID 1                   |
 +--------------------------------------------+
-       ¦
-       ¦ outbound HTTPS
-       ?
+       |
+       | outbound HTTPS
+       v
   Supabase project (managed)
 ```
 
