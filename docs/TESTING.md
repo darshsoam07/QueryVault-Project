@@ -1,4 +1,4 @@
-# Testing
+ï»¿# Testing
 
 This document describes the test suite, what each group of tests covers, and how to run them.
 
@@ -7,9 +7,9 @@ This document describes the test suite, what each group of tests covers, and how
 ## Running tests
 
 ```bash
-npm test          # full suite — 254 tests across 12 files
-npm run typecheck # TypeScript type check — 0 errors
-npm run lint      # ESLint + Prettier — 0 errors
+npm test          # full suite -- 254 tests across 12 files
+npm run typecheck # TypeScript type check -- 0 errors
+npm run lint      # ESLint + Prettier -- 0 errors
 ```
 
 All three commands run in CI on every push.
@@ -43,15 +43,15 @@ All three commands run in CI on every push.
 
 These tests directly verify that cross-tenant access is blocked at the database layer. Each test sets up data as tenant A, then attempts to read or write it as tenant B and asserts a rejection.
 
-These tests do not mock RLS — they use the actual Supabase Postgres client with real policy enforcement.
+These tests do not mock RLS -- they use the actual Supabase Postgres client with real policy enforcement.
 
 ### Config and boot validation (50 tests)
 
 Covers `validateSupabaseConfig` and `collectBootFindings`. Key cases:
 
-- Service-role key placed in a `VITE_` variable ? rejected
-- Missing required env vars ? correct warning codes
-- Redacted output — secret values must not appear in diagnostic strings
+- Service-role key placed in a `VITE_` variable -- rejected
+- Missing required env vars -- correct warning codes
+- Redacted output -- secret values must not appear in diagnostic strings
 - Project ref cross-check between `VITE_` and server-side keys
 
 ### Scheduler tests (3 tests)
@@ -59,7 +59,7 @@ Covers `validateSupabaseConfig` and `collectBootFindings`. Key cases:
 Reads the migration file and worker route source and asserts:
 
 1. Migration uses an idempotent `IF NOT EXISTS` guard and a `* * * * *` schedule named `queryvault-ingestion-worker`
-2. Credentials are loaded from `vault.decrypted_secrets` — no literal URL or secret baked in
+2. Credentials are loaded from `vault.decrypted_secrets` -- no literal URL or secret baked in
 3. The scheduler sends `x-worker-secret`; the worker route accepts only `x-worker-secret`; no `x-worker-token` or `worker_credentials` references exist
 
 ### RAG evaluation (13 ground-truth cases)
