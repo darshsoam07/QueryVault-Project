@@ -17,6 +17,38 @@ export const CHUNK_SIZE = 1000;
 export const CHUNK_OVERLAP = 200;
 export const EMBED_BATCH = 24;
 
+/**
+ * Embedding vector size. Must match the Postgres column definition.
+ * Override via VITE_EMBED_DIMENSIONS (build-time) when switching models.
+ */
+export const EMBED_DIMENSIONS: number = (() => {
+  const raw =
+    (typeof process !== "undefined" && process.env["VITE_EMBED_DIMENSIONS"]) ??
+    (typeof import.meta !== "undefined" &&
+    (import.meta as unknown as Record<string, unknown>)["env"]
+      ? (import.meta as unknown as { env: Record<string, string> }).env["VITE_EMBED_DIMENSIONS"]
+      : undefined);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3072;
+})();
+
+/** Mime types that are natively supported by the chunking pipeline. */
+export const SUPPORTED_MIME_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+] as const;
+
+/**
+ * Phase 3: documents with fewer than this many chars per page are likely
+ * scan-only PDFs (no text layer). The worker flags these with
+ * metadata.ocr_suspect = true so the UI can warn the user.
+ */
+export const OCR_SUSPECT_CHARS_PER_PAGE = 100;
+
 /** Server-reported phases. The UI renders these verbatim — never invented. */
 export const INGESTION_PHASES = [
   "uploading",

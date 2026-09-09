@@ -85,28 +85,24 @@ export async function checkApplication(): Promise<CheckResult> {
 /**
  * The database is reachable *and* the schema is applied.
  *
- * This asserts a positive result rather than the absence of an error, because
- * the absence of an error is not evidence of health here. The obvious cheap
- * form of this probe — `.select("id", { count: "exact", head: true })` — issues
- * a HEAD request, and the Supabase edge answers HEAD on a table that does not
- * exist with `204, no body`, so `error` is null and `count` is null. The
- * identical request as a GET returns `404 PGRST205`. A probe written the cheap
- * way therefore reports a completely unmigrated database as healthy, which is
- * the exact state in which it must not accept traffic.
- *
- * `documents` stands in for the schema as a whole: migrations apply as a unit,
- * so if the first user table is missing, nothing is there. Selecting only `id`
- * reads a uuid at most — never document content.
+ * Phase 6: uses the lightweight `health_probe()` RPC — a simple `SELECT now()`
+ * that avoids table scans entirely. Falls back to the documents-table probe if
+ * the function is not yet deployed.
  */
 export async function checkDatabase(): Promise<CheckResult> {
   const misconfigured = missingSupabaseConfig();
   if (misconfigured) return down("database", true, "config", 0, misconfigured);
   const { value, latencyMs, error } = await timed(async () => {
-    const { data, error: queryError } = await supabaseAdmin.from("documents").select("id").limit(1);
+    // Try the cheap health_probe() RPC first (added by migration 0016).
+    const { data, error: rpcError } = await supabaseAdmin.rpc("health_probe" as never);
+    if (!rpcError && data) return true;
+    // Fallback: the function may not be deployed yet, so verify via table access.
+    const { data: rows, error: queryError } = await supabaseAdmin
+      .from("documents")
+      .select("id")
+      .limit(1);
     if (queryError) throw new Error(queryError.message);
-    // An existing-but-empty table gives `[]`, which is healthy. Anything that
-    // is not a row set means we never actually reached the table.
-    if (!Array.isArray(data)) throw new Error("database returned no result set");
+    if (!Array.isArray(rows)) throw new Error("database returned no result set");
     return true;
   });
   if (!value) {

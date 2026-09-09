@@ -39,7 +39,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -89,6 +89,15 @@ function AuthPage() {
     event.preventDefault();
     setBusy(true);
     try {
+      if (mode === "reset") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth`,
+        });
+        if (error) throw error;
+        toast.success("Check your email for a password-reset link.");
+        setMode("signin");
+        return;
+      }
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -132,6 +141,15 @@ function AuthPage() {
     }
   };
 
+  const cardTitle =
+    mode === "signin"
+      ? "Sign in to your vault"
+      : mode === "signup"
+        ? "Create your vault"
+        : "Reset your password";
+  const submitLabel =
+    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
+
   return (
     /* `header={false}`: a sign-in page should offer one thing to do. Lenis is
        inert here — there is nothing to scroll — but the shell is shared so the
@@ -148,9 +166,7 @@ function AuthPage() {
           </div>
 
           <div data-auth-card className="glass-panel rounded-2xl p-6 shadow-[var(--glow-amethyst)]">
-            <h1 className="text-base font-semibold text-foreground">
-              {mode === "signin" ? "Sign in to your vault" : "Create your vault"}
-            </h1>
+            <h1 className="text-base font-semibold text-foreground">{cardTitle}</h1>
 
             <form onSubmit={submit} className="mt-5 space-y-4">
               <div data-auth-field className="space-y-1.5">
@@ -168,22 +184,26 @@ function AuthPage() {
                   className="bg-surface/60"
                 />
               </div>
-              <div data-auth-field className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs text-muted-foreground">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  className="bg-surface/60"
-                />
-              </div>
+
+              {mode !== "reset" && (
+                <div data-auth-field className="space-y-1.5">
+                  <Label htmlFor="password" className="text-xs text-muted-foreground">
+                    Password
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="••••••••"
+                    className="bg-surface/60"
+                  />
+                </div>
+              )}
+
               <Button
                 type="submit"
                 data-auth-field
@@ -191,11 +211,11 @@ function AuthPage() {
                 className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90"
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "signin" ? "Sign in" : "Create account"}
+                {submitLabel}
               </Button>
             </form>
 
-            {googleAuthEnabled && (
+            {googleAuthEnabled && mode !== "reset" && (
               <>
                 <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
@@ -214,15 +234,44 @@ function AuthPage() {
               </>
             )}
 
-            <button
-              type="button"
-              className="mt-5 w-full text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            >
-              {mode === "signin"
-                ? "No account yet? Create one"
-                : "Already have an account? Sign in"}
-            </button>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {mode === "signin" && (
+                <>
+                  <button
+                    type="button"
+                    className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                    onClick={() => setMode("signup")}
+                  >
+                    No account yet? Create one
+                  </button>
+                  <button
+                    type="button"
+                    className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                    onClick={() => setMode("reset")}
+                  >
+                    Forgot your password?
+                  </button>
+                </>
+              )}
+              {mode === "signup" && (
+                <button
+                  type="button"
+                  className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                  onClick={() => setMode("signin")}
+                >
+                  Already have an account? Sign in
+                </button>
+              )}
+              {mode === "reset" && (
+                <button
+                  type="button"
+                  className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                  onClick={() => setMode("signin")}
+                >
+                  Back to sign in
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

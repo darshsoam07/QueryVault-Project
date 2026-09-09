@@ -160,6 +160,7 @@ describe("row level security", () => {
       "profiles",
       "query_traces",
       "rate_limit_events",
+      "rate_limits_ip",
       "telemetry_events",
       "threads",
       "user_roles",

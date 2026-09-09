@@ -16,6 +16,7 @@ import { Route as ChatRouteImport } from './routes/chat'
 import { Route as ReferenceRouteImport } from './routes/reference'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiClientErrorsRouteImport } from './routes/api/client-errors'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ChatThreadIdRouteImport } from './routes/chat.$threadId'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
@@ -56,6 +57,11 @@ const ApiClientErrorsRoute = ApiClientErrorsRouteImport.update({
   path: '/api/client-errors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/reference': typeof ReferenceRoute
   '/api/chat': typeof ApiChatRoute
   '/api/client-errors': typeof ApiClientErrorsRoute
+  '/api/health': typeof ApiHealthRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
   '/chat/': typeof ChatIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/reference': typeof ReferenceRoute
   '/api/chat': typeof ApiChatRoute
   '/api/client-errors': typeof ApiClientErrorsRoute
+  '/api/health': typeof ApiHealthRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
   '/chat': typeof ChatIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/reference': typeof ReferenceRoute
   '/api/chat': typeof ApiChatRoute
   '/api/client-errors': typeof ApiClientErrorsRoute
+  '/api/health': typeof ApiHealthRoute
   '/chat/$threadId': typeof ChatThreadIdRoute
   '/chat/': typeof ChatIndexRoute
   '/api/public/health': typeof ApiPublicHealthRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/reference'
     | '/api/chat'
     | '/api/client-errors'
+    | '/api/health'
     | '/chat/$threadId'
     | '/chat/'
     | '/api/public/health'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/reference'
     | '/api/chat'
     | '/api/client-errors'
+    | '/api/health'
     | '/chat/$threadId'
     | '/chat'
     | '/api/public/health'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/reference'
     | '/api/chat'
     | '/api/client-errors'
+    | '/api/health'
     | '/chat/$threadId'
     | '/chat/'
     | '/api/public/health'
@@ -165,6 +177,7 @@ export interface RootRouteChildren {
   ReferenceRoute: typeof ReferenceRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiClientErrorsRoute: typeof ApiClientErrorsRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicWorkerDrainRoute: typeof ApiPublicWorkerDrainRoute
 }
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClientErrorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat/': {
       id: '/chat/'
       path: '/'
@@ -271,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReferenceRoute: ReferenceRoute,
   ApiChatRoute: ApiChatRoute,
   ApiClientErrorsRoute: ApiClientErrorsRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicWorkerDrainRoute: ApiPublicWorkerDrainRoute,
 }

@@ -34,6 +34,7 @@ import {
   CHUNK_OVERLAP,
   CHUNK_SIZE,
   EMBED_BATCH,
+  OCR_SUSPECT_CHARS_PER_PAGE,
   PARSER_VERSION,
   WORKER_VERSION,
   backoffSeconds,
@@ -44,6 +45,7 @@ import {
   permanent,
   type IngestionPhase,
 } from "./contract";
+import { pruneExpiredRateLimits } from "@/lib/rate-limit.server";
 
 type Admin = SupabaseClient<Database>;
 type Job = Database["public"]["Tables"]["ingestion_jobs"]["Row"];
@@ -176,6 +178,22 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       "NO_TEXT_LAYER",
       "No selectable text found. Scanned PDFs need OCR before upload.",
     );
+  }
+
+  // Phase 3: OCR-suspect detection — flag scan-only PDFs so the UI can warn.
+  // The documents table has no metadata column, so we record the warning in
+  // error_message (informational, does not set status to failed) and log it.
+  const pageCount = pages.length || 1;
+  if (textLength / pageCount < OCR_SUSPECT_CHARS_PER_PAGE && textLength < 500) {
+    await db
+      .from("documents")
+      .update({ error_message: "OCR suspect: very little text per page — may be a scanned PDF" })
+      .eq("id", job.document_id)
+      .eq("user_id", job.user_id);
+    logEvent("warn", "worker.ocr_suspect", requestId, {
+      document_id: job.document_id,
+      chars_per_page: Math.round(textLength / pageCount),
+    });
   }
 
   // ---- chunk -----------------------------------------------------------
@@ -478,6 +496,9 @@ export async function drainIngestionJobs(options: {
       }
     }
   }
+
+  // Phase 5+6: prune stale rate-limit counters at end of every drain cycle.
+  await pruneExpiredRateLimits();
 
   return result;
 }

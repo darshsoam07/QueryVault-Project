@@ -72,3 +72,40 @@ export async function enforceRateLimit(userId: string, bucket: RateBucket): Prom
       .lt("created_at", cutoff);
   }
 }
+
+/* ========================= Phase 5: IP-level burst protection ========================= */
+
+export type RateLimitResult = { allowed: true } | { allowed: false; retryAfterSeconds: number };
+
+/** Phase 5: per-IP burst check. Call before JWT auth. Fails open. */
+export async function enforceIpRateLimit(ip: string): Promise<RateLimitResult> {
+  try {
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    // RPC added by migration 0015; not yet in generated types — cast to never.
+    const { data, error } = await admin.rpc("check_ip_rate_limit" as never, { p_ip: ip } as never);
+    if (error) {
+      console.error("[rate-limit] check_ip_rate_limit RPC failed:", error.message);
+      return { allowed: true };
+    }
+    const result = data as { allowed?: boolean; retry_after_seconds?: number } | null;
+    if (!result?.allowed) {
+      return { allowed: false, retryAfterSeconds: result?.retry_after_seconds ?? 10 };
+    }
+    return { allowed: true };
+  } catch (err) {
+    console.error("[rate-limit] ip burst check error:", err);
+    return { allowed: true };
+  }
+}
+
+/** Phase 5+6: delete stale rate-limit counters. Called from worker drain. */
+export async function pruneExpiredRateLimits(): Promise<void> {
+  try {
+    const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+    // RPC added by migration 0015; not yet in generated types — cast to never.
+    const { error } = await admin.rpc("prune_expired_rate_limits" as never);
+    if (error) console.error("[rate-limit] prune RPC failed:", error.message);
+  } catch (err) {
+    console.error("[rate-limit] prune error:", err);
+  }
+}

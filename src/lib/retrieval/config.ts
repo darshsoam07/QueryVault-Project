@@ -29,8 +29,12 @@ export const RETRIEVAL_CONFIG = {
   maxQueryVariants: 3,
   /** A question with more content words than this is treated as specific enough. */
   rewriteWordThreshold: 6,
+  /** Phase 4: caps the query rewrite prompt to avoid excessively long rewrites. */
+  maxCharsPerQuery: 1000,
 
   reranker: "llm" as RerankerStrategy,
+  /** Phase 4: degrade to heuristic reranking if the LLM does not respond in time. */
+  llmRerankerTimeoutMs: 5000,
 
   /** Evidence gate thresholds. All must pass for grounded = true. */
   gate: {
