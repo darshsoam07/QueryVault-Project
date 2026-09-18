@@ -1,413 +1,962 @@
 <div align="center">
-  <img src="src/assets/queryvault-logo.png" alt="QueryVault logo" width="120" />
 
-  # QueryVault
+<img src="src/assets/queryvault-logo.png" alt="QueryVault" width="96" />
 
-  **AI-powered, evidence-grounded knowledge platform**
+QueryVault
 
-  Upload your documents, ask questions in plain English, and get answers that are grounded in your own knowledge base — with every claim traceable back to its source.
+AI-powered, evidence-grounded knowledge platform
 
-  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-  [![CI](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml)
-  ![Node](https://img.shields.io/badge/node-22%2B-339933?logo=node.js&logoColor=white)
-  ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-  ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
-  ![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20pgvector-3ECF8E?logo=supabase&logoColor=white)
+Upload documents → retrieve relevant evidence → generate grounded answers → inspect the sources
 
-  [Report Bug](https://github.com/darshsoam07/QueryVault-Project/issues) · [Request Feature](https://github.com/darshsoam07/QueryVault-Project/issues)
+QueryVault is a multi-tenant RAG knowledge platform that turns your private documents into a conversational knowledge base with hybrid retrieval, evidence gating, citation validation, and database-level tenant isolation.
+
+<br />
+
+
+
+
+
+
+
+
+
+<br />
+
+📖 Documentation · 🚀 Quick Start · 🏗️ Architecture · 🎥 Demo · 🐛 Report an Issue
 
 </div>
 
-<br/>
+✦ Why QueryVault?
 
-## 📑 Table of Contents
+A basic document chatbot often looks like:
 
-- [Overview](#-overview)
-- [Key Features](#-key-features)
-- [Architecture](#-architecture)
-- [RAG Pipeline](#-rag-pipeline)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Testing & Quality Gates](#-testing--quality-gates)
-- [Security Model](#-security-model)
-- [Documentation](#-documentation)
-- [Screenshots](#-screenshots)
-- [Current Limitations](#-current-limitations)
-- [Roadmap](#-roadmap)
-- [Mini-Project Summary](#-mini-project-summary)
-- [License](#-license)
-- [Author](#-author)
+Question ───────────────► LLM ───────────────► Answer
 
-<br/>
+That makes it difficult to answer two important questions:
 
-## 🎯 Overview
+Where did this answer come from?
+What should happen when the documents do not contain enough evidence?
 
-Traditional document search has two recurring problems:
+QueryVault is built around an evidence-first pipeline:
 
-1. **Keyword-only search misses meaning.** If the wording in a query doesn't match the wording in the document, relevant results get missed.
-2. **General-purpose LLMs hallucinate.** They can produce fluent, confident answers that aren't actually backed by anything the user owns.
+┌──────────┐     ┌───────────────┐     ┌────────────────┐
+│ Question │ ──► │ Hybrid Search │ ──► │ Evidence Gate  │
+└──────────┘     └───────────────┘     └───────┬────────┘
+                                               │
+                                      enough evidence?
+                                        ┌──────┴──────┐
+                                       NO             YES
+                                        │              │
+                                        ▼              ▼
+                                    Refusal       Grounded LLM
+                                                       │
+                                                       ▼
+                                              Citation Validation
+                                                       │
+                                                       ▼
+                                               Answer + Sources
 
-**QueryVault** solves both by combining hybrid retrieval with Retrieval-Augmented Generation (RAG):
+The goal is not simply to generate fluent text. The goal is to make the response useful, inspectable, and grounded in the indexed knowledge base.
 
-```
- Naive approach:      Question ──────────────────► LLM ──────────────────► Answer (unverified)
+✨ Product Snapshot
 
- QueryVault approach: Question ─► Retrieve evidence ─► Build grounded context ─► Generate ─► Validate citations ─► Answer + Sources
-```
+<table>
+<tr>
+<td width="50%">
 
-Every answer QueryVault produces is checked against the retrieved evidence before it's shown to the user, and every response links back to the exact document chunks that support it.
+📄 Your Knowledge
 
-<br/>
+Upload documents
 
-## ⭐ Key Features
+Track processing status
 
-| Category | What it does |
-|---|---|
-| 📄 **Document knowledge base** | Upload, track, and manage documents; source files live in private Supabase Storage; deleting a document removes its indexed chunks too. |
-| 🔎 **Hybrid search** | Combines semantic similarity (`pgvector`) with keyword-aware full-text search (PostgreSQL FTS), merged via Reciprocal Rank Fusion and re-ranked before use. |
-| 🤖 **Evidence-grounded answers** | An evidence gate checks similarity/rerank scores and supporting-chunk count *before* generation — if the bar isn't met, the system returns a refusal instead of guessing. |
-| 💬 **Conversational Q&A** | Thread-based conversations with streaming responses, Markdown rendering, inline source citations, and full evidence inspection. |
-| 🔐 **Multi-tenant security** | Supabase Auth + PostgreSQL Row-Level Security isolate every user's documents, chunks, and conversations at the database layer. |
-| ⚙️ **Durable background ingestion** | Document processing runs as database-backed jobs executed by a scheduled worker, so it survives closed browser tabs and page reloads. |
-| 📊 **Observability** | Health endpoints, structured telemetry, query tracing, rate limiting, and structured error handling are built in, not bolted on. |
-| 🧪 **Automated validation** | An extensive automated test suite plus a dedicated RAG evaluation harness with quality gates. |
+Private document storage
 
-<br/>
+Page-aware source metadata
 
-## 🏗️ Architecture
+Indexed searchable chunks
 
-```mermaid
-flowchart TD
-    Browser["Browser<br/>React 19 + TanStack Router"] -->|HTTPS| App["TanStack Start<br/>SSR + Server API Routes"]
+</td>
+<td width="50%">
 
-    App --> Auth["Supabase Auth"]
-    App --> DB[("Supabase Postgres<br/>+ pgvector + RLS")]
-    App --> Storage["Supabase Storage<br/>(private documents)"]
-    App --> Retrieval["RAG Retrieval Engine"]
+💬 Your Questions
 
-    Retrieval --> DB
-    Retrieval --> Gateway["OpenAI-compatible<br/>AI Gateway"]
-    Gateway --> Output["Grounded Answer<br/>+ Traceable Citations"]
-    Retrieval --> Output
+Natural-language Q&A
 
-    Worker["Scheduled Ingestion Worker<br/>(pg_cron + pg_net)"] --> DB
-```
+Streaming responses
 
-**Design principles**
+Conversation threads
 
-| Principle | Implementation |
-|---|---|
-| Grounding | Retrieved document evidence is supplied to generation, not the model's own memory |
-| Traceability | Every response exposes the source chunks and citations behind it |
-| Hybrid retrieval | Vector search and lexical search are fused, not used in isolation |
-| Tenant isolation | PostgreSQL RLS enforces per-user data boundaries at the database level |
-| Durable ingestion | Processing is represented as resumable, database-backed jobs |
-| Fail-closed security | Privileged credentials and worker secrets never leave the server |
-| Observability | Health checks, telemetry, and query tracing ship with the app |
-| Testability | Retrieval, security, and RLS behavior are covered by automated tests |
+Markdown responses
 
-<br/>
+Inline source citations
 
-## 🔄 RAG Pipeline
+</td>
+</tr>
+<tr>
+<td>
 
-```mermaid
+🔎 Better Retrieval
+
+Dense vector search
+
+PostgreSQL full-text search
+
+Reciprocal Rank Fusion
+
+Re-ranking
+
+Evidence thresholds
+
+</td>
+<td>
+
+🔐 Production-Oriented
+
+Supabase Auth
+
+PostgreSQL RLS
+
+Server-only secrets
+
+Durable ingestion jobs
+
+Health + telemetry + tracing
+
+</td>
+</tr>
+</table>
+
+📑 Table of Contents
+
+<details open>
+<summary><b>Explore the project</b></summary>
+
+✦ Why QueryVault?
+
+✨ Product Snapshot
+
+🎥 Demo
+
+📸 Screenshots
+
+🏗️ Architecture
+
+🔄 How the RAG Pipeline Works
+
+🧠 Retrieval Strategy
+
+⭐ Key Engineering Decisions
+
+🧰 Technology Stack
+
+📂 Repository Structure
+
+🚀 Quick Start
+
+⚙️ Environment Configuration
+
+🧪 Testing & Quality
+
+🔐 Security Model
+
+📚 Documentation
+
+⚠️ Current Limitations
+
+🗺️ Roadmap
+
+🎓 Mini-Project Summary
+
+🤝 Contributing
+
+📄 License
+
+👤 Author
+
+</details>
+
+🎥 Demo
+
+Demo placeholder: add the final GIF at assets/demo/queryvault-demo.gif.
+
+<!--
+When the GIF is available, replace the placeholder below with:
+
+<div align="center">
+  <img src="assets/demo/queryvault-demo.gif" alt="QueryVault end-to-end demo" width="900" />
+</div>
+-->
+
+<div align="center">
+
+🎬 End-to-end product demo
+
+[ DEMO GIF — ADD TO assets/demo/queryvault-demo.gif ]
+
+Sign in → Upload → Ingest → Ask → Retrieve → Answer → Inspect citations
+
+</div>
+
+📸 Screenshots
+
+The README is intentionally structured around the product journey so a reviewer can understand the application without reading the source first.
+
+Screenshot location: assets/screenshots/
+
+<!--
+After adding the images, use the exact paths below.
+-->
+
+01 · Dashboard
+
+Placeholder: assets/screenshots/dashboard.png
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│              ADD QUERYVAULT DASHBOARD SCREENSHOT            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+02 · Document Upload & Processing
+
+Placeholder: assets/screenshots/document-upload.png
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│          ADD DOCUMENT UPLOAD / PROCESSING SCREENSHOT        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+03 · Chat + Grounded Answer
+
+Placeholder: assets/screenshots/chat-answer.png
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│             ADD CHAT + ANSWER SCREENSHOT                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+04 · Evidence & Citations
+
+Placeholder: assets/screenshots/evidence-citations.png
+
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│          ADD EVIDENCE / CITATIONS SCREENSHOT                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+
+🏗️ Architecture
+
+flowchart TB
+    User["👤 User / Browser<br/>React 19"] --> App["⚡ TanStack Start<br/>SSR + Server APIs"]
+
+    App --> Auth["🔑 Supabase Auth"]
+    App --> DB[("🗄️ Supabase Postgres<br/>pgvector + RLS")]
+    App --> Storage["📦 Supabase Storage<br/>Private Documents"]
+    App --> RAG["🧠 RAG Retrieval Engine"]
+
+    RAG --> DB
+    RAG --> AI["🤖 OpenAI-compatible<br/>AI Gateway"]
+    AI --> Answer["💬 Grounded Answer<br/>+ Citations"]
+
+    Scheduler["⏱️ pg_cron + pg_net"] --> Worker["⚙️ Ingestion Worker"]
+    Worker --> DB
+    Worker --> Storage
+
+System boundaries
+
+Boundary
+
+Responsibility
+
+Browser
+
+UI, authentication flow, user interaction
+
+TanStack Start
+
+SSR, server routes, application orchestration
+
+Supabase Auth
+
+Identity and authenticated sessions
+
+PostgreSQL + RLS
+
+Persistent data + tenant isolation
+
+pgvector / FTS
+
+Semantic + lexical retrieval
+
+Ingestion Worker
+
+Parse → chunk → embed → index
+
+AI Gateway
+
+Generation and embedding requests
+
+Supabase Storage
+
+Private source-file storage
+
+🔄 How the RAG Pipeline Works
+
+① Ingestion
+
 flowchart LR
-    subgraph Ingestion["Phase 1 · Document Ingestion"]
-        Upload["Upload document"] --> Job["Ingestion job (DB row)"]
-        Job --> Worker["Scheduled worker"]
-        Worker --> Parse["Parse"] --> Chunk["Chunk"] --> Embed["Generate embeddings"] --> Index[("Searchable index")]
-    end
+    A["📄 Upload"] --> B["Job record"]
+    B --> C["Scheduled worker"]
+    C --> D["Parse"]
+    D --> E["Chunk"]
+    E --> F["Embeddings"]
+    F --> G[("Postgres + pgvector")]
 
-    subgraph Retrieval["Phase 2 · Hybrid Retrieval"]
-        Question["User question"] --> Rewrite["Query rewrite"]
-        Rewrite --> Dense["Dense retrieval<br/>(pgvector)"]
-        Rewrite --> Lexical["Lexical retrieval<br/>(PostgreSQL FTS)"]
-        Dense --> Fusion["Reciprocal Rank Fusion"]
-        Lexical --> Fusion
-        Fusion --> Rerank["Re-ranking"]
-    end
+The browser creates the document/job state; processing is handled through the database-backed ingestion workflow.
 
-    subgraph Generation["Phase 3 · Grounded Generation"]
-        Rerank --> Gate{"Evidence gate<br/>passes threshold?"}
-        Gate -->|No| Refuse["Return refusal"]
-        Gate -->|Yes| Context["Build grounded context"]
-        Context --> LLM["LLM generation"]
-        LLM --> CiteCheck["Citation / evidence check"]
-        CiteCheck --> Answer["Streamed answer + sources"]
-    end
+② Retrieval
 
-    Index --> Dense
-    Index --> Lexical
-```
+flowchart LR
+    Q["User question"] --> R["Query processing"]
+    R --> V["Dense search<br/>pgvector"]
+    R --> F["Lexical search<br/>PostgreSQL FTS"]
+    V --> U["Reciprocal Rank Fusion"]
+    F --> U
+    U --> RR["Re-ranking"]
+    RR --> E["Candidate evidence"]
 
-<br/>
+③ Evidence Gate
 
-## 🧰 Tech Stack
+Candidate evidence
+       │
+       ▼
+┌──────────────────────┐
+│ Evidence gate checks │
+│ retrieval quality    │
+│ + supporting chunks  │
+└──────────┬───────────┘
+           │
+      ┌────┴────┐
+      │         │
+   Fails      Passes
+      │         │
+      ▼         ▼
+  Refusal    Grounded
+              context
 
-| Layer | Technology | Role |
-|---|---|---|
-| **Frontend** | React 19 + TypeScript | Interactive product UI |
-| **Application** | TanStack Start (+ TanStack Router, React Query) | Full-stack routing, SSR, and server APIs |
-| **Runtime** | Node.js 22 / Nitro | Application runtime |
-| **Database** | Supabase PostgreSQL | Application and RAG data |
-| **Vector search** | pgvector + HNSW | Semantic retrieval |
-| **Lexical search** | PostgreSQL Full-Text Search | Keyword-aware retrieval |
-| **Authentication** | Supabase Auth | User authentication (email + Google OAuth) |
-| **File storage** | Supabase Storage | Private document storage |
-| **AI** | OpenAI-compatible AI gateway | Chat generation and embeddings |
-| **Scheduling** | pg_cron + pg_net | Durable, in-database ingestion scheduling |
-| **UI** | Tailwind CSS 4 + Radix UI | Design system and accessible components |
-| **Testing** | Vitest + Testing Library | Automated validation |
-| **CI / Deployment** | GitHub Actions + Docker | Automation and container deployment |
+④ Generation + Validation
 
-<br/>
+flowchart LR
+    E["Retrieved evidence"] --> C["Context builder"]
+    C --> P["Grounded prompt"]
+    P --> L["LLM"]
+    L --> V["Citation / evidence validation"]
+    V --> A["Answer + Sources"]
 
-## 📂 Project Structure
+🧠 Retrieval Strategy
 
-```
+QueryVault intentionally does not depend on a single search signal.
+
+Signal
+
+Strength
+
+Dense vector retrieval
+
+Finds semantically related content even when wording differs
+
+Lexical / FTS retrieval
+
+Preserves keyword-sensitive matching
+
+Reciprocal Rank Fusion
+
+Combines independent retrieval rankings
+
+Re-ranking
+
+Refines candidate ordering before generation
+
+Evidence gate
+
+Prevents generation when retrieved support is insufficient
+
+Why hybrid retrieval?
+
+                    QUERY
+                      │
+             ┌────────┴────────┐
+             │                 │
+        "meaning"          "wording"
+             │                 │
+             ▼                 ▼
+        Vector Search      FTS Search
+             │                 │
+             └────────┬────────┘
+                      ▼
+                    RRF
+                      │
+                      ▼
+                  Re-rank
+                      │
+                      ▼
+               Stronger evidence
+
+This gives the retrieval layer access to both semantic similarity and lexical precision.
+
+⭐ Key Engineering Decisions
+
+<details>
+<summary><b>Why PostgreSQL + pgvector?</b></summary>
+
+QueryVault keeps application data and vector retrieval in the same PostgreSQL system. This reduces the number of independent data systems required while allowing vector search, relational data, and RLS to coexist.
+
+</details>
+
+<details>
+<summary><b>Why hybrid retrieval instead of vector search alone?</b></summary>
+
+Semantic similarity is useful for conceptual matches, while lexical retrieval remains valuable when exact terminology, names, identifiers, or phrasing matter. QueryVault combines both signals before re-ranking.
+
+</details>
+
+<details>
+<summary><b>Why database-backed ingestion jobs?</b></summary>
+
+Document processing should not depend on the browser staying open. Representing ingestion work as database-backed jobs allows scheduled worker execution and clearer operational state.
+
+</details>
+
+<details>
+<summary><b>Why RLS?</b></summary>
+
+Tenant isolation is enforced at the database boundary rather than relying only on application-level filtering. This creates a stronger defense against accidental cross-user access.
+
+</details>
+
+<details>
+<summary><b>Why an evidence gate?</b></summary>
+
+Retrieval quality should influence whether generation proceeds. If the evidence boundary is not met, the system can refuse rather than manufacture a confident answer.
+
+</details>
+
+🧰 Technology Stack
+
+Layer
+
+Technology
+
+Purpose
+
+UI
+
+React 19
+
+Interactive frontend
+
+Language
+
+TypeScript 5.8
+
+Type-safe application code
+
+Full-stack
+
+TanStack Start
+
+SSR, routing and server APIs
+
+Runtime
+
+Node.js 22 / Nitro
+
+Application runtime
+
+Database
+
+Supabase PostgreSQL
+
+Application + RAG persistence
+
+Vector search
+
+pgvector + HNSW
+
+Semantic retrieval
+
+Lexical search
+
+PostgreSQL FTS
+
+Keyword-aware retrieval
+
+Auth
+
+Supabase Auth
+
+Email + Google OAuth authentication
+
+Storage
+
+Supabase Storage
+
+Private document files
+
+AI
+
+OpenAI-compatible gateway
+
+Generation + embeddings
+
+Scheduling
+
+pg_cron + pg_net
+
+In-database job scheduling
+
+UI system
+
+Tailwind CSS 4 + Radix UI
+
+Styling + accessible primitives
+
+Testing
+
+Vitest + Testing Library
+
+Automated tests
+
+CI / Deployment
+
+GitHub Actions + Docker
+
+Automation + container workflows
+
+📂 Repository Structure
+
 QueryVault-Project/
 │
 ├── src/
 │   ├── components/
-│   │   ├── ai-elements/        # Chat / streaming UI primitives
-│   │   ├── queryvault/         # Product-specific UI (sidebar, landing, knowledge panel)
-│   │   └── ui/                 # Reusable design-system components
+│   │   ├── ai-elements/         # Chat / streaming primitives
+│   │   ├── queryvault/          # Product-specific components
+│   │   └── ui/                  # Reusable UI primitives
 │   │
 │   ├── integrations/
-│   │   └── supabase/           # Supabase clients, auth middleware
+│   │   └── supabase/            # Supabase clients + auth
 │   │
 │   ├── lib/
-│   │   ├── config/              # Runtime / environment validation
-│   │   ├── ingestion/           # Durable ingestion worker
-│   │   ├── observability/       # Health, telemetry & tracing
-│   │   ├── retrieval/           # RAG retrieval pipeline (dense, lexical, fusion, rerank, gate)
-│   │   └── __tests__/           # Unit & integration tests
+│   │   ├── config/              # Runtime configuration
+│   │   ├── ingestion/           # Ingestion worker
+│   │   ├── observability/       # Health, telemetry, tracing
+│   │   └── retrieval/           # Dense, lexical, fusion, rerank, gate
 │   │
 │   ├── routes/
 │   │   ├── api/
 │   │   │   ├── chat.ts          # Streaming chat endpoint
 │   │   │   ├── health.ts        # Health endpoint
 │   │   │   └── public/
-│   │   │       └── worker-drain.ts   # Ingestion worker trigger
+│   │   │       └── worker-drain.ts
 │   │   ├── auth.tsx             # Authentication
-│   │   ├── chat.*.tsx           # Chat experience
-│   │   └── reference.tsx        # Technical reference page
+│   │   ├── chat.*.tsx           # Chat routes
+│   │   └── reference.tsx        # Technical reference
 │   │
 │   └── server.ts                # Server entry / startup checks
 │
 ├── supabase/
-│   ├── migrations/               # Schema, RLS policies & infrastructure
-│   └── bootstrap.sql             # Consolidated one-shot provisioning
+│   ├── migrations/              # Schema + RLS + infrastructure
+│   └── bootstrap.sql            # Consolidated provisioning
 │
-├── evaluation/                   # RAG evaluation dataset, metrics & runner
-├── local-stack/                  # Standalone FastAPI + Chroma + Ollama reference stack (not used in production)
-├── docs/                         # Deployment, security, testing & decision docs
-├── ARCHITECTURE.md               # End-to-end architecture write-up
-├── DESIGN.md                     # Notable design trade-offs, explained
-├── CHANGELOG.md                  # Project history
+├── evaluation/                  # RAG dataset + evaluation runner
+├── local-stack/                 # Standalone reference stack
+├── docs/                        # Deployment, security, testing, ADRs
+├── assets/
+│   ├── screenshots/             # README screenshots
+│   └── demo/                    # README demo GIF
+│
+├── ARCHITECTURE.md
+├── DESIGN.md
+├── CHANGELOG.md
 ├── Dockerfile
 └── package.json
-```
 
-<br/>
+🚀 Quick Start
 
-## 🚀 Getting Started
+Prerequisites
 
-### Prerequisites
+Node.js 22+
 
-- Node.js 22+
-- npm (Bun is used only for the evaluation scripts and Docker builds)
-- A [Supabase](https://supabase.com) project
-- An API key for an OpenAI-compatible AI provider
-- Supabase CLI (recommended, for migration-based provisioning)
+npm
 
-### 1. Clone the repository
+A Supabase project
 
-```bash
+An API key for an OpenAI-compatible AI provider
+
+Supabase CLI recommended for migration-based provisioning
+
+1. Clone
+
 git clone https://github.com/darshsoam07/QueryVault-Project.git
 cd QueryVault-Project
-```
 
-### 2. Install dependencies
+2. Install
 
-```bash
 npm install
-```
 
-### 3. Configure environment variables
+3. Configure
 
-```bash
 cp .env.example .env
-```
 
-Then populate `.env`. The variables fall into three groups:
+Populate the required variables.
 
-| Scope | Examples | Notes |
-|---|---|---|
-| Public (browser-visible) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Safe to expose to the client |
-| Server-only | `SUPABASE_SERVICE_ROLE_KEY`, `AI_PROVIDER`, `OPENAI_API_KEY` / `AI_API_KEY`, `INGESTION_WORKER_SECRET` | Never exposed to the browser; validated at boot |
-| Runtime tuning | `PORT`, `HOST`, `QV_RELEASE` | Optional, sensible defaults provided |
+4. Provision Supabase
 
-> 🔒 **Never commit `.env`, service-role keys, AI provider keys, or worker secrets.**
+Preferred migration workflow:
 
-### 4. Provision Supabase
-
-Preferred (keeps migration history):
-
-```bash
 supabase link --project-ref <your-project-ref>
 supabase db push
-```
 
-For first-time, consolidated provisioning, `supabase/bootstrap.sql` is also provided. Full walkthrough: [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
+A consolidated provisioning script is also available:
 
-### 5. Start the app
+supabase/bootstrap.sql
 
-```bash
+5. Run
+
 npm run dev
-```
 
-<br/>
+⚙️ Environment Configuration
 
-## 🧪 Testing & Quality Gates
+QueryVault separates public browser configuration from server-only secrets.
 
-```bash
-npm test          # run the automated test suite
-npm run typecheck # strict TypeScript checking
-npm run lint      # ESLint (Prettier enforced as an error)
-npm run eval      # RAG evaluation against a ground-truth dataset
-npm run eval:gate # evaluation with pass/fail quality thresholds
-```
+Scope
 
-| Area | Coverage |
-|---|---|
-| Automated unit & integration tests | Auth, documents, ingestion, config, health, client errors |
-| RLS isolation tests | Every user-data table policy is verified as scoped to `auth.uid()` |
-| RAG ground-truth evaluation | Factual, semantic, cross-document, multi-hop, negative, and prompt-injection cases |
-| Static analysis | TypeScript strict mode + ESLint |
-| CI | GitHub Actions runs typecheck → lint → test on every push and PR, fully offline (mocked Supabase & AI provider) |
+Examples
 
-<br/>
+Exposure
 
-## 🔐 Security Model
+Client-safe
 
-Security is treated as an architectural boundary, not an afterthought.
+VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PROJECT_ID
 
-```mermaid
+Browser-visible
+
+Server-only
+
+SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY / AI_API_KEY, INGESTION_WORKER_SECRET
+
+Never expose
+
+Runtime
+
+PORT, HOST, QV_RELEASE
+
+Optional tuning
+
+🔒 Never commit .env, service-role keys, AI provider credentials, or worker secrets.
+
+🧪 Testing & Quality
+
+Local checks
+
+npm test
+npm run typecheck
+npm run lint
+
+RAG evaluation
+
+npm run eval
+npm run eval:gate
+
+Validation areas
+
+Area
+
+What is checked
+
+Application logic
+
+Auth, documents, ingestion, configuration, health and client errors
+
+RLS isolation
+
+User-data policies remain scoped to the authenticated user
+
+RAG quality
+
+Factual, semantic, cross-document, multi-hop, negative and prompt-injection cases
+
+Static analysis
+
+TypeScript + ESLint
+
+CI
+
+Automated typecheck → lint → test workflow
+
+🔐 Security Model
+
 flowchart TD
-    User["Authenticated user"] --> SA["Supabase Auth"]
-    SA --> RLS["PostgreSQL Row-Level Security"]
-    RLS --> Documents["Documents"]
-    RLS --> Chunks["Document chunks"]
-    RLS --> Threads["Chat threads"]
-    RLS --> Messages["Messages"]
-    RLS --> Ops["Operational records"]
-```
+    U["👤 Authenticated User"] --> A["Supabase Auth"]
+    A --> R["PostgreSQL RLS"]
 
-- **Tenant isolation** — every user-owned table is protected by RLS policies scoped to `auth.uid()`.
-- **Server-side secrets** — the Supabase service-role key, AI provider keys, and the ingestion worker secret stay on the server and are validated at boot; the app fails closed if any is missing.
-- **Private storage** — uploaded files live in a private Supabase Storage bucket, accessed only through controlled application flows.
-- **Fail-closed scheduler** — the ingestion trigger only fires when its Vault-backed secrets resolve correctly.
+    R --> D["Documents"]
+    R --> C["Document Chunks"]
+    R --> T["Chat Threads"]
+    R --> M["Messages"]
+    R --> O["Operational Records"]
 
-Full write-up: [`docs/SECURITY.md`](./docs/SECURITY.md)
+    S["Server-only secrets"] --> API["Server APIs / Worker"]
+    API --> DB["Postgres"]
+    API --> AI["AI Provider"]
 
-<br/>
+Security boundaries
 
-## 📚 Documentation
+Tenant isolation — user-owned data is protected by PostgreSQL Row-Level Security.
 
-| Document | Description |
-|---|---|
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | End-to-end system architecture |
-| [`DESIGN.md`](./DESIGN.md) | Notable design trade-offs, explained in plain language |
-| [`docs/DECISIONS.md`](./docs/DECISIONS.md) | Architecture Decision Records (ADRs) |
-| [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Deployment, Supabase setup, and platform choice |
-| [`docs/SECURITY.md`](./docs/SECURITY.md) | Security model and considerations |
-| [`docs/TESTING.md`](./docs/TESTING.md) | Test strategy and validation approach |
-| [`docs/DOCKER.md`](./docs/DOCKER.md) | Docker build & run workflow |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Project history, phase by phase |
+Server-only secrets — service-role credentials, AI keys and worker secrets remain server-side.
 
-<br/>
+Private storage — source documents live in private Supabase Storage.
 
-## 📸 Screenshots
+Fail-closed configuration — required privileged configuration is validated before sensitive operations.
 
-> Add screenshots to `assets/screenshots/` and reference them here before presenting or sharing the repository.
+Worker protection — ingestion execution is authenticated rather than exposed as an unauthenticated public operation.
 
-| | |
-|---|---|
-| **Dashboard** | `assets/screenshots/dashboard.png` |
-| **Document upload & processing** | `assets/screenshots/document-upload.png` |
-| **Chat with grounded answer** | `assets/screenshots/chat-answer.png` |
-| **Retrieved evidence / citations** | `assets/screenshots/evidence-citations.png` |
+Security details and deployment-specific considerations are documented in docs/SECURITY.md.
 
-<br/>
-
-## ⚠️ Current Limitations
-
-- The ingestion scheduler (`pg_cron` + `pg_net`) requires a live Supabase project to run in production.
-- Serverless hosting (e.g. Vercel) works for the web surface, but document ingestion needs an always-on process — see the platform comparison in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
-- Live RAG evaluation depends on real AI provider and database credentials being configured.
-
-<br/>
-
-## 🗺️ Roadmap
-
-- 📑 Additional document formats and richer parsing
-- 🌐 Broader knowledge-source connectors
-- 🧠 Improved retrieval and re-ranking strategies
-- 📈 Richer evaluation dashboards
-- 👥 Team / workspace administration
-- 🔍 More granular evidence exploration
-- ☁️ Expanded production deployment automation
-
-<br/>
-
-## 🎓 Mini-Project Summary
-
-**Problem statement.** Users often need to find and understand information spread across multiple documents. Keyword search can miss semantically related content, and general-purpose LLMs can produce answers that are difficult to verify.
-
-**Proposed solution.** QueryVault is a document-grounded conversational assistant built on Retrieval-Augmented Generation. Documents are processed into searchable chunks, relevant evidence is retrieved through hybrid search, and an LLM generates an answer constrained to that evidence.
-
-**Key technical contributions** beyond a basic RAG prototype:
-
-- Hybrid semantic + lexical retrieval with Reciprocal Rank Fusion
-- A pre-generation evidence gate plus post-generation citation validation
-- Multi-tenant isolation enforced with PostgreSQL Row-Level Security
-- Durable, database-backed background ingestion (no external queue needed)
-- Private, per-user document storage
-- Built-in observability: health checks, telemetry, and query tracing
-- Automated security, RLS, and RAG-quality test coverage
-
-**End result:**
-
-```
-User → uploads documents → QueryVault knowledge base
-User → asks a question   → Hybrid retrieval finds relevant evidence
-                          → Grounded LLM generation
-                          → Citation validation
-                          → Answer + Sources
-```
-
-<br/>
-
-## 📄 License
-
-Distributed under the MIT License. See [`LICENSE`](./LICENSE) for details.
-
-<br/>
-
-## 👤 Author
+📊 Quality & Architecture at a Glance
 
 <div align="center">
 
-**Darsh Soam**
+🧠 RAG
+
+🔎 Retrieval
+
+🔐 Security
+
+⚙️ Operations
+
+🧪 Validation
+
+Grounded generation
+
+Vector + FTS
+
+Auth + RLS
+
+Durable jobs
+
+Automated tests
+
+Evidence gate
+
+RRF fusion
+
+Private storage
+
+Health checks
+
+RAG evaluation
+
+Citation validation
+
+Re-ranking
+
+Server secrets
+
+Telemetry
+
+Quality gates
+
+</div>
+
+📚 Documentation
+
+Resource
+
+Purpose
+
+ARCHITECTURE.md
+
+End-to-end system architecture
+
+DESIGN.md
+
+Design trade-offs and rationale
+
+docs/DECISIONS.md
+
+Architecture Decision Records
+
+docs/DEPLOYMENT.md
+
+Deployment and Supabase setup
+
+docs/SECURITY.md
+
+Security model
+
+docs/TESTING.md
+
+Testing strategy
+
+docs/DOCKER.md
+
+Docker workflow
+
+CHANGELOG.md
+
+Project history
+
+⚠️ Current Limitations
+
+The pg_cron + pg_net ingestion scheduler requires a live Supabase project for production execution.
+
+Serverless hosting can serve the web surface, while ingestion requires the appropriate worker/scheduler setup.
+
+Live RAG evaluation depends on configured AI provider and database credentials.
+
+🗺️ Roadmap
+
+NOW
+ │
+ ├── Core document-grounded Q&A
+ ├── Hybrid retrieval
+ ├── Evidence + citations
+ ├── Multi-tenant security
+ └── Durable ingestion
+       │
+       ▼
+NEXT
+ │
+ ├── More document formats
+ ├── More knowledge-source connectors
+ ├── Retrieval / reranking improvements
+ ├── Richer evaluation dashboards
+ └── Team / workspace administration
+       │
+       ▼
+LATER
+ │
+ ├── Deeper evidence exploration
+ └── Expanded production automation
+
+🎓 Mini-Project Summary
+
+Problem
+
+Information is often distributed across multiple documents. Keyword search can miss semantically related content, while general-purpose LLMs can produce answers that are difficult to verify.
+
+Solution
+
+QueryVault combines document ingestion, hybrid retrieval and grounded LLM generation to create a conversational knowledge assistant backed by the user's own documents.
+
+Technical Contributions
+
+Hybrid semantic + lexical retrieval
+
+Reciprocal Rank Fusion
+
+Re-ranking
+
+Pre-generation evidence gating
+
+Post-generation citation validation
+
+PostgreSQL Row-Level Security
+
+Durable database-backed ingestion
+
+Private document storage
+
+Health, telemetry and query tracing
+
+Automated security and RAG-quality validation
+
+End-to-end flow
+
+                 ┌──────────────────┐
+                 │      USER        │
+                 └────────┬─────────┘
+                          │
+                     Upload / Ask
+                          │
+                          ▼
+                 ┌──────────────────┐
+                 │    QUERYVAULT    │
+                 └────────┬─────────┘
+                          │
+             ┌────────────┴────────────┐
+             │                         │
+             ▼                         ▼
+        Document Ingestion       Hybrid Retrieval
+             │                         │
+             ▼                         ▼
+       Searchable Index          Evidence Ranking
+             │                         │
+             └────────────┬────────────┘
+                          ▼
+                   Evidence Gate
+                          │
+                          ▼
+                   Grounded LLM
+                          │
+                          ▼
+                 Citation Validation
+                          │
+                          ▼
+                ┌──────────────────┐
+                │ Answer + Sources │
+                └──────────────────┘
+
+🤝 Contributing
+
+Contributions, issues and suggestions are welcome.
+
+Fork the repository.
+
+Create a feature branch.
+
+Make focused changes.
+
+Run:
+
+npm run typecheck
+npm run lint
+npm test
+
+Open a pull request with a clear description of the change.
+
+For bugs and feature requests, use the GitHub Issues page.
+
+📄 License
+
+Distributed under the MIT License. See LICENSE for details.
+
+👤 Author
+
+<div align="center">
+
+<img src="src/assets/queryvault-logo.png" alt="QueryVault" width="56" />
+
+Darsh Soam
 
 QueryVault — AI-powered, evidence-grounded document intelligence
 
-[View Repository →](https://github.com/darshsoam07/QueryVault-Project)
 
-<br/>
 
-Built with React · TanStack Start · Supabase · PostgreSQL · pgvector · RAG
+<br />
+
+⭐ View Repository
+
+</div>
+
+<div align="center">
+
+<sub>Built with React · TanStack Start · Supabase · PostgreSQL · pgvector · RAG</sub>
 
 </div>
