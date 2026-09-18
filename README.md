@@ -217,7 +217,7 @@ This makes the generated response traceable to the indexed document content.
 │           │ HTTPS                                            │
 │           ▼                                                  │
 │  ┌──────────────────────────────┐                            │
-│  │      TanStack Start         │                             │ 
+│  │      TanStack Start         │                             │
 │  │     UI + Server APIs        │                             │
 │  └──────────────┬───────────────┘                            │
 │                 │                                            │
