@@ -207,7 +207,7 @@ This makes the generated response traceable to the indexed document content.
 🏗️ Architecture
 
 ┌──────────────────────────────────────────────────────────────┐
-│                         QUERYVAULT                            │
+│                         QUERYVAULT                           │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────────┐                                         │
@@ -217,31 +217,31 @@ This makes the generated response traceable to the indexed document content.
 │           │ HTTPS                                            │
 │           ▼                                                  │
 │  ┌──────────────────────────────┐                            │
-│  │      TanStack Start         │                            │
-│  │     UI + Server APIs        │                            │
+│  │      TanStack Start         │                             │ 
+│  │     UI + Server APIs        │                             │
 │  └──────────────┬───────────────┘                            │
 │                 │                                            │
 │       ┌─────────┼─────────┐                                  │
 │       │         │         │                                  │
 │       ▼         ▼         ▼                                  │
-│  ┌─────────┐ ┌────────┐ ┌─────────────┐                     │
-│  │ Supabase│ │  RAG   │ │ Auth + RLS  │                     │
-│  │ Postgres│ │ Engine │ │ Tenant      │                     │
-│  │ Storage │ │        │ │ Isolation   │                     │
-│  └────┬────┘ └────┬───┘ └─────────────┘                     │
+│  ┌─────────┐ ┌────────┐ ┌─────────────┐                      │
+│  │ Supabase│ │  RAG   │ │ Auth + RLS  │                      │
+│  │ Postgres│ │ Engine │ │ Tenant      │                      │
+│  │ Storage │ │        │ │ Isolation   │                      │
+│  └────┬────┘ └────┬───┘ └─────────────┘                      │
 │       │            │                                         │
 │       │            ▼                                         │
-│       │       ┌──────────┐                                  │
-│       │       │   LLM    │                                  │
-│       │       │Generation│                                  │
-│       │       └────┬─────┘                                  │
+│       │       ┌──────────┐                                   │
+│       │       │   LLM    │                                   │
+│       │       │Generation│                                   │
+│       │       └────┬─────┘                                   │
 │       │            │                                         │
 │       ▼            ▼                                         │
-│  ┌──────────────────────────┐                               │
-│  │  Indexed Knowledge +     │                               │
-│  │  Grounded Answer +       │                               │
-│  │  Traceable Citations     │                               │
-│  └──────────────────────────┘                               │
+│  ┌──────────────────────────┐                                │
+│  │  Indexed Knowledge +     │                                │
+│  │  Grounded Answer +       │                                │
+│  │  Traceable Citations     │                                │
+│  └──────────────────────────┘                                │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 
