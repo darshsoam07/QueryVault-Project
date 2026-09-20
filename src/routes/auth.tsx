@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { googleAuthEnabled, oauthRedirectTo } from "@/lib/auth-providers";
+import { authRedirectTo, googleAuthEnabled, oauthRedirectTo } from "@/lib/auth-providers";
 import { userMessage } from "@/lib/client-errors";
 import { gsap } from "@/lib/motion/gsap";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
@@ -90,8 +90,9 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "reset") {
+        const redirectTo = authRedirectTo("/auth");
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth`,
+          ...(redirectTo ? { redirectTo } : {}),
         });
         if (error) throw error;
         toast.success("Check your email for a password-reset link.");
@@ -99,10 +100,11 @@ function AuthPage() {
         return;
       }
       if (mode === "signup") {
+        const redirectTo = authRedirectTo("/chat");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/chat` },
+          options: { ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
         });
         if (error) throw error;
         // When the project requires email confirmation, signUp succeeds but

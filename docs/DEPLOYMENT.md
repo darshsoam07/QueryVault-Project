@@ -78,6 +78,7 @@ cp .env.example .env
 | `VITE_SUPABASE_URL`             | Yes                  | `https://<project-ref>.supabase.co`                                                                                          |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes                  | New-format `sb_publishable_…` or a legacy anon JWT. Safe to ship **only because RLS is enabled on every table.**             |
 | `VITE_SUPABASE_PROJECT_ID`      | Yes                  | Must be the same project as the URL and keys.                                                                                |
+| `VITE_APP_URL`                  | No (recommended)     | Canonical site URL for auth email redirects. Required in production; defaults to `window.location.origin` when empty.        |
 | `VITE_ENABLE_GOOGLE_AUTH`       | No (default `false`) | Set `true` only after Google is actually enabled in Supabase. While false the button is hidden rather than shown-and-broken. |
 
 ### Server-only
@@ -487,15 +488,32 @@ attribute a regression to a specific deploy.
    - _Redirect URLs_: `https://your-domain.example/chat`, plus
      `http://localhost:3000/chat` for local development.
 
+   QueryVault uses `VITE_APP_URL` as the canonical base for email-confirmation,
+   password-reset, and OAuth links when it is set. Set it to the deployed site
+   URL in production. For testing the email on a phone, set it to a reachable
+   LAN URL such as `http://192.168.1.25:8080` (the computer's address, not
+   `localhost`), add the matching `/chat` and `/auth` URLs to the allow-list,
+   then restart/rebuild the dev server. `localhost` in a phone's browser means
+   the phone itself, which is why the confirmation screenshot shows
+   `ERR_CONNECTION_REFUSED`.
+
    OAuth and email-confirmation links land on an error page if the exact URL is not
    listed. This is the most common cause of "sign-in worked locally but not in
    production".
 
-4. **Google OAuth (if enabled)** — add the Supabase callback
+4. **Brand the confirmation email** — the sender name is controlled by Supabase,
+   not by the browser SDK. In Dashboard → Authentication → Email Templates,
+   change the confirmation subject to `Confirm your QueryVault account` and
+   replace the template heading/body with QueryVault wording. In Dashboard →
+   Authentication → SMTP Settings, configure a verified sender/display name of
+   `QueryVault` (and a QueryVault reply-to address). The default Supabase sender
+   name cannot be changed by `signUp()` code alone.
+
+5. **Google OAuth (if enabled)** — add the Supabase callback
    (`https://<project-ref>.supabase.co/auth/v1/callback`) to the authorised redirect
    URIs of your Google OAuth client, then set `VITE_ENABLE_GOOGLE_AUTH=true` and
    rebuild (it is a `VITE_` value, so it is baked in at build time).
-5. **Proxy headers** — forward `Host` and `X-Forwarded-Proto`, per the CSRF note above.
+6. **Proxy headers** — forward `Host` and `X-Forwarded-Proto`, per the CSRF note above.
 
 ---
 

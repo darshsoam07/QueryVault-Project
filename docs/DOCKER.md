@@ -20,6 +20,7 @@ docker build \
   --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
   --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY" \
   --build-arg VITE_SUPABASE_PROJECT_ID="$VITE_SUPABASE_PROJECT_ID" \
+  --build-arg VITE_APP_URL="$VITE_APP_URL" \
   -t queryvault:local -t queryvault:$(git rev-parse --short HEAD) .
 ```
 
@@ -57,6 +58,7 @@ Browser-safe (build-time inline):
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_APP_URL` — canonical site/LAN URL used in auth email redirects
 
 Runtime knobs: `PORT` (default 3000), `HOST` (default 0.0.0.0).
 
