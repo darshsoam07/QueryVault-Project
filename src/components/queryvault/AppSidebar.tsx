@@ -60,23 +60,6 @@ export function AppSidebar({
   const listRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
 
-  const createThread = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase
-        .from("threads")
-        .insert({ user_id: userId, title: "New chat" })
-        .select("id")
-        .single();
-      if (error) throw fromQueryError(error, "Could not start a new conversation.");
-      return data.id;
-    },
-    onSuccess: (id) => {
-      queryClient.invalidateQueries({ queryKey: ["threads", userId] });
-      navigate({ to: "/chat/$threadId", params: { threadId: id } });
-    },
-    onError: (error) => toast.error(userMessage(error, "Could not start a new conversation.")),
-  });
-
   const deleteThread = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("threads").delete().eq("id", id);
@@ -124,32 +107,35 @@ export function AppSidebar({
 
   if (collapsed) {
     return (
-      <aside className="flex h-full w-14 shrink-0 flex-col items-center gap-3 border-r border-border/60 bg-sidebar py-4">
+      <aside className="flex h-full w-14 shrink-0 flex-col items-center gap-3 border-r border-sidebar-border bg-sidebar py-4 shadow-sm">
         <VaultMark />
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onToggleCollapsed}
           aria-label="Expand sidebar"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <PanelLeftOpen className="text-muted-foreground" />
+          <PanelLeftOpen className="h-4 w-4" />
         </Button>
+        {/* New conversation — min 44px touch target */}
         <Button
           size="icon-sm"
-          onClick={() => createThread.mutate()}
+          onClick={() => navigate({ to: "/chat" })}
           aria-label="New conversation"
-          className="bg-gradient-brand text-primary-foreground"
+          className="h-9 w-9 bg-gradient-brand text-primary-foreground hover:opacity-90"
         >
-          <Plus />
+          <Plus className="h-4 w-4" />
         </Button>
       </aside>
     );
   }
 
   return (
-    <aside className="flex h-full w-[288px] shrink-0 flex-col border-r border-border/60 bg-sidebar">
-      <div className="flex items-center justify-between px-4 py-3.5">
-        <Link to="/" className="flex items-center gap-2">
+    <aside className="flex h-full w-[272px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-sm">
+      {/* ── Brand header ── */}
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-sidebar-border">
+        <Link to="/" className="flex items-center gap-2.5">
           <VaultMark />
           <Wordmark />
         </Link>
@@ -158,29 +144,29 @@ export function AppSidebar({
           size="icon-sm"
           onClick={onToggleCollapsed}
           aria-label="Collapse sidebar"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground"
         >
-          <PanelLeftClose className="text-muted-foreground" />
+          <PanelLeftClose className="h-4 w-4" />
         </Button>
       </div>
 
-      <div className="px-3">
+      {/* ── New conversation ── */}
+      <div className="px-3 pt-3">
         <Button
-          className="w-full justify-start gap-2 bg-gradient-brand text-primary-foreground shadow-[var(--glow-amethyst)] hover:opacity-90"
-          onClick={() => createThread.mutate()}
-          disabled={createThread.isPending}
+          className="w-full justify-start gap-2 bg-gradient-brand text-primary-foreground shadow-[var(--glow-amethyst)] hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          onClick={() => navigate({ to: "/chat" })}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 shrink-0" />
           New conversation
         </Button>
       </div>
 
-      <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-3">
-        <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-          Conversations
-        </p>
-        <div ref={listRef} className="space-y-0.5">
+      {/* ── Thread list ── */}
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto px-2">
+        <p className="px-2 pb-1.5 pt-0.5 technical-label text-muted-foreground">Conversations</p>
+        <div ref={listRef} className="space-y-px">
           {threads.length === 0 && (
-            <p className="px-1 py-2 text-xs text-muted-foreground">No conversations yet.</p>
+            <p className="px-2 py-2 text-xs text-muted-foreground">No conversations yet.</p>
           )}
           {threads.map((thread) => {
             const active = params.threadId === thread.id;
@@ -189,31 +175,40 @@ export function AppSidebar({
                 key={thread.id}
                 data-thread-row
                 className={cn(
-                  "group flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-sidebar-accent",
-                  active && "bg-sidebar-accent",
+                  "group flex items-center gap-1 rounded-lg transition-colors hover:bg-accent",
+                  active && "bg-accent",
                 )}
               >
+                {/* Thread link — min 40px touch target via py-2.5 */}
                 <Link
                   to="/chat/$threadId"
                   params={{ threadId: thread.id }}
-                  className="flex min-w-0 flex-1 items-center gap-2"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pl-2.5"
                 >
                   <MessageSquare
                     className={cn(
                       "h-3.5 w-3.5 shrink-0",
-                      active ? "text-cyan" : "text-muted-foreground",
+                      active ? "text-amethyst" : "text-muted-foreground",
                     )}
                   />
-                  <span className="truncate text-[13px] text-foreground">{thread.title}</span>
+                  <span
+                    className={cn(
+                      "truncate text-[13px]",
+                      active ? "font-medium text-foreground" : "text-foreground",
+                    )}
+                  >
+                    {thread.title}
+                  </span>
                 </Link>
+                {/* Delete — min 40px touch target */}
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  className="opacity-0 group-hover:opacity-100"
+                  className="mr-1 h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => deleteThread.mutate(thread.id)}
                   aria-label={`Delete ${thread.title}`}
                 >
-                  <Trash2 className="text-muted-foreground hover:text-destructive" />
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                 </Button>
               </div>
             );
@@ -221,33 +216,45 @@ export function AppSidebar({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-[1.15] flex-col border-t border-border/60 px-3 py-3">
+      {/* ── Knowledge panel ── */}
+      <div className="flex min-h-0 flex-[1.15] flex-col border-t border-sidebar-border px-3 py-3">
         <KnowledgePanel userId={userId} selected={selectedDocs} onToggleSelected={onToggleDoc} />
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-border/60 px-3 py-2.5">
+      {/* ── User footer ── */}
+      <div className="flex items-center justify-between gap-2 border-t border-sidebar-border px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-brand text-[11px] font-semibold text-primary-foreground">
+          {/* Avatar — 28px visual, but the row provides the touch target */}
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-brand text-[11px] font-semibold text-primary-foreground select-none">
             {email.slice(0, 1).toUpperCase()}
           </div>
           <span className="truncate text-[11px] text-muted-foreground">{email}</span>
         </div>
         <div className="flex items-center">
-          <Button variant="ghost" size="icon-sm" asChild aria-label="Python reference">
+          {/* Reference — min 40px touch target via icon-sm */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            asChild
+            aria-label="Python reference"
+            className="text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
             <Link to="/reference">
-              <BookOpen className="text-muted-foreground" />
+              <BookOpen className="h-4 w-4" />
             </Link>
           </Button>
+          {/* Sign out — min 40px touch target via icon-sm */}
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="Sign out"
+            className="text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={async () => {
               await supabase.auth.signOut();
               navigate({ to: "/auth" });
             }}
           >
-            <LogOut className="text-muted-foreground" />
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>

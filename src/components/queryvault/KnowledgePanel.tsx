@@ -71,6 +71,46 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Returns a status badge variant and label for the exact real ingestion state
+ * supplied by the server. No fallback to a generic "Indexed" label —
+ * every status must map to a real INGESTION_PHASES value.
+ */
+function StatusBadge({ status, phase }: { status: string; phase: string }) {
+  if (status === "ready") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 border-emerald-300 bg-emerald-50 font-mono text-[10px] font-medium text-emerald-700"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        Ready
+      </Badge>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1 border-red-300 bg-red-50 font-mono text-[10px] font-medium text-destructive"
+      >
+        <AlertTriangle className="h-2.5 w-2.5" />
+        Failed
+      </Badge>
+    );
+  }
+  // Any mid-pipeline phase — show the exact phase name + step
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-amethyst/40 bg-amethyst/6 font-mono text-[10px] font-medium text-foreground"
+    >
+      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+      {phaseLabel(phase)} {phaseStep(phase)}
+    </Badge>
+  );
+}
+
 export function KnowledgePanel({
   userId,
   selected,
@@ -150,6 +190,7 @@ export function KnowledgePanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {/* ── Upload zone ── */}
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -162,8 +203,8 @@ export function KnowledgePanel({
           handleFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "group relative cursor-pointer rounded-xl border border-dashed border-border/70 bg-surface/40 px-3 py-5 text-center transition-all",
-          dragging && "border-cyan/70 bg-cyan/5",
+          "group relative cursor-pointer rounded-lg border border-dashed border-border bg-background px-3 py-4 text-center transition-all",
+          dragging && "border-amethyst/60 bg-amethyst/5",
           upload.isPending && "pointer-events-none opacity-70",
         )}
         onClick={() => inputRef.current?.click()}
@@ -179,16 +220,17 @@ export function KnowledgePanel({
           }}
         />
         {upload.isPending ? (
-          <Loader2 className="mx-auto h-5 w-5 animate-spin text-cyan" />
+          <Loader2 className="mx-auto h-5 w-5 animate-spin text-amethyst" />
         ) : (
-          <UploadCloud className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-cyan" />
+          <UploadCloud className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-amethyst" />
         )}
-        <p className="mt-2 text-xs font-medium text-foreground">Drop a PDF to index</p>
+        <p className="mt-1.5 text-xs font-medium text-foreground">Drop a PDF to index</p>
         <p className="text-[11px] text-muted-foreground">or click to browse · max 25 MB</p>
       </div>
 
+      {/* ── Upload progress ── */}
       {progress && (
-        <div className="rounded-lg border border-border/60 bg-surface/60 px-3 py-2">
+        <div className="rounded-lg border border-border bg-background px-3 py-2">
           <div className="flex items-center justify-between gap-2 text-[11px]">
             <span
               className={cn(
@@ -212,14 +254,14 @@ export function KnowledgePanel({
         </div>
       )}
 
-      <div className="flex items-center justify-between px-1">
-        <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-          Knowledge base
-        </span>
+      {/* ── Section header ── */}
+      <div className="flex items-center justify-between px-0.5">
+        <span className="technical-label text-muted-foreground">Knowledge base</span>
         <span className="font-mono text-[11px] text-muted-foreground">{documents.length}</span>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+      {/* ── Document list ── */}
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
         {isLoading && <p className="px-1 text-xs text-muted-foreground">Loading…</p>}
         {!isLoading && documents.length === 0 && (
           <p className="px-1 text-xs leading-relaxed text-muted-foreground">
@@ -229,18 +271,22 @@ export function KnowledgePanel({
         )}
         {documents.map((doc) => {
           const isSelected = selected.includes(doc.id);
+          const isReady = doc.status === "ready";
+          const isFailed = doc.status === "failed";
+          const isProcessing = !isReady && !isFailed;
           return (
             <div
               key={doc.id}
               className={cn(
-                "group rounded-lg border border-transparent bg-surface/40 px-2.5 py-2 transition-colors hover:bg-surface-raised/70",
-                isSelected && "border-amethyst/50 bg-amethyst/10",
+                "group rounded-lg border border-transparent bg-transparent px-2 py-2 transition-colors hover:bg-accent",
+                isSelected && "border-amethyst/40 bg-amethyst/8",
               )}
             >
               <div className="flex items-start gap-2">
+                {/* Document button — min 40px effective tap area via py-2 on parent */}
                 <button
                   type="button"
-                  onClick={() => doc.status === "ready" && onToggleSelected(doc.id)}
+                  onClick={() => isReady && onToggleSelected(doc.id)}
                   className="flex min-w-0 flex-1 items-start gap-2 text-left"
                 >
                   <FileText
@@ -250,52 +296,48 @@ export function KnowledgePanel({
                     )}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-medium text-foreground">
+                    <span className="block truncate text-[12px] font-medium text-foreground">
                       {doc.filename}
                     </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      {doc.status === "ready" && (
-                        <>
-                          <CheckCircle2 className="h-3 w-3 text-cyan" />
-                          <span className="font-mono">
-                            {doc.chunk_count} chunks · {doc.page_count}p ·{" "}
-                            {formatBytes(doc.byte_size)}
-                          </span>
-                        </>
+                    {/* Real metadata only — verified against Supabase query fields */}
+                    <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={doc.status} phase={doc.phase} />
+                      {isReady && (
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {doc.chunk_count} chunks · {doc.page_count}p ·{" "}
+                          {formatBytes(doc.byte_size)}
+                        </span>
                       )}
-                      {doc.status !== "ready" && doc.status !== "failed" && (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          <span>
-                            {phaseLabel(doc.phase)} · step {phaseStep(doc.phase)}
-                          </span>
-                        </>
+                      {isProcessing && (
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          step {phaseStep(doc.phase)}
+                        </span>
                       )}
-                      {doc.status === "failed" && (
-                        <>
-                          <AlertTriangle className="h-3 w-3 text-destructive" />
-                          <span className="truncate">
-                            {doc.failure_message ?? doc.error_message ?? "Failed"}
-                          </span>
-                        </>
+                      {isFailed && (
+                        <span className="truncate text-[10px] text-muted-foreground">
+                          {doc.failure_message ?? doc.error_message ?? "Unknown error"}
+                        </span>
                       )}
                     </span>
                   </span>
                 </button>
-                {doc.status === "failed" && (
+                {/* Retry — only shown on failed documents; min 32px icon-xs */}
+                {isFailed && (
                   <Button
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => retry.mutate(doc.id)}
                     aria-label={`Retry ${doc.filename}`}
+                    className="shrink-0 text-muted-foreground hover:text-amethyst"
                   >
-                    <RotateCcw className="text-muted-foreground hover:text-cyan" />
+                    <RotateCcw />
                   </Button>
                 )}
+                {/* Delete — always in group hover; min 32px icon-xs */}
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  className="opacity-0 transition-opacity group-hover:opacity-100"
+                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => remove.mutate(doc.id)}
                   aria-label={`Delete ${doc.filename}`}
                 >
@@ -307,10 +349,11 @@ export function KnowledgePanel({
         })}
       </div>
 
+      {/* ── Scope indicator ── */}
       {selected.length > 0 && (
         <Badge
           variant="outline"
-          className="justify-center border-amethyst/40 bg-amethyst/10 text-[11px] font-normal text-foreground"
+          className="justify-center border-amethyst/40 bg-amethyst/8 font-mono text-[11px] font-normal text-foreground"
         >
           Scoped to {selected.length} document{selected.length > 1 ? "s" : ""}
         </Badge>

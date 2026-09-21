@@ -91,14 +91,14 @@ function SiteHeader() {
               variant="ghost"
               size="sm"
               asChild
-              className="text-[#A1A7B0] hover:text-[#F3F4F6] hover:bg-[rgba(99,199,255,0.06)] transition-colors"
+              className="text-[#828791] hover:text-[#F2F2EF] hover:bg-[rgba(120,191,234,0.06)] transition-colors"
             >
               <Link to="/reference">Python reference</Link>
             </Button>
             <Button
               size="sm"
               asChild
-              className="bg-[#F3F4F6] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
+              className="bg-[#F2F2EF] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
             >
               <Link to={session ? "/chat" : "/auth"}>{session ? "Open workspace" : "Sign in"}</Link>
             </Button>

@@ -202,34 +202,24 @@ export function Hero() {
       >
         <span
           data-hero-badge
-          className="inline-flex items-center gap-2 rounded-full border border-[#1B1F25] bg-[#0B0D10]/70 px-3 py-1 font-mono text-[11px] text-[#686F79]"
+          className="inline-flex items-center gap-2 rounded-full border border-[#1B1F25] bg-[#080A0D]/80 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-[#78BFEA]"
         >
-          <FileSearch className="h-3 w-3 text-[#63C7FF]" />
+          <FileSearch className="h-3 w-3 text-[#78BFEA]" />
           Retrieval-augmented generation
         </span>
 
         <h1
           data-hero-headline
-          className="mt-6 text-5xl font-semibold leading-[1.05] tracking-tight text-[#F3F4F6] sm:text-6xl"
+          className="mx-auto mt-6 max-w-[12ch] text-[clamp(3.25rem,5.6vw,5.75rem)] font-semibold leading-[0.94] tracking-[-0.052em] text-[#F2F2EF]"
         >
           Your documents,
           <br />
-          <span
-            style={{
-              color: "#63C7FF",
-              backgroundImage: "linear-gradient(100deg, #63C7FF, #8BAEFF, #9B8CFF)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            answerable.
-          </span>
+          <span>answerable.</span>
         </h1>
 
         <p
           data-hero-sub
-          className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-[#A1A7B0]"
+          className="mx-auto mt-6 max-w-[58ch] text-[15px] font-normal leading-[1.7] text-[#A7ABB2]"
         >
           QueryVault indexes your PDFs into a private vector store and answers questions strictly
           from what it retrieves — with page-level citations attached to every response.
@@ -240,7 +230,7 @@ export function Hero() {
             data-hero-cta
             size="lg"
             asChild
-            className="bg-[#F3F4F6] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
+            className="bg-[#F2F2EF] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
           >
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
@@ -252,7 +242,7 @@ export function Hero() {
             size="lg"
             variant="outline"
             asChild
-            className="border-[#1B1F25] bg-[#0B0D10]/80 text-[#A1A7B0] hover:bg-[#0F1216] hover:border-[rgba(99,199,255,0.3)] hover:text-[#F3F4F6] transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
+            className="border-[#1B1F25] bg-[#080A0D]/80 text-[#828791] hover:bg-[#0F1216] hover:border-[rgba(120,191,234,0.3)] hover:text-[#F2F2EF] transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
           >
             <Link to="/reference">View the architecture</Link>
           </Button>
@@ -261,7 +251,7 @@ export function Hero() {
         <div
           data-hero-cue
           aria-hidden="true"
-          className="mt-16 flex justify-center text-[#63C7FF]/70"
+          className="mt-16 flex justify-center text-[#78BFEA]/60"
         >
           <ChevronDown className="h-4 w-4" />
         </div>

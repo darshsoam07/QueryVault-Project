@@ -219,7 +219,7 @@ function AuthPage() {
 
             {googleAuthEnabled && mode !== "reset" && (
               <>
-                <div className="my-4 flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
+                <div className="my-4 flex items-center gap-3 technical-label text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
                   or
                   <span className="h-px flex-1 bg-border" />
@@ -227,7 +227,7 @@ function AuthPage() {
 
                 <Button
                   variant="outline"
-                  className="w-full bg-surface/40"
+                  className="w-full bg-surface/40 hover:bg-surface/80 border-border"
                   onClick={google}
                   disabled={busy}
                 >

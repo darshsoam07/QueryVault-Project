@@ -20,11 +20,11 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "font-semibold tracking-tight text-[#F3F4F6] text-[15px] leading-none",
+        "font-semibold tracking-tight text-[#F2F2EF] text-[15px] leading-none",
         className,
       )}
     >
-      Query<span className="text-[#63C7FF]">Vault</span>
+      Query<span className="text-[#78BFEA]">Vault</span>
     </span>
   );
 }

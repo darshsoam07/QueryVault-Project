@@ -114,40 +114,62 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
 
   if (sources.length === 0) return null;
   return (
-    <div ref={railRef} className="mt-3 flex flex-wrap items-center gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-        Sources
-      </span>
+    <div
+      ref={railRef}
+      className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border pt-3"
+    >
+      <span className="technical-label text-muted-foreground">Sources</span>
       {sources.map((source, index) => (
         <Popover key={source.id}>
           <PopoverTrigger asChild>
             <button
               type="button"
               data-source-pill
-              className="group inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
+              className="group inline-flex items-center gap-1 rounded border border-amethyst/40 bg-amethyst/8 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst hover:bg-amethyst/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             >
-              <span className="text-amethyst">[{source.sourceId ?? `source_${index + 1}`}]</span>
-              <span className="max-w-[140px] truncate">{source.filename}</span>
+              <span className="font-semibold text-amethyst">
+                [{source.sourceId ?? `s${index + 1}`}]
+              </span>
+              <span className="max-w-[130px] truncate text-muted-foreground">
+                {source.filename}
+              </span>
               <span className="text-muted-foreground">p{source.page}</span>
             </button>
           </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-96 border-border/70 bg-popover/95 backdrop-blur"
-          >
-            <div className="flex items-center gap-2 border-b border-border/60 pb-2">
-              <FileText className="h-3.5 w-3.5 text-cyan" />
-              <span className="truncate text-xs font-medium text-foreground">
+          <PopoverContent align="start" className="w-96 border-border bg-popover shadow-md">
+            {/* Source detail — only real TARGET fields */}
+            <div className="flex items-center gap-2 border-b border-border pb-2.5 mb-2.5">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-amethyst" />
+              <span className="truncate text-[13px] font-semibold text-foreground">
                 {source.filename}
               </span>
-              <span className="ml-auto font-mono text-[10px] text-muted-foreground">
-                p{source.page}
-                {retrievalMetrics(source) ? ` · ${retrievalMetrics(source)}` : ""}
-              </span>
             </div>
-            <p className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
-              {source.snippet}
-            </p>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Page</span>
+                <span className="font-mono font-medium text-foreground">{source.page}</span>
+              </div>
+              {typeof source.score === "number" && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Match score</span>
+                  <span className="font-mono text-amethyst">{source.score.toFixed(3)}</span>
+                </div>
+              )}
+              {typeof source.rerankScore === "number" && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Rerank score</span>
+                  <span className="font-mono text-amethyst">{source.rerankScore.toFixed(3)}</span>
+                </div>
+              )}
+              {retrievalMetrics(source) === "" && (
+                <p className="text-muted-foreground italic">No score data for this passage.</p>
+              )}
+            </div>
+            {source.snippet && (
+              <p className="mt-2.5 max-h-48 overflow-y-auto whitespace-pre-wrap border-t border-border pt-2.5 text-[12px] leading-relaxed text-muted-foreground">
+                {source.snippet}
+              </p>
+            )}
           </PopoverContent>
         </Popover>
       ))}
@@ -217,7 +239,14 @@ function ThreadPage() {
     hydratedFor.current = threadId;
     setMessages(history);
     textareaRef.current?.focus();
-  }, [history, threadId, setMessages]);
+
+    const pendingKey = `pending_prompt_${threadId}`;
+    const pending = sessionStorage.getItem(pendingKey);
+    if (pending) {
+      sessionStorage.removeItem(pendingKey);
+      void sendMessage({ text: pending });
+    }
+  }, [history, threadId, setMessages, sendMessage]);
 
   const busy = status === "submitted" || status === "streaming";
 
@@ -233,32 +262,37 @@ function ThreadPage() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 px-6 backdrop-blur">
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
+      {/* ── Workspace header ── */}
+      <header className="flex h-13 shrink-0 items-center justify-between border-b border-border bg-surface px-6">
         <div className="flex items-center gap-2">
-          <Layers className="h-4 w-4 text-cyan" />
+          <Layers className="h-4 w-4 text-amethyst" />
           <span className="text-sm font-medium text-foreground">Grounded answering</span>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-border/70 font-mono text-[10px] font-normal">
+          <Badge
+            variant="outline"
+            className="border-border text-muted-foreground font-mono text-[10px] font-normal"
+          >
             {readyDocs.length} indexed
           </Badge>
           <Badge
             variant="outline"
-            className="border-cyan/40 bg-cyan/10 font-mono text-[10px] font-normal text-foreground"
+            className="border-amethyst/40 bg-amethyst/8 font-mono text-[10px] font-normal text-foreground"
           >
             {selectedDocs.length > 0 ? `${selectedDocs.length} scoped` : "all documents"}
           </Badge>
         </div>
       </header>
 
+      {/* ── Conversation ── */}
       <Conversation className="min-h-0 flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl px-6 py-8">
           {isLoading && <p className="text-xs text-muted-foreground">Loading conversation…</p>}
 
           {!isLoading && messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center animate-rise">
-              <VaultMark className="h-12 w-12" />
+              <VaultMark className="h-11 w-11" />
               <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
                 Ask your <span className="text-gradient-brand">knowledge base</span>
               </h1>
@@ -266,13 +300,14 @@ function ThreadPage() {
                 Every answer is retrieved from your indexed PDFs and cited back to the exact page.
                 Nothing is fabricated.
               </p>
+              {/* Suggestion chips — SOURCE visual pattern applied to real actions only */}
               <div className="mt-7 grid w-full max-w-lg gap-2">
                 {STARTERS.map((starter) => (
                   <button
                     key={starter}
                     type="button"
                     onClick={() => send(starter)}
-                    className="glass-panel group flex items-center gap-2.5 rounded-xl px-4 py-3 text-left text-[13px] text-muted-foreground transition-all hover:border-amethyst/40 hover:text-foreground"
+                    className="group flex items-center gap-2.5 rounded-xl border border-border bg-surface px-4 py-3 text-left text-[13px] text-muted-foreground shadow-sm transition-all hover:border-amethyst/50 hover:bg-surface-raised hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                   >
                     <Sparkle className="h-3.5 w-3.5 shrink-0 text-amethyst" />
                     {starter}
@@ -308,7 +343,7 @@ function ThreadPage() {
                 <MessageContent
                   className={cn(
                     message.role === "user"
-                      ? "bg-primary text-primary-foreground"
+                      ? "rounded-xl border border-border bg-surface px-4 py-3 text-foreground shadow-sm"
                       : "bg-transparent p-0 text-foreground",
                   )}
                 >
@@ -318,7 +353,7 @@ function ThreadPage() {
                       <SourceRail sources={sources} />
                     </>
                   ) : (
-                    <span className="whitespace-pre-wrap">{text}</span>
+                    <span className="whitespace-pre-wrap text-sm">{text}</span>
                   )}
                 </MessageContent>
               </Message>
@@ -334,7 +369,7 @@ function ThreadPage() {
           )}
 
           {error && (
-            <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-foreground">
+            <p className="rounded-lg border border-destructive/40 bg-destructive/8 px-3 py-2 text-xs text-foreground">
               {userMessage(error, "Something went wrong.")}
             </p>
           )}
@@ -342,7 +377,8 @@ function ThreadPage() {
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="shrink-0 border-t border-border/60 px-6 pb-5 pt-4">
+      {/* ── Prompt input ── */}
+      <div className="shrink-0 border-t border-border bg-surface px-6 pb-5 pt-4">
         <div className="mx-auto w-full max-w-3xl">
           <PromptInput
             onSubmit={(_message, event) => {

@@ -113,13 +113,13 @@ export function PipelineSection() {
   return (
     <section ref={sectionRef} className="mx-auto max-w-4xl px-6 py-24">
       <header className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-[#63C7FF]">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-[#78BFEA]">
           The pipeline
         </span>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#F3F4F6] sm:text-4xl">
+        <h2 className="mt-3 max-w-[17ch] text-[clamp(2.15rem,3.6vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.042em] text-[#F2F2EF] [text-wrap:balance]">
           Nine steps between your question and an answer.
         </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-[#A1A7B0]">
+        <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[#A7ABB2]">
           Retrieval quality is not one model call. Each stage exists because the one before it fails
           in a specific, observable way.
         </p>
@@ -129,7 +129,7 @@ export function PipelineSection() {
         {/* Rail track. Absolutely positioned so the fill can scale without
             reflowing the list beside it. */}
         <div aria-hidden="true" className="absolute bottom-2 left-[15px] top-2 w-px bg-border/70">
-          <div data-rail-fill className="bg-gradient-brand h-full w-px origin-top" />
+          <div data-rail-fill className="bg-[#78BFEA]/60 h-full w-px origin-top" />
         </div>
 
         {STEPS.map((step, index) => (
@@ -139,21 +139,21 @@ export function PipelineSection() {
               aria-hidden="true"
               className={
                 step.emphasis
-                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(99,199,255,0.3)] bg-[rgba(99,199,255,0.06)] font-mono text-[11px] text-[#F3F4F6] shadow-[var(--glow-amethyst)]"
-                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-[#0B0D10] font-mono text-[11px] text-[#686F79]"
+                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(120,191,234,0.35)] bg-[rgba(120,191,234,0.06)] font-mono text-[11px] text-[#F2F2EF]"
+                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-[#080A0D] font-mono text-[11px] text-[#666C76]"
               }
             >
               {String(index + 1).padStart(2, "0")}
             </span>
-            <h3 className="text-[15px] font-semibold text-[#F3F4F6]">
+            <h3 className="text-[15px] font-semibold text-[#F2F2EF]">
               {step.title}
               {step.emphasis && (
-                <span className="ml-2 rounded border border-[#1B1F25] bg-[rgba(99,199,255,0.06)] px-1.5 py-0.5 align-middle font-mono text-[10px] text-[#63C7FF]">
+                <span className="ml-2 rounded border border-[#1B1F25] bg-[rgba(120,191,234,0.08)] px-1.5 py-0.5 align-middle font-mono text-[10px] text-[#78BFEA]">
                   load-bearing
                 </span>
               )}
             </h3>
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#A1A7B0]">{step.body}</p>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#A7ABB2]">{step.body}</p>
           </li>
         ))}
       </ol>

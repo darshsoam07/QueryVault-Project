@@ -49,7 +49,7 @@ function ChatShell() {
 
   return (
     <ShellContext.Provider value={{ userId: user.id, selectedDocs }}>
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="workspace-shell flex h-screen overflow-hidden bg-background">
         <AppSidebar
           userId={user.id}
           email={user.email ?? "account"}
@@ -62,7 +62,7 @@ function ChatShell() {
             )
           }
         />
-        <div className="grid-void flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
           <Outlet />
         </div>
       </div>
