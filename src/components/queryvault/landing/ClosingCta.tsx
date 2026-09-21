@@ -24,10 +24,10 @@ export function ClosingCta() {
     <section className="border-t border-border/50">
       <div className="mx-auto max-w-4xl px-6 py-24 text-center">
         <Reveal>
-          <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-[#F3F4F6] sm:text-4xl">
             Point it at your documents.
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-[#A1A7B0]">
             Upload a PDF, ask a question, and check the citation. That is the whole evaluation —
             everything else is detail.
           </p>
@@ -41,18 +41,18 @@ export function ClosingCta() {
           <Button
             size="lg"
             asChild
-            className="bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
+            className="bg-[#F3F4F6] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
           >
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
-              <ArrowRight className="ml-1.5 h-4 w-4" />
+              <ArrowRight className="ml-1.5 h-4 w-4 text-[#050607]" />
             </Link>
           </Button>
           <Button
             size="lg"
             variant="outline"
             asChild
-            className="border-border bg-surface/40 text-foreground hover:bg-surface/80"
+            className="border-[#1B1F25] bg-[#0B0D10]/80 text-[#A1A7B0] hover:bg-[#0F1216] hover:border-[rgba(99,199,255,0.3)] hover:text-[#F3F4F6] transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
           >
             <Link to="/reference">Read the reference</Link>
           </Button>
@@ -62,7 +62,7 @@ export function ClosingCta() {
           {STACK.map((item) => (
             <span
               key={item}
-              className="rounded-md border border-border/60 bg-surface/50 px-2 py-1 font-mono text-[10.5px] text-muted-foreground"
+              className="rounded-md border border-[#1B1F25] bg-[#0B0D10]/60 px-2 py-1 font-mono text-[10.5px] text-[#686F79]"
             >
               {item}
             </span>

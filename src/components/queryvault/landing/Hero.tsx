@@ -10,11 +10,12 @@ import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
 import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
 
 /**
- * If webfonts stall, build the timeline anyway rather than leave the hero
- * invisible. Inter is loaded from Google Fonts with `display=swap`, so this is a
- * real failure mode on a bad connection, not a theoretical one.
+ * Font wait budget for SplitText measurement.
+ * Kept between 100–150ms to prevent perceptible delay.
+ * If fonts haven't loaded within this window, we skip SplitText to avoid layout shift
+ * and animate the headline as a unit.
  */
-const FONT_WAIT_MS = 700;
+const FONT_WAIT_MS = 120;
 
 export function Hero() {
   const { session } = useAuth();
@@ -27,72 +28,94 @@ export function Hero() {
     if (!section || !content) return;
     if (prefersReducedMotion()) return;
 
-    /**
-     * The start state is set now, synchronously and pre-paint, but the timeline
-     * is built after fonts settle.
-     *
-     * SplitText measures line boxes, so splitting before Inter arrives records
-     * line breaks from the fallback font and the reveal comes apart mid-swap.
-     * Two tweens can't be merged into one wait, hence the explicit `gsap.set`:
-     * without it there would be a visible frame of the finished hero before the
-     * animation starts.
-     */
-    gsap.set(content, { autoAlpha: 0 });
+    const headline = section.querySelector<HTMLElement>("[data-hero-headline]");
+    if (!headline) return;
 
     let ctx: ReturnType<typeof gsap.context> | undefined;
+    let tl: gsap.core.Timeline | undefined;
     let cancelled = false;
 
-    const build = () => {
+    const isFontReady = () => {
+      if (typeof document === "undefined" || !document.fonts) return true;
+      return (
+        document.fonts.status === "loaded" ||
+        (typeof document.fonts.check === "function" && document.fonts.check("1em Inter"))
+      );
+    };
+
+    const build = (fontReady: boolean, synchronous: boolean) => {
       if (cancelled) return;
 
       ctx = gsap.context(() => {
-        const headline = section.querySelector<HTMLElement>("[data-hero-headline]");
-        // `aria: "auto"` labels the parent and hides the fragments, so the
-        // headline is still read as one sentence.
-        const split = headline
-          ? SplitText.create(headline, { type: "lines", mask: "lines", aria: "auto" })
-          : null;
+        // Ensure headline is visible for animation
+        gsap.set(headline, { autoAlpha: 1 });
 
-        gsap.set(content, { autoAlpha: 1 });
+        // SplitText measures line boxes. Only split if font is confirmed ready;
+        // otherwise skip SplitText to prevent line breaks from fallback fonts.
+        type SplitInstance = ReturnType<typeof SplitText.create>;
+        let split: SplitInstance | null = null;
+        if (fontReady) {
+          try {
+            split = SplitText.create(headline, {
+              type: "lines",
+              mask: "lines",
+              aria: "auto",
+            });
+          } catch {
+            split = null;
+          }
+        }
 
-        // One timeline, not five independent tweens: the sequence is the point,
-        // and overlapping offsets are only expressible relative to each other.
-        const tl = gsap.timeline({
+        tl = gsap.timeline({
           defaults: { ease: EASE.out, duration: DUR.card },
           onComplete: () => {
-            // Hand the DOM back once the reveal is done. The line wrappers hold
-            // measurements from one viewport width; leaving them in place would
-            // freeze the headline's line breaks against later resizes.
             split?.revert();
           },
         });
 
-        tl.from("[data-hero-badge]", { y: 12, opacity: 0 });
+        if (synchronous) {
+          // Normal pre-paint path: animate all elements in sequence
+          tl.from("[data-hero-badge]", { y: 12, opacity: 0 });
 
-        if (split) {
-          tl.from(
-            split.lines,
-            {
+          if (split) {
+            tl.from(
+              split.lines,
+              {
+                yPercent: 110,
+                duration: DUR.hero,
+                ease: EASE.expo,
+                stagger: STAGGER.loose,
+              },
+              "-=0.15",
+            );
+          } else {
+            tl.from(headline, { y: 16, opacity: 0, duration: DUR.hero }, "-=0.15");
+          }
+
+          tl.from("[data-hero-sub]", { y: 14, opacity: 0 }, "-=0.55")
+            .from("[data-hero-cta]", { y: 14, opacity: 0, stagger: STAGGER.normal }, "-=0.3")
+            .from("[data-hero-cue]", { opacity: 0, ease: EASE.soft }, "-=0.2");
+        } else {
+          // Deferred path: badge, sub, CTA are already visible on screen (no blank hero phase!).
+          // Reveal the headline smoothly without resetting already visible elements.
+          if (split) {
+            tl.from(split.lines, {
               yPercent: 110,
               duration: DUR.hero,
               ease: EASE.expo,
               stagger: STAGGER.loose,
-            },
-            "-=0.15",
-          );
+            });
+          } else {
+            tl.from(headline, {
+              y: 16,
+              opacity: 0,
+              duration: DUR.hero,
+              ease: EASE.out,
+            });
+          }
         }
 
-        tl.from("[data-hero-sub]", { y: 14, opacity: 0 }, "-=0.55")
-          .from("[data-hero-cta]", { y: 14, opacity: 0, stagger: STAGGER.normal }, "-=0.3")
-          .from("[data-hero-cue]", { opacity: 0, ease: EASE.soft }, "-=0.2");
-
-        /**
-         * The one piece of looping motion on the page.
-         *
-         * It earns it by being an affordance rather than decoration: the hero is
-         * roughly viewport-height, so without a cue there is nothing telling the
-         * reader the page continues.
-         */
+        // Ambient scroll cue loop
         gsap.to("[data-hero-cue] svg", {
           y: 5,
           duration: 1.1,
@@ -101,23 +124,17 @@ export function Hero() {
           yoyo: true,
         });
 
-        /**
-         * Hero content recedes as you scroll past it, tied to scroll position
-         * rather than played.
-         *
-         * `ease: "none"` is correct here and is not the `linear` the brief warns
-         * about — that warning is about time-driven animation. A scrubbed tween's
-         * easing curve maps scroll distance to progress, and anything other than
-         * linear makes the content appear to move at a different speed than the
-         * finger or wheel that is driving it.
-         */
+        // Ensure content is 100% visible at scroll position 0
+        gsap.set(content, { opacity: 1, y: 0 });
+
+        // Hero parallax tied to scroll: starts at "top top" so opacity is strictly 1.0 at scroll 0
         gsap.to(content, {
-          y: -48,
-          opacity: 0.1,
+          y: -36,
+          opacity: 0.5,
           ease: "none",
           scrollTrigger: {
             trigger: section,
-            start: "bottom bottom",
+            start: "top top",
             end: "bottom top",
             scrub: true,
           },
@@ -125,20 +142,39 @@ export function Hero() {
       }, section);
     };
 
-    if (document.fonts?.status === "loaded") {
-      build();
+    if (isFontReady()) {
+      build(true, true);
     } else {
-      void Promise.race([
-        document.fonts?.ready ?? Promise.resolve(),
-        new Promise((resolve) => setTimeout(resolve, FONT_WAIT_MS)),
-      ]).then(build);
+      // Hide ONLY headline before paint to avoid flash while waiting for fonts.
+      // The rest of the hero (badge, sub, CTA) remains visible immediately.
+      gsap.set(headline, { autoAlpha: 0 });
+
+      let fontResolved = false;
+      const timer = setTimeout(() => {
+        if (!fontResolved) {
+          fontResolved = true;
+          build(false, false);
+        }
+      }, FONT_WAIT_MS);
+
+      if (document.fonts?.ready) {
+        void document.fonts.ready.then(() => {
+          if (!fontResolved) {
+            fontResolved = true;
+            clearTimeout(timer);
+            build(true, false);
+          }
+        });
+      }
     }
 
     return () => {
       cancelled = true;
+      tl?.kill();
       ctx?.revert();
-      // If we were torn down while still waiting on fonts, ctx never existed and
-      // the `set` above would leave the hero hidden.
+      if (headline) {
+        gsap.set(headline, { clearProps: "opacity,visibility" });
+      }
       gsap.set(content, { clearProps: "opacity,visibility" });
     };
   }, []);
@@ -150,30 +186,50 @@ export function Hero() {
     >
       <QueryVaultField />
 
+      {/* Soft radial scrim: attenuates particles directly behind central reading area and CTAs */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-[5]"
+        style={{
+          background:
+            "radial-gradient(ellipse 85% 70% at 50% 42%, rgba(5, 6, 7, 0.94) 0%, rgba(5, 6, 7, 0.65) 52%, transparent 85%)",
+        }}
+      />
+
       <div
         ref={contentRef}
         className="relative z-10 mx-auto max-w-3xl px-6 pb-24 pt-16 text-center"
       >
         <span
           data-hero-badge
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 font-mono text-[11px] text-muted-foreground"
+          className="inline-flex items-center gap-2 rounded-full border border-[#1B1F25] bg-[#0B0D10]/70 px-3 py-1 font-mono text-[11px] text-[#686F79]"
         >
-          <FileSearch className="h-3 w-3 text-[#9aaeb8]" />
+          <FileSearch className="h-3 w-3 text-[#63C7FF]" />
           Retrieval-augmented generation
         </span>
 
         <h1
           data-hero-headline
-          className="mt-6 text-5xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl"
+          className="mt-6 text-5xl font-semibold leading-[1.05] tracking-tight text-[#F3F4F6] sm:text-6xl"
         >
           Your documents,
           <br />
-          <span className="text-[#9aaeb8]">answerable.</span>
+          <span
+            style={{
+              color: "#63C7FF",
+              backgroundImage: "linear-gradient(100deg, #63C7FF, #8BAEFF, #9B8CFF)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            answerable.
+          </span>
         </h1>
 
         <p
           data-hero-sub
-          className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-muted-foreground"
+          className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-[#A1A7B0]"
         >
           QueryVault indexes your PDFs into a private vector store and answers questions strictly
           from what it retrieves — with page-level citations attached to every response.
@@ -184,11 +240,11 @@ export function Hero() {
             data-hero-cta
             size="lg"
             asChild
-            className="bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
+            className="bg-[#F3F4F6] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
           >
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
-              <ArrowRight className="ml-1.5 h-4 w-4" />
+              <ArrowRight className="ml-1.5 h-4 w-4 text-[#050607]" />
             </Link>
           </Button>
           <Button
@@ -196,7 +252,7 @@ export function Hero() {
             size="lg"
             variant="outline"
             asChild
-            className="border-border bg-surface/40 text-foreground hover:bg-surface/80"
+            className="border-[#1B1F25] bg-[#0B0D10]/80 text-[#A1A7B0] hover:bg-[#0F1216] hover:border-[rgba(99,199,255,0.3)] hover:text-[#F3F4F6] transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
           >
             <Link to="/reference">View the architecture</Link>
           </Button>
@@ -205,7 +261,7 @@ export function Hero() {
         <div
           data-hero-cue
           aria-hidden="true"
-          className="mt-16 flex justify-center text-muted-foreground"
+          className="mt-16 flex justify-center text-[#63C7FF]/70"
         >
           <ChevronDown className="h-4 w-4" />
         </div>

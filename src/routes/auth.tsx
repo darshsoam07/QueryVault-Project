@@ -156,7 +156,7 @@ function AuthPage() {
     /* `header={false}`: a sign-in page should offer one thing to do. Lenis is
        inert here — there is nothing to scroll — but the shell is shared so the
        page keeps the same background and reduced-motion behaviour as `/`. */
-    <PublicShell header={false}>
+    <PublicShell header={false} variant="neutral">
       <div className="flex min-h-screen items-center justify-center px-4">
         <div ref={rootRef} className="w-full max-w-sm">
           <div data-auth-brand className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -210,7 +210,7 @@ function AuthPage() {
                 type="submit"
                 data-auth-field
                 disabled={busy}
-                className="w-full bg-gradient-brand text-primary-foreground hover:opacity-90"
+                className="w-full bg-[#F3F4F6] text-[#050607] hover:bg-[#FFFFFF] focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {submitLabel}

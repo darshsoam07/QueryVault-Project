@@ -87,13 +87,18 @@ function SiteHeader() {
             <Wordmark />
           </Link>
           <nav data-header-item className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-[#A1A7B0] hover:text-[#F3F4F6] hover:bg-[rgba(99,199,255,0.06)] transition-colors"
+            >
               <Link to="/reference">Python reference</Link>
             </Button>
             <Button
               size="sm"
               asChild
-              className="bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
+              className="bg-[#F3F4F6] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
             >
               <Link to={session ? "/chat" : "/auth"}>{session ? "Open workspace" : "Sign in"}</Link>
             </Button>
@@ -118,15 +123,24 @@ export function PublicShell({
   children,
   className,
   header = true,
+  variant = "landing",
 }: {
   children: ReactNode;
   className?: string;
   /** Set false for surfaces that provide their own chrome (e.g. `/auth`). */
   header?: boolean;
+  /** "landing" activates the scoped landing theme. "neutral" preserves graphite UI for forms/code. */
+  variant?: "landing" | "neutral";
 }) {
   return (
     <SmoothScroll>
-      <div className={cn("grid-void relative min-h-screen", className)}>
+      <div
+        className={cn(
+          "grid-void relative min-h-screen",
+          variant === "landing" ? "landing-shell" : "public-shell",
+          className,
+        )}
+      >
         {header && <SiteHeader />}
         <main>{children}</main>
       </div>

@@ -80,13 +80,13 @@ export function TrustSection() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-24">
       <Reveal as="header" className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-[#63C7FF]">
           What it will not do
         </span>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#F3F4F6] sm:text-4xl">
           The useful guarantee is the refusal.
         </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mt-4 text-[15px] leading-relaxed text-[#A1A7B0]">
           Anything can produce an answer. The parts worth building are the ones that stop it from
           answering when it shouldn&apos;t, and that keep one account&apos;s documents entirely
           invisible to another.
@@ -95,28 +95,29 @@ export function TrustSection() {
 
       <Reveal stagger="loose" className="mt-12 grid gap-4 md:grid-cols-3">
         {PILLARS.map((pillar) => (
-          <article key={pillar.title} className="glass-panel rounded-2xl p-5">
-            <pillar.icon className="h-4 w-4 text-cyan" />
-            <h3 className="mt-3 text-sm font-semibold text-foreground">{pillar.title}</h3>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
-              {pillar.body}
-            </p>
+          <article
+            key={pillar.title}
+            className="glass-panel rounded-2xl p-5 border-[#1B1F25] bg-[#0B0D10]/80"
+          >
+            <pillar.icon className="h-4 w-4 text-[#63C7FF]" />
+            <h3 className="mt-3 text-sm font-semibold text-[#F3F4F6]">{pillar.title}</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[#A1A7B0]">{pillar.body}</p>
           </article>
         ))}
       </Reveal>
 
       <div ref={metricsRef} className="mt-16">
         <Reveal as="header" className="max-w-2xl">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">
+          <h3 className="text-lg font-semibold tracking-tight text-[#F3F4F6]">
             Measured, not asserted
           </h3>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-muted-foreground">
-            <code className="rounded bg-surface px-1 py-0.5 font-mono text-[12px]">
+          <p className="mt-2 text-[13.5px] leading-relaxed text-[#A1A7B0]">
+            <code className="rounded bg-[#0B0D10] border border-[#1B1F25] px-1 py-0.5 font-mono text-[12px] text-[#F3F4F6]">
               npm run eval
             </code>{" "}
             runs offline — no API keys, no network — across factual lookup, semantic paraphrase,
             cross-document, multi-hop, refusal, and prompt-injection cases.{" "}
-            <code className="rounded bg-surface px-1 py-0.5 font-mono text-[12px]">
+            <code className="rounded bg-[#0B0D10] border border-[#1B1F25] px-1 py-0.5 font-mono text-[12px] text-[#F3F4F6]">
               npm run eval:gate
             </code>{" "}
             exits non-zero if any metric drops below its floor.
@@ -125,16 +126,19 @@ export function TrustSection() {
 
         <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {METRICS.map((metric) => (
-            <div key={metric.label} className="glass-panel rounded-xl p-4">
+            <div
+              key={metric.label}
+              className="glass-panel rounded-xl p-4 border-[#1B1F25] bg-[#0B0D10]/80"
+            >
               <dd
                 data-metric-value
                 data-value={metric.value}
                 data-decimals={metric.decimals}
-                className="font-mono text-2xl font-semibold tabular-nums text-foreground"
+                className="font-mono text-2xl font-semibold tabular-nums text-[#F3F4F6]"
               >
                 {metric.value.toFixed(metric.decimals)}
               </dd>
-              <dt className="mt-1 text-[11px] uppercase tracking-widest text-muted-foreground">
+              <dt className="mt-1 text-[11px] uppercase tracking-widest text-[#686F79]">
                 {metric.label}
               </dt>
             </div>
@@ -146,7 +150,7 @@ export function TrustSection() {
           "Recall@5 1.00" without the corpus size next to it would be the same
           category of overclaiming the evidence gate exists to prevent.
         */}
-        <p className="mt-4 text-[12.5px] leading-relaxed text-muted-foreground/80">
+        <p className="mt-4 text-[12.5px] leading-relaxed text-[#686F79]">
           Measured against a 13-case golden fixture set — a regression signal, not a claim of
           production-scale accuracy. The evidence-gate thresholds are tuned against that same
           fixture set and would need re-measuring on a larger, more diverse corpus.

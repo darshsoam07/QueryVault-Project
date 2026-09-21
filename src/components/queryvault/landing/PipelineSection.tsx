@@ -113,13 +113,13 @@ export function PipelineSection() {
   return (
     <section ref={sectionRef} className="mx-auto max-w-4xl px-6 py-24">
       <header className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+        <span className="font-mono text-[11px] uppercase tracking-widest text-[#63C7FF]">
           The pipeline
         </span>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#F3F4F6] sm:text-4xl">
           Nine steps between your question and an answer.
         </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+        <p className="mt-4 text-[15px] leading-relaxed text-[#A1A7B0]">
           Retrieval quality is not one model call. Each stage exists because the one before it fails
           in a specific, observable way.
         </p>
@@ -139,23 +139,21 @@ export function PipelineSection() {
               aria-hidden="true"
               className={
                 step.emphasis
-                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-amethyst/60 bg-amethyst/15 font-mono text-[11px] text-foreground shadow-[var(--glow-amethyst)]"
-                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-surface font-mono text-[11px] text-muted-foreground"
+                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(99,199,255,0.3)] bg-[rgba(99,199,255,0.06)] font-mono text-[11px] text-[#F3F4F6] shadow-[var(--glow-amethyst)]"
+                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-[#0B0D10] font-mono text-[11px] text-[#686F79]"
               }
             >
               {String(index + 1).padStart(2, "0")}
             </span>
-            <h3 className="text-[15px] font-semibold text-foreground">
+            <h3 className="text-[15px] font-semibold text-[#F3F4F6]">
               {step.title}
               {step.emphasis && (
-                <span className="ml-2 rounded border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 align-middle font-mono text-[10px] text-amethyst">
+                <span className="ml-2 rounded border border-[#1B1F25] bg-[rgba(99,199,255,0.06)] px-1.5 py-0.5 align-middle font-mono text-[10px] text-[#63C7FF]">
                   load-bearing
                 </span>
               )}
             </h3>
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-              {step.body}
-            </p>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#A1A7B0]">{step.body}</p>
           </li>
         ))}
       </ol>

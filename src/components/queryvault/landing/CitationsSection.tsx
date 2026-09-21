@@ -78,18 +78,18 @@ export function CitationsSection() {
     <section ref={sectionRef} className="border-y border-border/50 bg-surface/20">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-center">
         <header>
-          <span className="font-mono text-[11px] uppercase tracking-widest text-cyan">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-[#63C7FF]">
             Citations
           </span>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[#F3F4F6] sm:text-4xl">
             Every claim traces back to a page.
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+          <p className="mt-4 text-[15px] leading-relaxed text-[#A1A7B0]">
             Citation markers are validated on the server against the evidence that was actually
             retrieved for that request. A reference the model invented never reaches your screen —
             it is rejected before the message is persisted.
           </p>
-          <p className="mt-4 text-[13.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-4 text-[13.5px] leading-relaxed text-[#686F79]">
             Open a pill to read the exact retrieved passage, with its raw match and rerank scores.
             Not a confidence bar — the numbers the retriever actually produced.
           </p>
@@ -97,15 +97,18 @@ export function CitationsSection() {
 
         {/* Same surface treatment as the chat transcript, so what you see here is
             what you get after signing in. */}
-        <div data-answer-card className="glass-panel rounded-2xl p-5">
-          <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-            <Quote className="h-3.5 w-3.5 text-cyan" />
-            <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+        <div
+          data-answer-card
+          className="glass-panel rounded-2xl p-5 border-[#1B1F25] bg-[#0B0D10]/80"
+        >
+          <div className="flex items-center gap-2 border-b border-[#12161B] pb-3">
+            <Quote className="h-3.5 w-3.5 text-[#63C7FF]" />
+            <span className="text-[11px] font-medium uppercase tracking-widest text-[#686F79]">
               Assistant
             </span>
           </div>
 
-          <p className="mt-4 text-[13.5px] leading-relaxed text-foreground">
+          <p className="mt-4 text-[13.5px] leading-relaxed text-[#A1A7B0]">
             Operating margin reached 18.4% for the fiscal year
             <Marker id="source_01" />, largely because consolidating two regional warehouses into
             the Rotterdam hub removed about €4.1M of annual run-rate cost
@@ -115,7 +118,7 @@ export function CitationsSection() {
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <span className="text-[10px] font-medium uppercase tracking-widest text-[#686F79]">
               Sources
             </span>
             {CITED_SOURCES.map((source) => (
@@ -124,27 +127,27 @@ export function CitationsSection() {
                   <button
                     type="button"
                     data-source-pill
-                    className="inline-flex items-center gap-1 rounded-md border border-amethyst/35 bg-amethyst/10 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst/70 hover:bg-amethyst/20"
+                    className="inline-flex items-center gap-1 rounded-md border border-[#1B1F25] bg-[rgba(255,255,255,0.015)] px-1.5 py-0.5 font-mono text-[10px] text-[#F3F4F6] transition-colors hover:border-[rgba(99,199,255,0.3)] hover:bg-[rgba(99,199,255,0.06)]"
                   >
-                    <span className="text-amethyst">[{source.sourceId}]</span>
+                    <span className="text-[#63C7FF]">[{source.sourceId}]</span>
                     <span className="max-w-[140px] truncate">{source.filename}</span>
-                    <span className="text-muted-foreground">p{source.page}</span>
+                    <span className="text-[#686F79]">p{source.page}</span>
                   </button>
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
-                  className="w-96 border-border/70 bg-popover/95 backdrop-blur"
+                  className="w-96 border-[#1B1F25] bg-[#0B0D10]/95 backdrop-blur"
                 >
-                  <div className="flex items-center gap-2 border-b border-border/60 pb-2">
-                    <FileText className="h-3.5 w-3.5 text-cyan" />
-                    <span className="truncate text-xs font-medium text-foreground">
+                  <div className="flex items-center gap-2 border-b border-[#12161B] pb-2">
+                    <FileText className="h-3.5 w-3.5 text-[#63C7FF]" />
+                    <span className="truncate text-xs font-medium text-[#F3F4F6]">
                       {source.filename}
                     </span>
-                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                    <span className="ml-auto font-mono text-[10px] text-[#686F79]">
                       p{source.page} · {source.metrics}
                     </span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
+                  <p className="mt-2 whitespace-pre-wrap text-[12px] leading-relaxed text-[#A1A7B0]">
                     {source.snippet}
                   </p>
                 </PopoverContent>
@@ -161,7 +164,7 @@ function Marker({ id }: { id: string }) {
   return (
     <sup
       data-answer-marker
-      className="ml-0.5 rounded border border-amethyst/35 bg-amethyst/10 px-1 font-mono text-[9px] text-amethyst"
+      className="ml-0.5 rounded border border-[#1B1F25] bg-[rgba(99,199,255,0.06)] px-1 font-mono text-[9px] text-[#63C7FF]"
     >
       {id}
     </sup>

@@ -6,9 +6,17 @@
  * dual-axis rotation.
  *
  * Uses `three@0.134.0` (r128–r160 range).
+ *
+ * Three.js is intentionally NOT imported here at the module level.
+ * This file is loaded via a dynamic `import()` from QueryVaultField so that the
+ * ~600 kB Three.js library stays out of the landing-page critical bundle.
+ * `createStructureFlowRenderer` receives the already-loaded THREE namespace from
+ * the caller, which imports three inside the dynamic chunk.
  */
 
 import * as THREE from "three";
+
+export type ThreeNamespace = typeof THREE;
 
 export interface StructureFlowOptions {
   speed: number;
@@ -21,11 +29,16 @@ export interface StructureFlowOptions {
 
 export const STRUCTURE_FLOW_DEFAULTS: StructureFlowOptions = {
   speed: 0.8,
-  pointSize: 0.08,
-  opacity: 0.45,
+  pointSize: 0.09,
+  opacity: 0.65,
   maskStart: 0.1,
   maskSolid: 0.4,
-  particleCount: 12_000,
+  /**
+   * Reduced from 12,000 → 8,000 (desktop). The visual density still reads as
+   * intentional at this count, and the GPU work per frame drops proportionally.
+   * Responsive counts are set by the caller (QueryVaultField).
+   */
+  particleCount: 8_000,
 };
 
 export function createStructureFlowRenderer(
@@ -40,9 +53,21 @@ export function createStructureFlowRenderer(
   const renderer = new THREE.WebGLRenderer({
     canvas,
     alpha: true,
-    antialias: true,
+    /**
+     * Antialiasing disabled. This is a points-based particle field — individual
+     * particles are rendered as screen-space quads, not triangles with shared
+     * edges. MSAA provides no perceptible benefit here but costs ~2× fill rate
+     * on high-DPI displays.
+     */
+    antialias: false,
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  /**
+   * Cap at 1.5× rather than 2×. The particle field is decorative background
+   * content; the difference between 1.5 and 2 is invisible at normal viewing
+   * distance. At 2× DPR a 1440p display renders at 2880×1620 pixels per frame.
+   * 1.5× brings that to 2160×1215 — still sharp, 44% fewer pixels.
+   */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
   const geometry = new THREE.BufferGeometry();
   const count = getOptions().particleCount;
@@ -63,7 +88,8 @@ export function createStructureFlowRenderer(
 
   const material = new THREE.PointsMaterial({
     size: STRUCTURE_FLOW_DEFAULTS.pointSize,
-    color: 0xffffff,
+    // Particle blue (mirrors --landing-particle: #63C7FF)
+    color: 0x63c7ff,
     transparent: true,
     opacity: STRUCTURE_FLOW_DEFAULTS.opacity,
     blending: THREE.AdditiveBlending,
@@ -94,3 +120,5 @@ export function createStructureFlowRenderer(
     },
   };
 }
+
+export type StructureFlowRenderer = ReturnType<typeof createStructureFlowRenderer>;

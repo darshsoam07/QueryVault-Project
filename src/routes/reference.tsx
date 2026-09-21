@@ -429,7 +429,7 @@ function CodeBlock({ code }: { code: string }) {
 
 function ReferencePage() {
   return (
-    <PublicShell>
+    <PublicShell variant="neutral">
       <div className="mx-auto max-w-4xl px-6 pb-24 pt-8">
         {/*
           `immediate` rather than a ScrollTrigger: this block is above the fold on

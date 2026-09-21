@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * QueryVault design system — graphite engineering UI.
- * Neutral cool-gray signal color. No purple, no cyan.
+ * QueryVault design system — premium dark UI.
+ * Restrained blue/violet accents on deep neutral surfaces.
  */
 
 @theme inline {
@@ -63,59 +63,101 @@
 :root {
   --radius: 0.75rem;
 
-  /* graphite base */
+  /* graphite base for workspace, chat, admin, auth */
   --background: #050607;
-  --foreground: #f1f3f4;
-  --surface: #0b0d0f;
-  --surface-raised: #101214;
+  --foreground: #F3F4F6;
+  --surface: #080A0D;
+  --surface-raised: #0F1216;
 
-  --card: #0b0d0f;
-  --card-foreground: #f1f3f4;
-  --popover: #0d0f11;
-  --popover-foreground: #f1f3f4;
+  --card: #0B0D10;
+  --card-foreground: #F3F4F6;
+  --popover: #0B0D10;
+  --popover-foreground: #F3F4F6;
 
-  /* neutral primary — light button fill */
-  --primary: #e8eaec;
-  --primary-foreground: #0a0c0e;
+  /* neutral primary — light for CTA buttons */
+  --primary: #F3F4F6;
+  --primary-foreground: #050607;
 
-  /* signal color — cool gray, used where purple/cyan were */
-  --amethyst: #9aaeb8;
-  --amethyst-foreground: #0a0c0e;
-  --cyan: #9aaeb8;
-  --cyan-foreground: #0a0c0e;
+  /* signal colors */
+  --amethyst: #9B8CFF;
+  --amethyst-foreground: #050607;
+  --cyan: #63C7FF;
+  --cyan-foreground: #050607;
 
-  --secondary: #151819;
-  --secondary-foreground: #d4d8dc;
-  --muted: #151819;
-  --muted-foreground: #646a70;
-  --accent: #1b1f22;
-  --accent-foreground: #e0e3e6;
+  --secondary: #12161B;
+  --secondary-foreground: #A1A7B0;
+  --muted: #12161B;
+  --muted-foreground: #686F79;
+  --accent: #1B1F25;
+  --accent-foreground: #F3F4F6;
 
   --destructive: #c44040;
-  --destructive-foreground: #f1f3f4;
+  --destructive-foreground: #F3F4F6;
 
-  --border: #1b1f22;
-  --input: #1b1f22;
-  --ring: #9aaeb8;
+  --border: #1B1F25;
+  --input: #1B1F25;
+  --ring: #F3F4F6;
 
-  --chart-1: #9aaeb8;
-  --chart-2: #7a8e98;
-  --chart-3: #b0bec5;
-  --chart-4: #78909c;
-  --chart-5: #a0aeb6;
+  --chart-1: #63C7FF;
+  --chart-2: #9B8CFF;
+  --chart-3: #A1A7B0;
+  --chart-4: #686F79;
+  --chart-5: #63E6E2;
 
-  --sidebar: #080a0c;
-  --sidebar-foreground: #d4d8dc;
-  --sidebar-primary: #e8eaec;
-  --sidebar-primary-foreground: #0a0c0e;
-  --sidebar-accent: #151819;
-  --sidebar-accent-foreground: #e0e3e6;
-  --sidebar-border: #1b1f22;
-  --sidebar-ring: #9aaeb8;
+  --sidebar: #080A0D;
+  --sidebar-foreground: #A1A7B0;
+  --sidebar-primary: #F3F4F6;
+  --sidebar-primary-foreground: #050607;
+  --sidebar-accent: #12161B;
+  --sidebar-accent-foreground: #F3F4F6;
+  --sidebar-border: #1B1F25;
+  --sidebar-ring: #63C7FF;
 
-  --gradient-brand: linear-gradient(100deg, #d0d4d8, #f1f3f4);
-  --glow-amethyst: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --glow-cyan: 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* ── Landing & Public Surface Tokens ── */
+  --landing-bg: #050607;
+  --landing-surface: #080A0D;
+  --landing-headline: #F3F4F6;
+  --landing-accent: #63C7FF;
+  --landing-accent-secondary: #9B8CFF;
+  --landing-body: #A1A7B0;
+  --landing-muted: #686F79;
+  --landing-very-muted: #454B54;
+  --landing-on-accent: #050607;
+  --landing-border: #1B1F25;
+  --landing-border-subtle: #12161B;
+  --landing-particle: #63C7FF;
+
+  --gradient-brand: linear-gradient(100deg, #63C7FF, #8BAEFF, #9B8CFF);
+  --glow-amethyst: 0 1px 4px rgba(99, 199, 255, 0.12);
+  --glow-cyan: 0 1px 4px rgba(99, 199, 255, 0.12);
+}
+
+/* Scoped palette for the landing presentation */
+.landing-shell {
+  --background: var(--landing-bg);
+  --surface: var(--landing-surface);
+  --foreground: var(--landing-headline);
+  --muted-foreground: var(--landing-muted);
+  --primary: var(--landing-headline);
+  --primary-foreground: var(--landing-on-accent);
+  --border: var(--landing-border);
+  --card: var(--landing-surface);
+  --card-foreground: var(--landing-headline);
+  color: var(--landing-body);
+}
+
+/* Public shell wrapper maintains clean neutral dark theme for auth, code reference, and docs */
+.public-shell {
+  --background: var(--landing-bg);
+  --surface: var(--landing-surface);
+  --foreground: #F3F4F6;
+  --muted-foreground: #686F79;
+  --primary: #F3F4F6;
+  --primary-foreground: #050607;
+  --border: #1B1F25;
+  --card: var(--landing-surface);
+  --card-foreground: #F3F4F6;
+  color: #F3F4F6;
 }
 
 .dark {
@@ -139,7 +181,7 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--primary) 30%, transparent);
+    background: color-mix(in srgb, var(--cyan) 30%, transparent);
   }
 
   ::-webkit-scrollbar {
@@ -192,10 +234,10 @@
       rgba(255, 255, 255, 0.02) 0 1px,
       transparent 1px 120px
     ),
-    /* very subtle center glow — warm gray, not purple */
+    /* subtle blue depth glow — restrained, non-competing */
     radial-gradient(
-      ellipse 80% 60% at 50% -10%,
-      rgba(154, 174, 184, 0.04),
+      ellipse 70% 50% at 50% -10%,
+      rgba(99, 199, 255, 0.02),
       transparent 70%
     );
 }
