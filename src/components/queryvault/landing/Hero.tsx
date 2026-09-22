@@ -1,97 +1,97 @@
-import React from "react";
-import { ArrowUpRight, ChevronRight, ShieldCheck, Terminal } from "lucide-react";
-import { QueryVaultField } from "@/components/visual/QueryVaultField";
+import React from 'react';
+import { ArrowRight, Terminal, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 
 export function Hero() {
   return (
-    <section className="relative min-h-[90vh] w-full overflow-hidden border-b border-white/[0.06] bg-[#09090b] pt-24 pb-20 sm:pt-32 sm:pb-28">
-      {/* Background Architectural Canvas & Subtle Vignette */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-40 mix-blend-screen">
-        <QueryVaultField />
-      </div>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#09090b_85%)]" />
+    <section className="relative min-h-[85vh] w-full border-b border-zinc-800/80 bg-[#09090b] pt-20 pb-16 sm:pt-28 sm:pb-24">
+      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-10">
+          
+          {/* Left Column: Asymmetric, Left-Aligned Copy */}
+          <div className="lg:col-span-7">
+            {/* Flat Micro-Pill (No glow, pure structural border) */}
+            <div className="inline-flex items-center gap-2 rounded border border-zinc-800 bg-zinc-900/90 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wide text-zinc-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span>Pipeline Engine v1.2</span>
+              <span className="text-zinc-600">/</span>
+              <span className="text-zinc-300">Deterministic RAG</span>
+            </div>
 
-      {/* Structural Framing Container */}
-      <div className="relative mx-auto max-w-5xl px-6 sm:px-8">
-        {/* 1. Micro-Metadata / System Status (Replaces generic pill badge) */}
-        <div className="flex items-center justify-center">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-white/[0.08] bg-zinc-900/60 px-3 py-1 backdrop-blur-md transition-colors hover:border-white/[0.14]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-            <span className="font-mono text-[11px] tracking-wider text-zinc-400 uppercase">
-              RAG Engine v1.2
-            </span>
-            <span className="h-3 w-[1px] bg-white/[0.1]" />
-            <a
-              href="#pipeline"
-              className="group flex items-center gap-1 font-mono text-[11px] text-zinc-300 transition-colors hover:text-white"
-            >
-              Zero-leak architecture
-              <ChevronRight className="h-3 w-3 text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-zinc-300" />
-            </a>
+            {/* Flat Solid Typography - Absolutely No Text Gradients */}
+            <h1 className="mt-5 text-3xl font-normal tracking-[-0.035em] text-zinc-100 sm:text-5xl lg:text-[52px] leading-[1.12]">
+              Your documents, answerable and verified.
+            </h1>
+
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-400">
+              QueryVault indexes PDFs into tenant-isolated vector stores. Answers are emitted exclusively if backed by server-validated page citations.
+            </p>
+
+            {/* Action Buttons: Explicit easing, no jelly pills */}
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <a
+                href="/auth"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-zinc-100 px-4 text-xs font-medium text-zinc-950 transition-all duration-200 ease-out hover:bg-white active:scale-[0.98]"
+              >
+                <span>Start querying</span>
+                <ArrowRight className="h-3.5 w-3.5 stroke-[1.5]" />
+              </a>
+
+              <a
+                href="/reference"
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/60 px-3.5 text-xs font-medium text-zinc-300 transition-all duration-200 ease-out hover:border-zinc-700 hover:bg-zinc-900 hover:text-white"
+              >
+                <Terminal className="h-3.5 w-3.5 text-zinc-500 stroke-[1.5]" />
+                <span>Python reference</span>
+              </a>
+            </div>
+
+            {/* Micro Trust Matrix */}
+            <div className="mt-10 flex items-center gap-6 border-t border-zinc-800/80 pt-6 text-[11px] font-mono text-zinc-500">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-zinc-400 stroke-[1.5]" />
+                Zero Hallucination
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-zinc-400 stroke-[1.5]" />
+                Postgres RLS
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* 2. Editorial Headline: Scaled down, lighter weight, deliberate tracking */}
-        <div className="mt-8 text-center">
-          <h1 className="text-3xl sm:text-5xl lg:text-[54px] font-normal tracking-[-0.035em] text-zinc-100 leading-[1.12]">
-            Your documents, {/* Elegant metallic sheen gradient instead of neon Canva-violet */}
-            <span className="bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent font-light italic font-serif">
-              verifiable.
-            </span>
-          </h1>
+          {/* Right Column: Grounded Functional Artifact (Replaces Empty Radial Gradients) */}
+          <div className="lg:col-span-5">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+                <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+                  <Terminal className="h-3.5 w-3.5 text-zinc-500 stroke-[1.5]" />
+                  <span>retrieval_guard.ts</span>
+                </div>
+                <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-400">
+                  Verified 1.00
+                </span>
+              </div>
 
-          {/* 3. Subtext: High legibility, bounded width, balanced color contrast */}
-          <p className="mx-auto mt-6 max-w-xl text-sm sm:text-base font-normal leading-relaxed text-zinc-400">
-            QueryVault indexes unstructured records into private vector stores. Every generation is
-            server-verified against strict retrieved evidence — complete with mathematical page
-            citations.
-          </p>
-        </div>
+              <div className="mt-4 space-y-3 font-mono text-xs text-zinc-300">
+                <div className="text-[11px] text-zinc-500">// 1. Evidence evaluation threshold</div>
+                <div className="rounded bg-zinc-900/70 p-2.5 text-[11px] leading-relaxed text-zinc-300 border border-zinc-800/60">
+                  <span className="text-purple-400">const</span> isVerified = gate.evaluate(&#123;
+                  <br />
+                  &nbsp;&nbsp;topRank: <span className="text-emerald-400">0.962</span>,
+                  <br />
+                  &nbsp;&nbsp;minThreshold: <span className="text-emerald-400">0.850</span>
+                  <br />
+                  &#125;);
+                </div>
 
-        {/* 4. CTA Group: Precision rounded corners, no oversized jelly pills */}
-        <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a
-            href="/auth"
-            className="group relative inline-flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-zinc-100 px-4 text-xs font-medium text-zinc-950 shadow-sm transition-all hover:bg-white active:scale-[0.98]"
-          >
-            <span>Start querying</span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-zinc-600 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-zinc-950" />
-          </a>
-
-          <a
-            href="/reference"
-            className="inline-flex h-9 w-full sm:w-auto items-center justify-center gap-2 rounded-md border border-white/[0.08] bg-zinc-900/40 px-4 text-xs font-medium text-zinc-300 backdrop-blur-xs transition-colors hover:border-white/[0.16] hover:bg-zinc-900/80 hover:text-white"
-          >
-            <span>Python reference</span>
-          </a>
-        </div>
-
-        {/* 5. Minimalist Spec Bar (Reinforces technical enterprise trust) */}
-        <div className="mt-14 pt-6 border-t border-white/[0.05] grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div className="space-y-0.5">
-            <span className="font-mono text-[10px] tracking-widest text-zinc-400 uppercase">
-              Citation Fidelity
-            </span>
-            <p className="font-mono text-xs font-medium text-zinc-200">100% Verified</p>
+                <div className="text-[11px] text-zinc-500">// 2. Deterministic outcome</div>
+                <div className="flex items-center gap-2 text-[11px] text-emerald-400">
+                  <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" />
+                  <span>Pass: Evidence attached to response stream</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="space-y-0.5">
-            <span className="font-mono text-[10px] tracking-widest text-zinc-400 uppercase">
-              Vector Isolation
-            </span>
-            <p className="font-mono text-xs font-medium text-zinc-200">Tenant-Scoped RLS</p>
-          </div>
-          <div className="space-y-0.5">
-            <span className="font-mono text-[10px] tracking-widest text-zinc-400 uppercase">
-              Retrieval Fusion
-            </span>
-            <p className="font-mono text-xs font-medium text-zinc-200">RRF + Bi-Encoder</p>
-          </div>
-          <div className="space-y-0.5">
-            <span className="font-mono text-[10px] tracking-widest text-zinc-400 uppercase">
-              Latency Floor
-            </span>
-            <p className="font-mono text-xs font-medium text-zinc-200">Sub-100ms Index</p>
-          </div>
+
         </div>
       </div>
     </section>
