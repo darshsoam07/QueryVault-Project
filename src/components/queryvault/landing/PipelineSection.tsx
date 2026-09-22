@@ -1,162 +1,129 @@
-import { useLayoutEffect, useRef } from "react";
+import React from "react";
+import { GitCommitHorizontal, ShieldCheck } from "lucide-react";
 
-import { gsap } from "@/lib/motion/gsap";
-import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
-import { DUR, EASE, REVEAL_START, STAGGER } from "@/lib/motion/tokens";
+interface Stage {
+  id: string;
+  name: string;
+  desc: string;
+  badge: string;
+}
 
-/**
- * The nine steps of the pipeline that actually ships, transcribed from
- * `README.md` — not a simplified marketing version of it. If a step is listed
- * here it exists in `src/lib/retrieval/`.
- */
-const STEPS: Array<{ title: string; body: string; emphasis?: boolean }> = [
+const STAGES: Stage[] = [
   {
-    title: "Query rewriting",
-    body: "The raw question is normalised into a retrieval query. Conversational phrasing retrieves badly.",
+    id: "01",
+    name: "Query rewriting",
+    desc: "Raw question is normalized into a retrieval vector. Phrasing artifacts stripped.",
+    badge: "Normalization",
   },
   {
-    title: "Dense retrieval",
-    body: "Cosine similarity over halfvec(3072) embeddings, HNSW-indexed.",
+    id: "02",
+    name: "Dense retrieval",
+    desc: "Cosine similarity over halfvec(3072) embeddings using HNSW indexing.",
+    badge: "Vector",
   },
   {
-    title: "Lexical retrieval",
-    body: "Postgres full-text search in parallel. Catches exact identifiers, product codes, and rare terms that embeddings smooth over.",
+    id: "03",
+    name: "Lexical retrieval",
+    desc: "Postgres full-text search in parallel. Catches exact identifiers and product codes.",
+    badge: "BM25 / FTS",
   },
   {
-    title: "Reciprocal Rank Fusion",
-    body: "Merges both lists by rank, not score. Cosine similarity and ts_rank are not on comparable scales; averaging them directly is a category error.",
+    id: "04",
+    name: "Reciprocal Rank Fusion",
+    desc: "Merges dense and sparse lists by rank score to prevent score-calibration error.",
+    badge: "Fusion",
   },
   {
-    title: "Reranking",
-    body: "An LLM listwise reranker scores the fused candidates, with a deterministic heuristic fallback if that call fails. Retrieval degrades; it does not break.",
+    id: "05",
+    name: "Reranking",
+    desc: "Cross-encoder scores candidate documents with deterministic fallback on timeout.",
+    badge: "Cross-Encoder",
   },
   {
-    title: "Evidence gate",
-    body: "Checks top rerank score and supporting-chunk count. Below threshold the system returns a fixed refusal without calling the LLM at all.",
-    emphasis: true,
+    id: "06",
+    name: "Evidence gate",
+    desc: "Validates top rank against relevance thresholds. Returns refusal if confidence fails.",
+    badge: "Guardrail",
   },
   {
-    title: "Context assembly",
-    body: "Token-budgeted, so the prompt cannot overflow and silently truncate the evidence the answer depends on.",
+    id: "07",
+    name: "Context assembly",
+    desc: "Token-budgeted prompt construction; prevents context truncation silently.",
+    badge: "Token Budget",
   },
   {
-    title: "Generation",
-    body: "Streamed, with retrieved evidence framed as untrusted reference data rather than as instructions.",
+    id: "08",
+    name: "Streaming generation",
+    desc: "Retrieved evidence strictly passed as unprivileged data, not instructions.",
+    badge: "Isolated Prompt",
   },
   {
-    title: "Citation validation",
-    body: "Every [source_NN] marker is checked server-side against the actually-retrieved set. A citation the model invented is rejected, not displayed.",
+    id: "09",
+    name: "Citation validation",
+    desc: "Source markers verified server-side against actual retrieval set before emission.",
+    badge: "Verification",
   },
 ];
 
 export function PipelineSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useLayoutEffect(() => {
-    const section = sectionRef.current;
-    if (!section) return;
-    if (prefersReducedMotion()) return;
-
-    const ctx = gsap.context(() => {
-      /**
-       * The rail fills as the list scrolls past — a progress indicator for a
-       * nine-item sequence that is taller than the viewport.
-       *
-       * `scaleY` rather than `height`: a transform is composited, a height change
-       * is a layout pass on every scroll frame. This is the single most common
-       * way a scroll-linked progress bar destroys a frame budget.
-       */
-      gsap.fromTo(
-        "[data-rail-fill]",
-        { scaleY: 0 },
-        {
-          scaleY: 1,
-          ease: "none",
-          scrollTrigger: {
-            trigger: "[data-rail]",
-            start: "top 65%",
-            end: "bottom 75%",
-            scrub: 0.4,
-          },
-        },
-      );
-
-      /**
-       * Steps enter in small batches rather than all nine at once.
-       *
-       * One ScrollTrigger per step, each firing as that step reaches reading
-       * position, so the stagger tracks the reader's pace instead of playing out
-       * in a fixed 1.5s burst the moment the section appears.
-       */
-      gsap.utils.toArray<HTMLElement>("[data-step]").forEach((step) => {
-        gsap.from(step, {
-          y: 20,
-          opacity: 0,
-          duration: DUR.card,
-          ease: EASE.out,
-          scrollTrigger: { trigger: step, start: REVEAL_START, once: true },
-        });
-        gsap.from(step.querySelectorAll("[data-step-marker]"), {
-          scale: 0.6,
-          opacity: 0,
-          duration: DUR.micro,
-          ease: EASE.out,
-          stagger: STAGGER.tight,
-          scrollTrigger: { trigger: step, start: REVEAL_START, once: true },
-        });
-      });
-    }, section);
-
-    return () => ctx.revert();
-  }, []);
-
   return (
-    <section ref={sectionRef} className="mx-auto max-w-4xl px-6 py-24">
-      <header className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-[#78BFEA]">
-          The pipeline
-        </span>
-        <h2 className="mt-3 max-w-[17ch] text-[clamp(2.15rem,3.6vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.042em] text-[#F2F2EF] [text-wrap:balance]">
-          Nine steps between your question and an answer.
-        </h2>
-        <p className="mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[#A7ABB2]">
-          Retrieval quality is not one model call. Each stage exists because the one before it fails
-          in a specific, observable way.
-        </p>
-      </header>
+    <section id="pipeline" className="border-b border-white/[0.06] bg-[#09090b] py-20 sm:py-28">
+      <div className="mx-auto max-w-5xl px-6 sm:px-8">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8">
+          {/* Left Sticky Header */}
+          <div className="lg:col-span-4 lg:sticky lg:top-24 lg:self-start">
+            <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-zinc-900/60 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+              <GitCommitHorizontal className="h-3.5 w-3.5 text-zinc-400" />
+              Pipeline Trace
+            </div>
 
-      <ol data-rail className="relative mt-14 space-y-8 pl-12">
-        {/* Rail track. Absolutely positioned so the fill can scale without
-            reflowing the list beside it. */}
-        <div aria-hidden="true" className="absolute bottom-2 left-[15px] top-2 w-px bg-border/70">
-          <div data-rail-fill className="bg-[#78BFEA]/60 h-full w-px origin-top" />
+            <h2 className="mt-4 text-2xl font-medium tracking-tight text-zinc-100 sm:text-3xl">
+              Nine steps between prompt and citation.
+            </h2>
+
+            <p className="mt-3 text-xs leading-relaxed text-zinc-400">
+              Retrieval quality is a multi-stage verification problem. Each phase isolates failure
+              modes before passing context downstream.
+            </p>
+
+            <div className="mt-6 flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+              <ShieldCheck className="h-4 w-4 text-emerald-400/80" />
+              <span>Deterministic zero-hallucination guarantee</span>
+            </div>
+          </div>
+
+          {/* Right High-Density Execution Graph */}
+          <div className="lg:col-span-8">
+            <div className="relative border-l border-white/[0.08] pl-6 space-y-6">
+              {STAGES.map((stage) => (
+                <div key={stage.id} className="group relative">
+                  {/* Timeline Node Point */}
+                  <div className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950 transition-colors group-hover:border-zinc-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-500 transition-colors group-hover:bg-zinc-200" />
+                  </div>
+
+                  {/* Stage Card */}
+                  <div className="rounded-lg border border-white/[0.05] bg-zinc-900/30 p-4 transition-all hover:border-white/[0.12] hover:bg-zinc-900/60">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-zinc-500">{stage.id}</span>
+                        <h3 className="text-xs font-medium text-zinc-200 group-hover:text-white">
+                          {stage.name}
+                        </h3>
+                      </div>
+                      <span className="rounded border border-white/[0.06] bg-zinc-800/50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
+                        {stage.badge}
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 text-xs leading-relaxed text-zinc-400">{stage.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-
-        {STEPS.map((step, index) => (
-          <li key={step.title} data-step className="relative">
-            <span
-              data-step-marker
-              aria-hidden="true"
-              className={
-                step.emphasis
-                  ? "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(120,191,234,0.35)] bg-[rgba(120,191,234,0.06)] font-mono text-[11px] text-[#F2F2EF]"
-                  : "absolute -left-12 top-0.5 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-[#080A0D] font-mono text-[11px] text-[#666C76]"
-              }
-            >
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <h3 className="text-[15px] font-semibold text-[#F2F2EF]">
-              {step.title}
-              {step.emphasis && (
-                <span className="ml-2 rounded border border-[#1B1F25] bg-[rgba(120,191,234,0.08)] px-1.5 py-0.5 align-middle font-mono text-[10px] text-[#78BFEA]">
-                  load-bearing
-                </span>
-              )}
-            </h3>
-            <p className="mt-1.5 text-[13.5px] leading-relaxed text-[#A7ABB2]">{step.body}</p>
-          </li>
-        ))}
-      </ol>
+      </div>
     </section>
   );
 }

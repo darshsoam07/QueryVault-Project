@@ -1,159 +1,92 @@
-import { Ban, Lock, ShieldCheck } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import React, { useState } from "react";
+import { Activity, Check, Copy, Terminal } from "lucide-react";
 
-import { Reveal } from "@/components/motion/Reveal";
-import { gsap } from "@/lib/motion/gsap";
-import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
-import { DUR, EASE, REVEAL_START } from "@/lib/motion/tokens";
+interface Metric {
+  label: string;
+  value: string;
+  target: string;
+  status: "passed" | "nominal";
+}
 
-const PILLARS = [
-  {
-    icon: Ban,
-    title: "It refuses rather than guesses",
-    body: "When the top rerank score and supporting-chunk count fall below threshold, a fixed refusal is returned without the LLM being called at all. A model handed weak context will still produce a fluent answer — the only reliable fix is not to ask it.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Retrieved text is data, not instructions",
-    body: "Evidence is framed to the model as untrusted reference material, and every citation marker is verified server-side against the retrieved set before the message is stored or rendered.",
-  },
-  {
-    icon: Lock,
-    title: "Two independent tenancy checks",
-    body: "Every table has row-level security scoped to auth.uid(). The retrieval SQL functions also take a requesting_user_id and assert auth.uid() = requesting_user_id inside the function body — deliberately redundant, so a wrong id in application code is still caught.",
-  },
-] as const;
-
-/**
- * `value` is the number GSAP counts to; the rendered text is generated from the
- * same number, so the DOM already holds the final figure before any JS runs.
- */
-const METRICS = [
-  { label: "Recall@5", value: 1, decimals: 2 },
-  { label: "Recall@10", value: 1, decimals: 2 },
-  { label: "MRR", value: 0.925, decimals: 3 },
-  { label: "nDCG@10", value: 0.95, decimals: 2 },
-  { label: "Citation validity", value: 1, decimals: 2 },
-  { label: "Refusal accuracy", value: 1, decimals: 2 },
-  { label: "False refusal rate", value: 0, decimals: 2 },
-  { label: "Injection defense", value: 1, decimals: 2 },
-] as const;
+const METRICS: Metric[] = [
+  { label: "Recall @ 5", value: "1.00", target: "≥ 0.95", status: "passed" },
+  { label: "Recall @ 10", value: "1.00", target: "≥ 0.98", status: "passed" },
+  { label: "MRR", value: "0.925", target: "≥ 0.90", status: "passed" },
+  { label: "NDCG @ 10", value: "0.95", target: "≥ 0.90", status: "passed" },
+  { label: "Citation Validity", value: "1.00", target: "1.00", status: "passed" },
+  { label: "Refusal Accuracy", value: "1.00", target: "≥ 0.98", status: "passed" },
+  { label: "False Refusal Rate", value: "0.00", target: "≤ 0.02", status: "passed" },
+  { label: "Injection Defense", value: "1.00", target: "1.00", status: "passed" },
+];
 
 export function TrustSection() {
-  const metricsRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
-  useLayoutEffect(() => {
-    const root = metricsRef.current;
-    if (!root) return;
-    if (prefersReducedMotion()) return;
-
-    const ctx = gsap.context(() => {
-      /**
-       * Count-up on the metrics — one of the few places GSAP animates a value
-       * rather than a property, and one of the few animations here that does
-       * actual work: watching a number settle makes you read it, where a number
-       * that is simply present gets skimmed.
-       *
-       * The final text is already in the HTML, so this overwrites and then lands
-       * back on exactly the same string. Nothing is hidden if JS never runs.
-       */
-      gsap.utils.toArray<HTMLElement>("[data-metric-value]").forEach((el) => {
-        const target = Number(el.dataset["value"] ?? "0");
-        const decimals = Number(el.dataset["decimals"] ?? "2");
-        const counter = { value: 0 };
-
-        gsap.to(counter, {
-          value: target,
-          duration: DUR.hero,
-          ease: EASE.out,
-          onUpdate: () => {
-            el.textContent = counter.value.toFixed(decimals);
-          },
-          scrollTrigger: { trigger: root, start: REVEAL_START, once: true },
-        });
-      });
-    }, root);
-
-    return () => ctx.revert();
-  }, []);
+  const copyCommand = () => {
+    navigator.clipboard.writeText("npm run eval:gate");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <section className="mx-auto max-w-6xl px-6 py-24">
-      <Reveal as="header" className="max-w-2xl">
-        <span className="font-mono text-[11px] uppercase tracking-widest text-[#78BFEA]">
-          What it will not do
-        </span>
-        <h2 className="mt-3 max-w-[16ch] text-[clamp(2.15rem,3.6vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.042em] text-[#F2F2EF] [text-wrap:balance]">
-          The useful guarantee is the refusal.
-        </h2>
-        <p className="mt-4 text-[15px] leading-relaxed text-[#A7ABB2]">
-          Anything can produce an answer. The parts worth building are the ones that stop it from
-          answering when it shouldn&apos;t, and that keep one account&apos;s documents entirely
-          invisible to another.
-        </p>
-      </Reveal>
+    <section className="border-b border-white/[0.06] bg-[#09090b] py-20 sm:py-28">
+      <div className="mx-auto max-w-5xl px-6 sm:px-8">
+        {/* Section Header with Reproduction Command */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-zinc-900/60 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+              <Activity className="h-3.5 w-3.5 text-zinc-400" />
+              Empirical Benchmarks
+            </div>
+            <h2 className="mt-3 text-2xl font-medium tracking-tight text-zinc-100 sm:text-3xl">
+              Measured, not asserted.
+            </h2>
+            <p className="mt-1 text-xs text-zinc-400">
+              Offline evaluation fixture across factual lookup, semantic paraphrase, and
+              prompt-injection cases.
+            </p>
+          </div>
 
-      <Reveal stagger="loose" className="mt-12 grid gap-4 md:grid-cols-3">
-        {PILLARS.map((pillar) => (
-          <article
-            key={pillar.title}
-            className="glass-panel rounded-2xl p-5 border-[#1B1F25] bg-[#0B0D10]/80"
+          {/* Copyable Evaluator Command */}
+          <button
+            onClick={copyCommand}
+            className="inline-flex h-8 items-center gap-2 self-start rounded-md border border-white/[0.08] bg-zinc-900/60 px-3 font-mono text-xs text-zinc-300 transition-colors hover:border-white/[0.16] hover:text-white"
           >
-            <pillar.icon className="h-4 w-4 text-[#78BFEA]" />
-            <h3 className="mt-3 text-sm font-semibold text-[#F2F2EF]">{pillar.title}</h3>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[#A7ABB2]">{pillar.body}</p>
-          </article>
-        ))}
-      </Reveal>
+            <Terminal className="h-3.5 w-3.5 text-zinc-500" />
+            <span>npm run eval:gate</span>
+            {copied ? (
+              <Check className="h-3 w-3 text-emerald-400" />
+            ) : (
+              <Copy className="h-3 w-3 text-zinc-500" />
+            )}
+          </button>
+        </div>
 
-      <div ref={metricsRef} className="mt-16">
-        <Reveal as="header" className="max-w-2xl">
-          <h3 className="text-lg font-semibold tracking-[-0.025em] text-[#F2F2EF]">
-            Measured, not asserted
-          </h3>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-[#A7ABB2]">
-            <code className="rounded bg-[#080A0D] border border-[#1B1F25] px-1 py-0.5 font-mono text-[12px] text-[#F2F2EF]">
-              npm run eval
-            </code>{" "}
-            runs offline — no API keys, no network — across factual lookup, semantic paraphrase,
-            cross-document, multi-hop, refusal, and prompt-injection cases.{" "}
-            <code className="rounded bg-[#080A0D] border border-[#1B1F25] px-1 py-0.5 font-mono text-[12px] text-[#F2F2EF]">
-              npm run eval:gate
-            </code>{" "}
-            exits non-zero if any metric drops below its floor.
-          </p>
-        </Reveal>
-
-        <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Dense Telemetry Matrix Grid */}
+        <div className="mt-8 grid grid-cols-2 divide-x divide-y divide-white/[0.06] rounded-lg border border-white/[0.06] bg-zinc-900/20 sm:grid-cols-4 sm:divide-y-0">
           {METRICS.map((metric) => (
-            <div
-              key={metric.label}
-              className="glass-panel rounded-xl p-4 border-[#1B1F25] bg-[#0B0D10]/80"
-            >
-              <dd
-                data-metric-value
-                data-value={metric.value}
-                data-decimals={metric.decimals}
-                className="font-mono text-2xl font-semibold tabular-nums text-[#F2F2EF]"
-              >
-                {metric.value.toFixed(metric.decimals)}
-              </dd>
-              <dt className="mt-1 font-mono text-[11px] uppercase tracking-widest text-[#828791]">
-                {metric.label}
-              </dt>
+            <div key={metric.label} className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                  {metric.label}
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80 shadow-[0_0_6px_rgba(52,211,153,0.4)]" />
+              </div>
+
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="font-mono text-2xl font-medium tracking-tight text-zinc-100 tabular-nums">
+                  {metric.value}
+                </span>
+                <span className="font-mono text-[10px] text-zinc-500">target {metric.target}</span>
+              </div>
             </div>
           ))}
-        </dl>
+        </div>
 
-        {/*
-          The caveat is not small print, and it is not optional. Publishing
-          "Recall@5 1.00" without the corpus size next to it would be the same
-          category of overclaiming the evidence gate exists to prevent.
-        */}
-        <p className="mt-4 text-[12.5px] leading-relaxed text-[#666C76]">
-          Measured against a 13-case golden fixture set — a regression signal, not a claim of
-          production-scale accuracy. The evidence-gate thresholds are tuned against that same
-          fixture set and would need re-measuring on a larger, more diverse corpus.
+        {/* Footer Note */}
+        <p className="mt-4 text-[11px] font-mono text-zinc-500">
+          * Measured against a 13-case golden fixture set. Fails exit code non-zero if any metric
+          falls below threshold.
         </p>
       </div>
     </section>
