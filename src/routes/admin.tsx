@@ -420,7 +420,18 @@ function TracesPanel() {
             {(traces.data ?? []).map((row) => {
               const stages = (row.stages as Record<string, unknown>) ?? {};
               const rerank = (stages["rerank"] as Record<string, unknown>) ?? {};
-              const hasFallback = Boolean(rerank["fallback"]);
+              const validation = (stages["validation"] as Record<string, unknown>) ?? {};
+              const isCancelled =
+                row.gate_reason === "cancelled" ||
+                row.gate_reason === "client_cancelled" ||
+                Boolean(stages["cancellation"]);
+              const isValidationRefusal =
+                row.refused &&
+                (row.gate_reason === "validation_failed" || validation["passed"] === false);
+              const isGatedRefusal = row.refused && !isValidationRefusal && !isCancelled;
+              const isGrounded = !row.refused && !isCancelled;
+              const isTimeoutFallback = rerank["fallback"] === "timeout";
+              const isOtherFallback = Boolean(rerank["fallback"]) && !isTimeoutFallback;
 
               return (
                 <li key={row.id}>
@@ -432,26 +443,44 @@ function TracesPanel() {
                     }`}
                   >
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {row.refused ? (
-                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
-                          Refusal
+                      {isCancelled ? (
+                        <Badge
+                          variant="outline"
+                          className="h-5 border-rose-500/40 bg-rose-500/10 px-1.5 text-[10px] text-rose-300"
+                        >
+                          Cancelled 499
                         </Badge>
-                      ) : (
+                      ) : isValidationRefusal ? (
+                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                          Validation Refusal
+                        </Badge>
+                      ) : isGatedRefusal ? (
+                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                          Gated Refusal
+                        </Badge>
+                      ) : isGrounded ? (
                         <Badge
                           variant="default"
                           className="h-5 bg-emerald-600/80 px-1.5 text-[10px] text-white"
                         >
-                          Grounded
+                          Grounded 200
                         </Badge>
-                      )}
-                      {hasFallback && (
+                      ) : null}
+                      {isTimeoutFallback ? (
                         <Badge
                           variant="outline"
                           className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-300"
                         >
-                          Fallback
+                          Reranker Timeout
                         </Badge>
-                      )}
+                      ) : isOtherFallback ? (
+                        <Badge
+                          variant="outline"
+                          className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-300"
+                        >
+                          Reranker Fallback
+                        </Badge>
+                      ) : null}
                       <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
                         {ms(row.total_latency_ms)}
                       </span>
