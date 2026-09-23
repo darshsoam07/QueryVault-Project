@@ -64,6 +64,10 @@ describe("backoff", () => {
 });
 
 describe("idempotency", () => {
+  it("enforces chunker version 3 for hardened ingestion", () => {
+    expect(CHUNKER_VERSION).toBe(3);
+  });
+
   it("derives the same chunk id for the same document, version and index", async () => {
     const doc = "6f1c1b8a-1f0a-4e7f-9f0d-0f4a6f5b2c11";
     const a = await deterministicChunkId(doc, CHUNKER_VERSION, 7);

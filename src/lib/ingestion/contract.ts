@@ -9,9 +9,16 @@
 /** Bump when PDF text extraction changes in a way that alters output. */
 export const PARSER_VERSION = 1;
 /** Bump when chunk boundaries change. Vectors from other versions are pruned. */
-export const CHUNKER_VERSION = 2;
+export const CHUNKER_VERSION = 3;
 /** Identifies the code that ran a job; recorded on every attempt. */
 export const WORKER_VERSION = "ingest-worker@3";
+
+export type ChunkMetadata = {
+  section?: string | undefined;
+  breadcrumbs?: string[] | undefined;
+  isTable?: boolean | undefined;
+  pageNumber: number;
+};
 
 export const CHUNK_SIZE = 1000;
 export const CHUNK_OVERLAP = 200;
