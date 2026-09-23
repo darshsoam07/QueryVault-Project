@@ -334,17 +334,15 @@ export const Route = createFileRoute("/api/chat")({
             },
             fusion: {
               count: t.fusedCandidates,
-              rrfTop: outcome.ranked
-                .slice(0, 12)
-                .map((c) => ({
-                  chunkId: c.chunkId,
-                  filename: c.filename,
-                  page: c.page,
-                  densePosition: c.densePosition,
-                  lexicalPosition: c.lexicalPosition,
-                  fusionScore: c.fusionScore,
-                  rerankScore: c.rerankScore,
-                })),
+              rrfTop: outcome.ranked.slice(0, 12).map((c) => ({
+                chunkId: c.chunkId,
+                filename: c.filename,
+                page: c.page,
+                densePosition: c.densePosition,
+                lexicalPosition: c.lexicalPosition,
+                fusionScore: c.fusionScore,
+                rerankScore: c.rerankScore,
+              })),
             },
             rerank: {
               latencyMs: t.rerankLatencyMs,

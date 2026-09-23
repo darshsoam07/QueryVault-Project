@@ -86,6 +86,10 @@ export const RETRIEVAL_CONFIG = {
   duplicateThreshold: 0.82,
   /** At most this many passages from the same document page. */
   maxPerPage: 2,
+  /** Phase 3: Sliding-window passage compression and score-aware Jaccard folding. */
+  enablePassageCompression: true,
+  minOverlapChars: 16,
+  dynamicJaccard: true,
 } as const;
 
 export type RetrievalConfig = typeof RETRIEVAL_CONFIG;

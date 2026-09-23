@@ -11,7 +11,16 @@ export { heuristicReranker, createLlmReranker, parseRerankScores, contentTerms }
 export type { Reranker, RerankOptions, RerankResult } from "./reranker";
 export { evaluateEvidence } from "./evidence-gate";
 export type { GateVerdict } from "./evidence-gate";
-export { buildContext, estimateTokens, jaccard, formatSourceId } from "./context-builder";
+export {
+  buildContext,
+  estimateTokens,
+  jaccard,
+  formatSourceId,
+  extractSectionBreadcrumb,
+  findTextOverlap,
+  compressAdjoiningPassages,
+  computeDynamicJaccardThreshold,
+} from "./context-builder";
 export { validateCitations, citedSources } from "./citations";
 export {
   validateCitedAnswer,
