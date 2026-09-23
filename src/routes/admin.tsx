@@ -456,9 +456,12 @@ function TracesPanel() {
                         {ms(row.total_latency_ms)}
                       </span>
                     </div>
-                    <p className="mt-1.5 line-clamp-2 font-normal text-foreground">{row.question}</p>
+                    <p className="mt-1.5 line-clamp-2 font-normal text-foreground">
+                      {row.question}
+                    </p>
                     <p className="mt-1 text-[10px] text-muted-foreground">
-                      {new Date(row.created_at).toLocaleTimeString()} · {row.reranker ?? "no rerank"}
+                      {new Date(row.created_at).toLocaleTimeString()} ·{" "}
+                      {row.reranker ?? "no rerank"}
                     </p>
                   </button>
                 </li>

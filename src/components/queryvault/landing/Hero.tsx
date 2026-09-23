@@ -1,12 +1,11 @@
-import React from 'react';
-import { ArrowRight, Terminal, ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
+import React from "react";
+import { ArrowRight, Terminal, ShieldCheck, CheckCircle2, Lock } from "lucide-react";
 
 export function Hero() {
   return (
     <section className="relative min-h-[85vh] w-full border-b border-zinc-800/80 bg-[#09090b] pt-20 pb-16 sm:pt-28 sm:pb-24">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-10">
-          
           {/* Left Column: Asymmetric, Left-Aligned Copy */}
           <div className="lg:col-span-7">
             {/* Flat Micro-Pill (No glow, pure structural border) */}
@@ -23,7 +22,8 @@ export function Hero() {
             </h1>
 
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-400">
-              QueryVault indexes PDFs into tenant-isolated vector stores. Answers are emitted exclusively if backed by server-validated page citations.
+              QueryVault indexes PDFs into tenant-isolated vector stores. Answers are emitted
+              exclusively if backed by server-validated page citations.
             </p>
 
             {/* Action Buttons: Explicit easing, no jelly pills */}
@@ -91,7 +91,6 @@ export function Hero() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </section>

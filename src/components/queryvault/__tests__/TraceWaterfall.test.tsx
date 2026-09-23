@@ -147,13 +147,7 @@ describe("TraceWaterfall Component", () => {
       },
     };
 
-    render(
-      <TraceWaterfall
-        stages={timeoutStages}
-        totalLatencyMs={5200}
-        refused={false}
-      />,
-    );
+    render(<TraceWaterfall stages={timeoutStages} totalLatencyMs={5200} refused={false} />);
 
     const alert = screen.getByTestId("reranker-fallback-alert");
     expect(alert).toBeDefined();
@@ -170,13 +164,7 @@ describe("TraceWaterfall Component", () => {
       },
     };
 
-    render(
-      <TraceWaterfall
-        stages={providerErrorStages}
-        totalLatencyMs={600}
-        refused={false}
-      />,
-    );
+    render(<TraceWaterfall stages={providerErrorStages} totalLatencyMs={600} refused={false} />);
 
     const alert = screen.getByTestId("reranker-fallback-alert");
     expect(alert).toBeDefined();
@@ -213,13 +201,7 @@ describe("TraceWaterfall Component", () => {
   });
 
   it("renders RRF rank shift matrix tracking promotions and demotions", () => {
-    render(
-      <TraceWaterfall
-        stages={sampleStages}
-        totalLatencyMs={1015}
-        refused={false}
-      />,
-    );
+    render(<TraceWaterfall stages={sampleStages} totalLatencyMs={1015} refused={false} />);
 
     const table = screen.getByTestId("rrf-matrix-table");
     expect(table).toBeDefined();

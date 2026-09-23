@@ -5,7 +5,14 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, FileText, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 
 type Row = Record<string, unknown>;
@@ -142,7 +149,10 @@ export function TraceWaterfall({
               Grounded Refusal Triggered (Evidence Gated)
             </span>
             <p className="mt-0.5 text-muted-foreground">
-              Reason: <code className="text-foreground">{String(gateReason ?? gate["reason"] ?? "insufficient_evidence")}</code>
+              Reason:{" "}
+              <code className="text-foreground">
+                {String(gateReason ?? gate["reason"] ?? "insufficient_evidence")}
+              </code>
             </p>
           </div>
         </div>
@@ -163,7 +173,10 @@ export function TraceWaterfall({
         </div>
 
         {/* Proportional Multi-Segment Gantt Bar */}
-        <div className="mb-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/40" data-testid="gantt-bar">
+        <div
+          className="mb-4 flex h-3 w-full overflow-hidden rounded-full bg-muted/40"
+          data-testid="gantt-bar"
+        >
           {stageTimings.map((stage) => {
             const pctVal = effectiveTotalMs > 0 ? (stage.ms / effectiveTotalMs) * 100 : 0;
             if (pctVal <= 0) return null;
@@ -216,7 +229,10 @@ export function TraceWaterfall({
             <span className="text-[11px] text-muted-foreground">Gate Verdict</span>
             <div className="mt-1 flex items-center gap-1.5">
               {isGrounded ? (
-                <Badge variant="default" className="gap-1 bg-emerald-600/80 text-white hover:bg-emerald-600">
+                <Badge
+                  variant="default"
+                  className="gap-1 bg-emerald-600/80 text-white hover:bg-emerald-600"
+                >
                   <CheckCircle2 className="h-3 w-3" /> Grounded
                 </Badge>
               ) : (
@@ -242,7 +258,9 @@ export function TraceWaterfall({
           </div>
 
           <div className="rounded-lg border border-border/40 bg-card/20 p-2.5">
-            <span className="text-[11px] text-muted-foreground">Cosine Similarity (Floor: 0.30)</span>
+            <span className="text-[11px] text-muted-foreground">
+              Cosine Similarity (Floor: 0.30)
+            </span>
             <div className="mt-1 flex items-center gap-2">
               <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                 {fmt(gate["bestSimilarity"])}
@@ -259,7 +277,8 @@ export function TraceWaterfall({
             <span className="text-[11px] text-muted-foreground">Evidence Context</span>
             <div className="mt-1 text-xs text-muted-foreground">
               <strong className="text-foreground">{num(evidence["count"]) ?? 0}</strong> passages ·{" "}
-              <strong className="text-foreground">{num(evidence["contextTokens"]) ?? 0}</strong> tokens
+              <strong className="text-foreground">{num(evidence["contextTokens"]) ?? 0}</strong>{" "}
+              tokens
             </div>
           </div>
         </div>
@@ -273,7 +292,11 @@ export function TraceWaterfall({
           className="flex w-full items-center justify-between text-left"
         >
           <div className="flex items-center gap-2">
-            {showRrfMatrix ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            {showRrfMatrix ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               RRF Rank Shift Matrix (Top Candidates)
             </h4>
@@ -422,7 +445,9 @@ export function TraceWaterfall({
                   <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-primary">
                     {String(source["sourceId"] ?? `source_${String(index + 1).padStart(2, "0")}`)}
                   </code>
-                  <span className="font-medium text-foreground">{String(source["filename"] ?? "")}</span>
+                  <span className="font-medium text-foreground">
+                    {String(source["filename"] ?? "")}
+                  </span>
                   <span className="text-muted-foreground">p. {String(source["page"] ?? "?")}</span>
                 </div>
                 <div className="font-mono text-[11px] text-muted-foreground">
@@ -435,7 +460,9 @@ export function TraceWaterfall({
             </div>
           ))}
           {rowsOf(evidence, "sources").length === 0 && (
-            <p className="py-2 text-center text-xs text-muted-foreground">No evidence sources delivered.</p>
+            <p className="py-2 text-center text-xs text-muted-foreground">
+              No evidence sources delivered.
+            </p>
           )}
         </div>
       </Card>

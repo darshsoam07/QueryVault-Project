@@ -213,9 +213,6 @@ describe("multi-page document continuity", () => {
     expect(chunks[1]!.index).toBe(1);
     // Page 2 chunk retains section context from page 1!
     expect(chunks[1]!.content).toContain("[Section: Compliance Manual > Section A: Auditing]");
-    expect(chunks[1]!.metadata?.breadcrumbs).toEqual([
-      "Compliance Manual",
-      "Section A: Auditing",
-    ]);
+    expect(chunks[1]!.metadata?.breadcrumbs).toEqual(["Compliance Manual", "Section A: Auditing"]);
   });
 });

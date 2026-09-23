@@ -264,9 +264,7 @@ export function preparePageChunks(
         const codeBlockText = codeLines.join("\n");
         const currentBreadcrumbs = breadcrumbStack.map((h) => h.title);
         const prefix =
-          currentBreadcrumbs.length > 0
-            ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n`
-            : "";
+          currentBreadcrumbs.length > 0 ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n` : "";
         const effectiveChunkSize = Math.max(200, chunkSize - prefix.length);
 
         for (const piece of recursiveSplit(codeBlockText, effectiveChunkSize, overlap)) {
@@ -311,9 +309,7 @@ export function preparePageChunks(
 
         const currentBreadcrumbs = breadcrumbStack.map((h) => h.title);
         const prefix =
-          currentBreadcrumbs.length > 0
-            ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n`
-            : "";
+          currentBreadcrumbs.length > 0 ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n` : "";
         const effectiveChunkSize = Math.max(200, chunkSize - prefix.length);
 
         for (const tableChunk of splitTable(tableLines, effectiveChunkSize)) {
@@ -359,9 +355,7 @@ export function preparePageChunks(
 
       const currentBreadcrumbs = breadcrumbStack.map((h) => h.title);
       const prefix =
-        currentBreadcrumbs.length > 0
-          ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n`
-          : "";
+        currentBreadcrumbs.length > 0 ? `[Section: ${currentBreadcrumbs.join(" > ")}]\n\n` : "";
       const effectiveChunkSize = Math.max(200, chunkSize - prefix.length);
 
       for (const piece of recursiveSplit(textBlock, effectiveChunkSize, overlap)) {
