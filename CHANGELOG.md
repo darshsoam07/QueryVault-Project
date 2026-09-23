@@ -1,5 +1,10 @@
 # QueryVault — Change Log
 
+## Corrections
+- [2026-09-22] The Phase 4 entry below incorrectly states that
+  `gate.minTopRerankScore` in `src/lib/retrieval/config.ts` moved from 0.35 to
+  0.38. The threshold was never changed and remains 0.35.
+
 ## [Phase 7] — Cleanup & Documentation
 - Added CHANGELOG.md (this file)
 - Confirmed evaluation/runner.ts already has the correct `process.exit(1)` gate

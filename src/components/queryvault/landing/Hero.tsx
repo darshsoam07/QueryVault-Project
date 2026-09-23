@@ -49,7 +49,7 @@ export function Hero() {
             <div className="mt-10 flex items-center gap-6 border-t border-zinc-800/80 pt-6 text-[11px] font-mono text-zinc-500">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-zinc-400 stroke-[1.5]" />
-                Zero Hallucination
+                Refuses unsupported answers
               </span>
               <span className="flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-zinc-400 stroke-[1.5]" />
@@ -72,13 +72,13 @@ export function Hero() {
               </div>
 
               <div className="mt-4 space-y-3 font-mono text-xs text-zinc-300">
-                <div className="text-[11px] text-zinc-500">// 1. Evidence evaluation threshold</div>
+                <div className="text-[11px] text-zinc-500">// 1. Evidence gate evaluation</div>
                 <div className="rounded bg-zinc-900/70 p-2.5 text-[11px] leading-relaxed text-zinc-300 border border-zinc-800/60">
                   <span className="text-purple-400">const</span> isVerified = gate.evaluate(&#123;
                   <br />
-                  &nbsp;&nbsp;topRank: <span className="text-emerald-400">0.962</span>,
+                  &nbsp;&nbsp;evidence: evidenceSet.retrieved,
                   <br />
-                  &nbsp;&nbsp;minThreshold: <span className="text-emerald-400">0.850</span>
+                  &nbsp;&nbsp;citations: citations.validated
                   <br />
                   &#125;);
                 </div>

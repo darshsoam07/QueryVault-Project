@@ -1,4 +1,5 @@
 import { chatCompletion, type AiProvider } from "@/lib/ai-gateway.server";
+import { isCancellationError } from "./cancellation";
 import { RETRIEVAL_CONFIG, type QueryRewriteStrategy } from "./config";
 import { contentTerms } from "./reranker";
 
@@ -45,6 +46,9 @@ Never answer the question. Never add facts.`;
 /**
  * Returns the query variants to retrieve with. The original question is always
  * first; expansion failures degrade silently to the original query alone.
+ *
+ * Cancellation is never degraded: an AbortError propagates so the caller can
+ * terminate the request.
  */
 export async function expandQuery(options: {
   question: string;
@@ -72,7 +76,11 @@ export async function expandQuery(options: {
     const list = Array.isArray(parsed.queries) ? (parsed.queries as string[]) : [];
     const queries = sanitizeVariants(options.question, list);
     return { queries, rewritten: queries.length > 1 };
-  } catch {
+  } catch (error) {
+    // Audit: expansion failures degrade silently, but caller cancellation
+    // must never be swallowed or converted into a degraded query — let it
+    // propagate so the request terminates.
+    if (isCancellationError(error)) throw error;
     return { queries: [options.question], rewritten: false };
   }
 }

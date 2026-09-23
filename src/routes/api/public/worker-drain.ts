@@ -9,18 +9,12 @@
  * No PII is ever returned.
  */
 import { createFileRoute } from "@tanstack/react-router";
-
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length || a.length === 0) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i += 1) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return mismatch === 0;
-}
+import { constantTimeCompare } from "@/lib/constant-time-compare.server";
 
 async function isAuthorized(request: Request): Promise<boolean> {
   const envSecret = process.env["INGESTION_WORKER_SECRET"];
   const provided = request.headers.get("x-worker-secret");
-  return Boolean(envSecret && provided && timingSafeEqual(provided, envSecret));
+  return constantTimeCompare(provided, envSecret);
 }
 
 export const Route = createFileRoute("/api/public/worker-drain")({

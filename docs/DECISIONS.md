@@ -44,6 +44,8 @@ Short records of the choices that shaped the design. Each ADR covers *why* this 
 
 **Trade-offs.** Slightly more retrieval latency than single-source. Acceptable for the quality gain.
 
+> Amendment (2026-09-22): the "Decision" line above is stale — it records the original design intent, not the as-built system, and is preserved for history. **As built** (`src/lib/retrieval/config.ts`, `pipeline.ts`, `reranker.ts`, `src/routes/api/chat.ts`): 20 dense + 20 lexical candidates are fused with RRF (k=60, dense weight 1.0, lexical weight 0.8) to **12 chunks**, which go through a reranker — the default strategy is an **LLM listwise reranker** with an **enforced timeout** and a **deterministic heuristic fallback**: the provider call is bounded by `llmRerankerTimeoutMs` (5000 ms) via a linked AbortController that genuinely aborts the in-flight request on timeout or caller cancellation, and the heuristic reranker produces the scores instead on timeout, provider error, or caller cancellation (the fallback kind is reported in the rerank result and telemetry). The evidence gate then runs **before generation** (top rerank score ≥ 0.35, top similarity ≥ 0.30, ≥ 1 supporting chunk ≥ 0.30; otherwise a grounded refusal with no generation). Generation draws on a grounded context of **up to 6 sources** (3200-token budget). Note the earlier rationale also said a learned reranker was "premature" — the project has since adopted one as the default, with the heuristic reranker retained as the fail-safe fallback. Rerank/retrieval scores are relevance signals, not confidence or calibrated probabilities.
+
 ---
 
 ## ADR-003: RLS-first data model over application-layer tenant checks

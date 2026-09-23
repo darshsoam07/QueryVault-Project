@@ -42,7 +42,7 @@ const STAGES: Stage[] = [
   {
     id: "06",
     name: "Evidence gate",
-    desc: "Validates top rank against relevance thresholds. Returns refusal if confidence fails.",
+    desc: "Answers below the configured evidence threshold are refused.",
     badge: "Guardrail",
   },
   {
@@ -88,7 +88,7 @@ export function PipelineSection() {
 
             <div className="mt-6 flex items-center gap-2 text-[11px] font-mono text-zinc-500">
               <ShieldCheck className="h-4 w-4 text-emerald-400/80" />
-              <span>Deterministic zero-hallucination guarantee</span>
+              <span>Unsupported answers are refused before generation</span>
             </div>
           </div>
 

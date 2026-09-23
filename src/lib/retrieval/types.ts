@@ -28,6 +28,20 @@ export type RankedCandidate = FusedCandidate & {
 };
 
 /**
+ * Why the configured reranker did not produce the final ranking.
+ * - `timeout`: the LLM reranker exceeded `llmRerankerTimeoutMs` and the
+ *   underlying provider request was aborted.
+ * - `provider-error`: the provider call failed (network, status, unparsable).
+ *
+ * Caller cancellation is deliberately NOT a fallback kind: a caller abort is
+ * a request termination event. The reranker throws the cancellation (an
+ * AbortError) instead of falling back, and the chat route records it as the
+ * separate safe `chat.request_cancelled` event. Telemetry's
+ * `rerankerFallback` therefore never reports a cancellation.
+ */
+export type RerankFallbackKind = "timeout" | "provider-error";
+
+/**
  * A passage handed to the model and the UI. `sourceId` is immutable and
  * request-scoped: the model may only cite these ids.
  */
@@ -58,7 +72,13 @@ export type RetrievalTelemetry = {
   finalEvidence: number;
   bestSimilarity: number | null;
   bestRerankScore: number | null;
+  /** Name of the reranker that ACTUALLY produced the final scores. After a
+   * fallback this is the heuristic reranker, not the configured one. */
   rerankerName: string;
+  /** Why a fallback reranker produced the scores, or null when the configured
+   * reranker succeeded. Lets timeout fallbacks be told apart from
+   * provider-error fallbacks in telemetry and traces. */
+  rerankerFallback: RerankFallbackKind | null;
   contextTokens: number;
   droppedDuplicates: number;
   grounded: boolean;

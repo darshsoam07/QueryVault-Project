@@ -36,7 +36,7 @@ This document describes how QueryVault works end-to-end. For setup instructions,
        | HTTPS (OpenAI API)
        v
 +---------------------------------+
-| OpenAI text-embedding-3-small   |
+| OpenAI text-embedding-3-large   |
 +---------------------------------+
 ```
 
@@ -98,6 +98,8 @@ pg_cron fires again next minute
 
 **Browser independence:** `pg_cron` fires unconditionally every minute. Jobs arrive while no browser is connected and drain within 60 seconds. The scheduler never creates duplicate cron schedules (`IF NOT EXISTS` guard).
 
+> In-repo note: the above describes what the migrations and code in this repository define. Whether `pg_cron`/`pg_net` are enabled and firing in a given Supabase project, and whether Vault secrets resolve there, depends on the deployed production environment and cannot be established from repository inspection alone.
+
 ---
 
 ## 3. Query pipeline
@@ -106,35 +108,76 @@ pg_cron fires again next minute
 User asks a question
        |
        v
-Embed the query (OpenAI)
+Embed the query (text-embedding-3-large, 3072 dims)
        |
        v
 Hybrid retrieval:
   +----------------------------------------+
   |                                        |
-  |  pgvector HNSW search ---+            |
-  |  (top 20 by cosine)      |            |
-  |                          +--> RRF     |
-  |  Postgres FTS search  ---+    fusion  |
-  |  (top 20 by ts_rank)                  |
+  |  pgvector HNSW search  ---+            |
+  |  (top 20 by cosine,       |            |
+  |   dense floor: sim >=     |            |
+  |   0.25)                   +--> RRF     |
+  |                           |    fusion  |
+  |  Postgres FTS search  ---+    (k = 60,  |
+  |  (top 20 by ts_rank)      |  dense wt   |
+  |                           |  1.0,       |
+  |                           |  lexical    |
+  |                           |  wt 0.8)    |
   |                                        |
   +----------------------------------------+
        |
        v
-Top 10 fused chunks --> LLM prompt
+Top 12 fused chunks --> reranker:
+  * LLM listwise reranker (0..1 relevance scores),
+    default strategy "llm"
+  * enforced timeout: the provider call is bounded by
+    llmRerankerTimeoutMs (5000 ms) via a linked
+    AbortController, so the in-flight provider request is
+    genuinely aborted on timeout or caller cancellation
+    (no fire-and-forget race)
+  * deterministic heuristic fallback on timeout, provider
+    error, or caller cancellation; which fallback applied
+    is reported in the rerank result and telemetry
+  * scores are real relevance signals, NOT
+    confidence or calibrated probabilities
        |
        v
-Evidence gating:
-  * LLM must cite at least one chunk ID
-  * Each cited chunk must actually appear in the retrieved set
-  * If a claim has no citation --> reject the response
+Evidence gate (runs BEFORE generation):
+  * top rerank score   >= 0.35
+  * top similarity     >= 0.30
+  * >= 1 supporting chunk with score >= 0.30
+  * gate fails --> grounded refusal, no generation
+       |
+       v
+Build grounded context (up to 6 sources,
+3200 token budget, near-duplicate folded,
+max 2 passages per page)
+       |
+       v
+Generate answer (answer ONLY from evidence;
+cite with [source_01]-style ids)
+       |
+       v
+Citation validation (post-generation, server-side):
+  * strict paragraph-level rule: every substantive block
+    (paragraph, bullet/numbered item, blockquote with
+    claims, substantive table row) in a non-refusal answer
+    must carry at least one valid citation from this
+    request's evidence set
+  * unknown citation ids are output failures: answers that
+    violate the rule are refused before delivery
+  * validation runs BEFORE delivery and persistence, so
+    delivered text === stored text
        |
        v
 Response with inline citations:
-  "The policy was updated in Q1 [doc:handbook.pdf, chunk:42]."
+  "The policy was updated in Q1 [source_01]."
 ```
 
-The evidence gate is the part that makes this "grounded RAG" rather than "chatbot that sometimes cites things." Ungrounded answers are rejected before they are shown to the user.
+> Correction (2026-09-22): this section previously named `text-embedding-3-small`, described a "top 10 fused → LLM prompt" flow with no reranker, and framed the evidence gate as a post-generation check ("if a claim has no citation → reject"). That was wrong. As built (see `src/lib/retrieval/config.ts`, `pipeline.ts`, `reranker.ts`, `citations.ts`, `src/routes/api/chat.ts`): the pipeline embeds with `text-embedding-3-large`, retrieves 20 dense + 20 lexical candidates, fuses them with RRF (k=60) to 12 chunks, reranks with an LLM reranker whose timeout is enforced (a linked AbortController aborts the in-flight provider request at `llmRerankerTimeoutMs` = 5000 ms, with a deterministic heuristic fallback on timeout/provider error/caller cancellation), applies the evidence gate *before* generation, builds a grounded context of up to 6 sources, and validates citations *after* generation before anything is delivered or persisted. The evidence-gate threshold (`gate.minTopRerankScore`) remains 0.35 — it was never changed (see CHANGELOG "Corrections").
+
+The evidence gate is the part that makes this "grounded RAG" rather than "chatbot that sometimes cites things." Weak evidence turns into an honest refusal instead of an invitation to hallucinate.
 
 ---
 

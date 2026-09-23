@@ -78,7 +78,8 @@ export function CitationsSection() {
                 <h3 className="text-xs font-medium text-zinc-200">Refusal Over Hallucination</h3>
               </div>
               <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-400">
-                If the reranking score falls below the 0.85 floor, the model outputs a deterministic &ldquo;Insufficient evidence&rdquo; message rather than inventing claims.
+                Answers below the configured evidence threshold are refused. The model emits a
+                deterministic &ldquo;Insufficient evidence&rdquo; message instead of inventing claims.
               </p>
             </div>
 
