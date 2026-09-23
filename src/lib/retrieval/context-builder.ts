@@ -27,17 +27,159 @@ export function formatSourceId(index: number): string {
   return `source_${String(index + 1).padStart(2, "0")}`;
 }
 
+export type ExtractedSection = {
+  breadcrumb: string | null;
+  cleanText: string;
+  section: string | null;
+  body: string;
+};
+
+/**
+ * Extracts hierarchical section breadcrumb (e.g. `[Section: H1 > H2]`) from chunk content,
+ * returning the breadcrumb and the stripped body text.
+ */
+export function extractSectionBreadcrumb(text: string): ExtractedSection {
+  const match = /^\[Section:\s*([^\]]+)\]\s*\n\n/i.exec(text);
+  if (match) {
+    const breadcrumb = match[1]?.trim() ?? null;
+    const cleanText = text.slice(match[0].length).trim();
+    return { breadcrumb, cleanText, section: breadcrumb, body: cleanText };
+  }
+  const cleanText = text.trim();
+  return { breadcrumb: null, cleanText, section: null, body: cleanText };
+}
+
+/**
+ * Detects suffix-prefix text overlap between earlierText and laterText cleanly
+ * with whitespace tolerance. Returns character length of overlapping prefix in laterText.
+ */
+export function findTextOverlap(
+  earlierText: string,
+  laterText: string,
+  minChars = 16,
+  maxChars = 600,
+): number {
+  const a = earlierText.trimEnd();
+  const b = laterText.trimStart();
+  const maxSearch = Math.min(a.length, b.length, maxChars);
+
+  // 1. Exact suffix-prefix match
+  for (let len = maxSearch; len >= minChars; len--) {
+    const suffix = a.slice(a.length - len);
+    if (b.startsWith(suffix)) {
+      return len;
+    }
+  }
+
+  // 2. Whitespace-tolerant match (normalizing consecutive whitespace)
+  const normA = a.replace(/\s+/g, " ");
+  const normB = b.replace(/\s+/g, " ");
+  const normMax = Math.min(normA.length, normB.length, maxChars);
+
+  for (let len = normMax; len >= minChars; len--) {
+    const suffix = normA.slice(normA.length - len);
+    if (normB.startsWith(suffix)) {
+      // Find corresponding character length in original raw b
+      let bIdx = 0;
+      let normIdx = 0;
+      while (bIdx < b.length && normIdx < len) {
+        if (/\s/.test(b[bIdx]!) && /\s/.test(suffix[normIdx]!)) {
+          while (bIdx < b.length && /\s/.test(b[bIdx]!)) bIdx++;
+          while (normIdx < suffix.length && /\s/.test(suffix[normIdx]!)) normIdx++;
+        } else {
+          bIdx++;
+          normIdx++;
+        }
+      }
+      return bIdx;
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Merges two adjoining chunks from the same document in reading order,
+ * deduplicating section breadcrumbs and overlapping boundary tokens.
+ */
+export function compressAdjoiningPassages(
+  earlierText: string,
+  laterText: string,
+  minChars = 16,
+): string {
+  const earlier = extractSectionBreadcrumb(earlierText);
+  const later = extractSectionBreadcrumb(laterText);
+
+  const overlap = findTextOverlap(earlier.cleanText, later.cleanText, minChars);
+  let mergedBody: string;
+  if (overlap > 0) {
+    const remainingLater = later.cleanText.trimStart().slice(overlap).trimStart();
+    mergedBody = `${earlier.cleanText.trimEnd()}${remainingLater ? ` ${remainingLater}` : ""}`;
+  } else {
+    const sep = earlier.cleanText.endsWith("\n") ? "\n" : " ";
+    mergedBody = `${earlier.cleanText.trimEnd()}${sep}${later.cleanText.trimStart()}`;
+  }
+
+  if (earlier.breadcrumb && later.breadcrumb && earlier.breadcrumb === later.breadcrumb) {
+    return `[Section: ${earlier.breadcrumb}]\n\n${mergedBody}`;
+  } else if (earlier.breadcrumb && !later.breadcrumb) {
+    return `[Section: ${earlier.breadcrumb}]\n\n${mergedBody}`;
+  } else if (!earlier.breadcrumb && later.breadcrumb) {
+    return `[Section: ${later.breadcrumb}]\n\n${mergedBody}`;
+  } else if (earlier.breadcrumb && later.breadcrumb && earlier.breadcrumb !== later.breadcrumb) {
+    return `[Section: ${earlier.breadcrumb} → ${later.breadcrumb}]\n\n${mergedBody}`;
+  }
+  return mergedBody;
+}
+
+/**
+ * Dynamically adjusts Jaccard duplicate threshold based on rerank/similarity score:
+ * - High-scoring candidates (>= 0.75): scales up to 0.92 to preserve distinct high-value claims.
+ * - Low-scoring candidates (< 0.50): scales down to 0.70 to shed redundant lower-quality text.
+ * - Intermediate candidates: linearly scaled around baseThreshold.
+ */
+export function computeDynamicJaccardThreshold(
+  score: number | null | undefined,
+  baseThreshold: number = RETRIEVAL_CONFIG.duplicateThreshold,
+): number {
+  if (score === null || score === undefined || !Number.isFinite(score)) {
+    return baseThreshold;
+  }
+  const s = Math.max(0, Math.min(1, score));
+  if (s >= 0.75) {
+    const factor = (s - 0.75) / 0.25;
+    return Math.min(0.92, baseThreshold + factor * 0.1);
+  }
+  if (s < 0.5) {
+    const factor = (0.5 - s) / 0.5;
+    return Math.max(0.7, baseThreshold - factor * (baseThreshold - 0.7));
+  }
+  return baseThreshold;
+}
+
 export type BuiltContext = {
   sources: EvidenceSource[];
   contextBlock: string;
   contextTokens: number;
   droppedDuplicates: number;
+  mergedPassages?: number;
+};
+
+type KeptEntry = {
+  candidate: RankedCandidate;
+  snippet: string;
+  fingerprint: Set<string>;
+  minChunkIndex: number;
+  maxChunkIndex: number;
+  chunkIndices: Set<number>;
+  documentId: string;
+  page: number;
 };
 
 /**
- * Turns ranked candidates into the evidence set: strongest first, near-duplicate
- * passages folded away, per-page coverage capped, page/document metadata kept,
- * and the whole thing clamped to a token budget.
+ * Turns ranked candidates into the evidence set: strongest first, adjoining chunks
+ * merged with overlap compression, near-duplicate passages folded away, per-page
+ * coverage capped, page/document metadata kept, and clamped to token budget.
  */
 export function buildContext(
   candidates: RankedCandidate[],
@@ -47,6 +189,9 @@ export function buildContext(
     maxSnippetChars?: number;
     duplicateThreshold?: number;
     maxPerPage?: number;
+    enablePassageCompression?: boolean;
+    minOverlapChars?: number;
+    dynamicJaccard?: boolean;
   } = {},
 ): BuiltContext {
   const maxSources = options.maxSources ?? RETRIEVAL_CONFIG.finalEvidence;
@@ -54,30 +199,88 @@ export function buildContext(
   const maxSnippetChars = options.maxSnippetChars ?? RETRIEVAL_CONFIG.maxSnippetChars;
   const duplicateThreshold = options.duplicateThreshold ?? RETRIEVAL_CONFIG.duplicateThreshold;
   const maxPerPage = options.maxPerPage ?? RETRIEVAL_CONFIG.maxPerPage;
+  const enablePassageCompression =
+    options.enablePassageCompression ?? RETRIEVAL_CONFIG.enablePassageCompression;
+  const minOverlapChars = options.minOverlapChars ?? RETRIEVAL_CONFIG.minOverlapChars;
+  const dynamicJaccard = options.dynamicJaccard ?? RETRIEVAL_CONFIG.dynamicJaccard;
 
-  const kept: Array<{ candidate: RankedCandidate; snippet: string; fingerprint: Set<string> }> = [];
+  const kept: KeptEntry[] = [];
   const perPage = new Map<string, number>();
   let droppedDuplicates = 0;
+  let mergedPassages = 0;
   let usedTokens = 0;
 
   for (const candidate of candidates) {
     if (kept.length >= maxSources) break;
 
+    const chunkIdx = typeof candidate.chunkIndex === "number" ? candidate.chunkIndex : 0;
+
+    // 1. Sliding-Window Passage Compression:
+    // Check if candidate adjoins an already kept passage from the same document.
+    if (enablePassageCompression && typeof candidate.chunkIndex === "number") {
+      const adjoiningEntry = kept.find(
+        (entry) =>
+          entry.documentId === candidate.documentId &&
+          (chunkIdx === entry.minChunkIndex - 1 || chunkIdx === entry.maxChunkIndex + 1),
+      );
+
+      if (adjoiningEntry) {
+        const isPreceding = chunkIdx === adjoiningEntry.minChunkIndex - 1;
+        const merged = isPreceding
+          ? compressAdjoiningPassages(candidate.content, adjoiningEntry.snippet, minOverlapChars)
+          : compressAdjoiningPassages(adjoiningEntry.snippet, candidate.content, minOverlapChars);
+
+        const cappedSnippet =
+          merged.length > maxSnippetChars ? merged.slice(0, maxSnippetChars).trim() : merged;
+
+        const oldTokens = estimateTokens(adjoiningEntry.snippet) + 24;
+        const newTokens = estimateTokens(cappedSnippet) + 24;
+        const tokenDelta = newTokens - oldTokens;
+
+        if (usedTokens + tokenDelta <= maxTokens) {
+          adjoiningEntry.snippet = cappedSnippet;
+          adjoiningEntry.fingerprint = shingles(cappedSnippet);
+          adjoiningEntry.chunkIndices.add(chunkIdx);
+          if (isPreceding) {
+            adjoiningEntry.minChunkIndex = chunkIdx;
+          } else {
+            adjoiningEntry.maxChunkIndex = chunkIdx;
+          }
+          if (
+            candidate.rerankScore !== null &&
+            (adjoiningEntry.candidate.rerankScore === null ||
+              candidate.rerankScore > adjoiningEntry.candidate.rerankScore)
+          ) {
+            adjoiningEntry.candidate.rerankScore = candidate.rerankScore;
+          }
+          usedTokens += tokenDelta;
+          mergedPassages += 1;
+          continue; // Compressed into adjoining passage
+        }
+      }
+    }
+
+    // 2. Per-page coverage cap
     const pageKey = `${candidate.documentId}:${candidate.page}`;
     if ((perPage.get(pageKey) ?? 0) >= maxPerPage) {
       droppedDuplicates += 1;
       continue;
     }
 
+    // 3. Dynamic near-duplicate Jaccard folding
     const fingerprint = shingles(candidate.content);
-    const duplicate = kept.some(
-      (entry) => jaccard(entry.fingerprint, fingerprint) >= duplicateThreshold,
-    );
+    const score = candidate.rerankScore ?? candidate.similarity;
+    const threshold = dynamicJaccard
+      ? computeDynamicJaccardThreshold(score, duplicateThreshold)
+      : duplicateThreshold;
+
+    const duplicate = kept.some((entry) => jaccard(entry.fingerprint, fingerprint) >= threshold);
     if (duplicate) {
       droppedDuplicates += 1;
       continue;
     }
 
+    // 4. Token budget clamp
     const snippet = candidate.content.slice(0, maxSnippetChars).trim();
     const tokens = estimateTokens(snippet) + 24; // header overhead
     if (usedTokens + tokens > maxTokens) {
@@ -85,7 +288,16 @@ export function buildContext(
         // Always keep at least the strongest passage, trimmed to fit.
         const room = Math.max(200, (maxTokens - 24) * 4);
         const trimmed = candidate.content.slice(0, room).trim();
-        kept.push({ candidate, snippet: trimmed, fingerprint });
+        kept.push({
+          candidate,
+          snippet: trimmed,
+          fingerprint,
+          minChunkIndex: chunkIdx,
+          maxChunkIndex: chunkIdx,
+          chunkIndices: new Set([chunkIdx]),
+          documentId: candidate.documentId,
+          page: candidate.page,
+        });
         usedTokens += estimateTokens(trimmed) + 24;
       }
       break;
@@ -93,7 +305,16 @@ export function buildContext(
 
     usedTokens += tokens;
     perPage.set(pageKey, (perPage.get(pageKey) ?? 0) + 1);
-    kept.push({ candidate, snippet, fingerprint });
+    kept.push({
+      candidate,
+      snippet,
+      fingerprint,
+      minChunkIndex: chunkIdx,
+      maxChunkIndex: chunkIdx,
+      chunkIndices: new Set([chunkIdx]),
+      documentId: candidate.documentId,
+      page: candidate.page,
+    });
   }
 
   const sources: EvidenceSource[] = kept.map((entry, index) => ({
@@ -101,7 +322,7 @@ export function buildContext(
     chunkId: entry.candidate.chunkId,
     documentId: entry.candidate.documentId,
     filename: entry.candidate.filename,
-    page: entry.candidate.page,
+    page: typeof entry.candidate.page === "number" ? entry.candidate.page : 1,
     similarityScore:
       entry.candidate.similarity === null ? null : Number(entry.candidate.similarity.toFixed(4)),
     rerankScore:
@@ -116,5 +337,11 @@ export function buildContext(
     )
     .join("\n\n");
 
-  return { sources, contextBlock, contextTokens: usedTokens, droppedDuplicates };
+  return {
+    sources,
+    contextBlock,
+    contextTokens: usedTokens,
+    droppedDuplicates,
+    mergedPassages,
+  };
 }
