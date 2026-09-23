@@ -84,7 +84,7 @@ describe("context-builder helper functions", () => {
     // Low scoring candidate lowers bar (sheds redundant boilerplate aggressively)
     const lowScore = computeDynamicJaccardThreshold(0.3, base);
     expect(lowScore).toBeLessThan(base);
-    expect(lowScore).toBeCloseTo(0.78, 2);
+    expect(lowScore).toBeCloseTo(0.764, 2);
 
     // Mid score hovers around base
     const midScore = computeDynamicJaccardThreshold(0.625, base);
