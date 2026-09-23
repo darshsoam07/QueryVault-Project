@@ -363,12 +363,12 @@ function MetricsPanel({ windowMinutes }: { windowMinutes: number }) {
 function TracesPanel() {
   const list = useServerFn(listQueryTraces);
   const detail = useServerFn(getQueryTrace);
-  const [onlyRefused, setOnlyRefused] = useState(false);
+  const [filter, setFilter] = useState<"all" | "refused" | "fallback">("all");
   const [selected, setSelected] = useState<string | null>(null);
 
   const traces = useQuery({
-    queryKey: ["query-traces", onlyRefused],
-    queryFn: () => list({ data: { limit: 40, onlyRefused } }),
+    queryKey: ["query-traces", filter],
+    queryFn: () => list({ data: { limit: 40, filter } }),
     refetchInterval: 30_000,
   });
 
@@ -379,54 +379,94 @@ function TracesPanel() {
   });
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+    <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
       <Card className="border-border/60 bg-card/40 p-0">
-        <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+        <div className="flex items-center gap-1 border-b border-border/60 p-2">
           <Button
             size="sm"
-            variant={onlyRefused ? "secondary" : "ghost"}
-            onClick={() => setOnlyRefused((value) => !value)}
+            variant={filter === "all" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("all")}
           >
-            Refusals only
+            All
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "refused" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("refused")}
+          >
+            Refusals
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "fallback" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("fallback")}
+          >
+            Fallbacks
           </Button>
           <Button
             size="sm"
             variant="ghost"
-            className="ml-auto"
+            className="ml-auto h-7 w-7 p-0"
             onClick={() => void traces.refetch()}
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <ScrollArea className="h-[60vh]">
+        <ScrollArea className="h-[65vh]">
           <ul className="divide-y divide-border/50">
-            {(traces.data ?? []).map((row) => (
-              <li key={row.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(row.id)}
-                  className={`w-full px-3 py-2 text-left text-xs hover:bg-muted/30 ${
-                    selected === row.id ? "bg-muted/40" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Badge variant={row.refused ? "destructive" : "secondary"}>
-                      {row.refused ? "refused" : "grounded"}
-                    </Badge>
-                    <span className="text-muted-foreground tabular-nums">
-                      {ms(row.total_latency_ms)}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-foreground">{row.question}</p>
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    {new Date(row.created_at).toLocaleTimeString()} · {row.reranker ?? "no rerank"}
-                  </p>
-                </button>
-              </li>
-            ))}
+            {(traces.data ?? []).map((row) => {
+              const stages = (row.stages as Record<string, unknown>) ?? {};
+              const rerank = (stages["rerank"] as Record<string, unknown>) ?? {};
+              const hasFallback = Boolean(rerank["fallback"]);
+
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(row.id)}
+                    className={`w-full px-3 py-2.5 text-left text-xs transition-colors hover:bg-muted/30 ${
+                      selected === row.id ? "bg-muted/40 font-medium" : ""
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {row.refused ? (
+                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                          Refusal
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="default"
+                          className="h-5 bg-emerald-600/80 px-1.5 text-[10px] text-white"
+                        >
+                          Grounded
+                        </Badge>
+                      )}
+                      {hasFallback && (
+                        <Badge
+                          variant="outline"
+                          className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-300"
+                        >
+                          Fallback
+                        </Badge>
+                      )}
+                      <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+                        {ms(row.total_latency_ms)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 line-clamp-2 font-normal text-foreground">{row.question}</p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {new Date(row.created_at).toLocaleTimeString()} · {row.reranker ?? "no rerank"}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
             {(traces.data ?? []).length === 0 && !traces.isLoading ? (
-              <li className="px-3 py-6 text-center text-xs text-muted-foreground">
-                No traces recorded yet.
+              <li className="px-3 py-8 text-center text-xs text-muted-foreground">
+                No traces recorded for this filter.
               </li>
             ) : null}
           </ul>
@@ -436,7 +476,7 @@ function TracesPanel() {
       <Card className="border-border/60 bg-card/40 p-4">
         {!selected ? (
           <p className="text-sm text-muted-foreground">
-            Select a query to inspect its full trajectory.
+            Select a query from the feed to inspect its full waterfall.
           </p>
         ) : trace.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading trace…</p>
@@ -446,7 +486,7 @@ function TracesPanel() {
           <div className="space-y-5">
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Question</p>
-              <p className="mt-1 text-sm">{trace.data.question}</p>
+              <p className="mt-1 text-sm font-medium">{trace.data.question}</p>
               <p className="mt-2 text-xs text-muted-foreground">
                 request {trace.data.request_id} · total {ms(trace.data.total_latency_ms)} ·
                 retrieval {ms(trace.data.retrieval_latency_ms)} · generation{" "}
@@ -456,6 +496,14 @@ function TracesPanel() {
             <TraceWaterfall
               stages={(trace.data.stages ?? {}) as Record<string, unknown>}
               totalLatencyMs={trace.data.total_latency_ms}
+              retrievalLatencyMs={trace.data.retrieval_latency_ms}
+              generationLatencyMs={trace.data.generation_latency_ms}
+              citations={
+                Array.isArray(trace.data.citations) ? (trace.data.citations as string[]) : []
+              }
+              refused={trace.data.refused}
+              gateReason={trace.data.gate_reason}
+              question={trace.data.question}
             />
             {trace.data.answer_preview ? (
               <div>

@@ -42,7 +42,8 @@ export const listQueryTraces = createServerFn({ method: "POST" })
     z
       .object({
         limit: z.number().int().min(1).max(100).default(30),
-        onlyRefused: z.boolean().default(false),
+        filter: z.enum(["all", "refused", "fallback"]).default("all"),
+        onlyRefused: z.boolean().optional(),
       })
       .parse(input ?? {}),
   )
@@ -51,15 +52,31 @@ export const listQueryTraces = createServerFn({ method: "POST" })
     let query = context.supabase
       .from("query_traces")
       .select(
-        "id, request_id, created_at, question, grounded, refused, gate_reason, reranker, retrieval_latency_ms, generation_latency_ms, total_latency_ms",
+        "id, request_id, created_at, question, grounded, refused, gate_reason, reranker, stages, citations, retrieval_latency_ms, generation_latency_ms, total_latency_ms",
       )
       .order("created_at", { ascending: false })
       .limit(data.limit);
-    if (data.onlyRefused) query = query.eq("refused", true);
+
+    const activeFilter = data.onlyRefused ? "refused" : data.filter;
+    if (activeFilter === "refused") {
+      query = query.eq("refused", true);
+    }
+
     const { data: rows, error } = await query;
     if (error) throw new ApiError("INTERNAL", "Could not load traces.");
+
+    if (activeFilter === "fallback") {
+      return (rows ?? []).filter((r) => {
+        const stages = (r.stages as Record<string, unknown>) ?? {};
+        const rerank = (stages["rerank"] as Record<string, unknown>) ?? {};
+        return Boolean(rerank["fallback"]);
+      });
+    }
+
     return rows ?? [];
   });
+
+export const getQueryTraces = listQueryTraces;
 
 export const getQueryTrace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

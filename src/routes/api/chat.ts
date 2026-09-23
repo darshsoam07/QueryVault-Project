@@ -335,8 +335,16 @@ export const Route = createFileRoute("/api/chat")({
             fusion: {
               count: t.fusedCandidates,
               rrfTop: outcome.ranked
-                .slice(0, 8)
-                .map((c) => ({ chunkId: c.chunkId, fusionScore: c.fusionScore })),
+                .slice(0, 12)
+                .map((c) => ({
+                  chunkId: c.chunkId,
+                  filename: c.filename,
+                  page: c.page,
+                  densePosition: c.densePosition,
+                  lexicalPosition: c.lexicalPosition,
+                  fusionScore: c.fusionScore,
+                  rerankScore: c.rerankScore,
+                })),
             },
             rerank: {
               latencyMs: t.rerankLatencyMs,
@@ -791,7 +799,16 @@ export const Route = createFileRoute("/api/chat")({
                 refused: false,
                 gateReason: outcome.verdict.reason,
                 reranker: t.rerankerName,
-                stages: traceStages,
+                stages: {
+                  ...traceStages,
+                  validation: {
+                    contractVersion: validationTelemetry.contractVersion,
+                    cited: plan.citationCount,
+                    allowedSources: validationTelemetry.allowedSourceCount,
+                    generationAttempts: validationTelemetry.generationAttempts,
+                    latencyMs: validationLatencyMs,
+                  },
+                },
                 citations: plan.citedIds,
                 retrievalLatencyMs: t.retrievalLatencyMs,
                 generationLatencyMs: Date.now() - generationStart,
