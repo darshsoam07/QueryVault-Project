@@ -10,6 +10,7 @@
  * a load balancer and a human can tell them apart. No PII is ever returned.
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { constantTimeCompare } from "@/lib/constant-time-compare.server";
 
 export const Route = createFileRoute("/api/public/health")({
   server: {
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/api/public/health")({
 
         const secret = process.env["INGESTION_WORKER_SECRET"];
         const deepRequested = url.searchParams.get("deep") === "1";
-        const authorized = Boolean(secret) && request.headers.get("x-worker-secret") === secret;
+        const authorized = constantTimeCompare(request.headers.get("x-worker-secret"), secret);
         const report = await runReadiness(deepRequested && authorized);
 
         if (report.status === "healthy") return json(report, 200);

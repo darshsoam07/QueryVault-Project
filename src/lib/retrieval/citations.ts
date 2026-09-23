@@ -12,9 +12,13 @@ export type CitationValidation = {
 const CITATION_PATTERN = /\[\s*(source_\d{1,3})\s*\]/gi;
 
 /**
- * Server-side validation of model-produced citations. The model may only cite
- * request-scoped source ids; anything else is treated as an output failure and
- * removed before the answer is stored or rendered.
+ * Legacy strip-only citation helpers.
+ *
+ * NOTE (trust workstream A): the chat route no longer uses these. The
+ * authoritative contract is `validateCitedAnswer` in
+ * `./citation-validator.ts`, which REJECTS answers with uncited blocks or
+ * unknown citations instead of silently stripping markers. These helpers are
+ * kept for backwards-compatible callers (e.g. offline evaluation).
  */
 export function validateCitations(text: string, sources: EvidenceSource[]): CitationValidation {
   const known = new Set(sources.map((source) => source.sourceId));

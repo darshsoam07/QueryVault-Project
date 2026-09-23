@@ -26,6 +26,11 @@ export type RetrievalDeps = {
   lexical: (queries: string[]) => Promise<{ candidates: Candidate[]; queryLatencyMs: number }>;
   expand: (question: string) => Promise<{ queries: string[]; rewritten: boolean }>;
   reranker: Reranker;
+  /**
+   * Caller-owned cancellation (e.g. the HTTP request's signal). Forwarded to
+   * the reranker so a stalled provider call aborts when the caller goes away.
+   */
+  signal?: AbortSignal | undefined;
   config?: RetrievalConfig;
 };
 
@@ -33,6 +38,12 @@ export type RetrievalDeps = {
  * question -> (expansion) -> dense + lexical -> fusion -> rerank -> evidence
  * gate -> context budget. Pure orchestration over injected retrievers so the
  * whole flow can be exercised in tests without a database or a model.
+ *
+ * Cancellation contract: an AbortError from the caller (e.g. the request's
+ * signal fired during rerank) is never caught, swallowed, or converted into a
+ * fallback/refusal here — it propagates out of `runRetrieval` untouched so
+ * the route can terminate the request. Use `isCancellationError` to tell it
+ * apart from provider errors.
  */
 export async function runRetrieval(
   question: string,
@@ -54,7 +65,13 @@ export async function runRetrieval(
   });
 
   const rerankStart = Date.now();
-  const ranked = await deps.reranker.rerank(question, fused, config.rerankCandidates);
+  const rerankResult = await deps.reranker.rerank(
+    question,
+    fused,
+    config.rerankCandidates,
+    deps.signal ? { signal: deps.signal } : undefined,
+  );
+  const ranked = rerankResult.ranked;
   const rerankLatencyMs = Date.now() - rerankStart;
 
   const verdict = evaluateEvidence(ranked, config.gate);
@@ -87,7 +104,15 @@ export async function runRetrieval(
       finalEvidence: context.sources.length,
       bestSimilarity: verdict.bestSimilarity,
       bestRerankScore: verdict.bestRerankScore,
-      rerankerName: deps.reranker.name,
+      // The recorded name is whichever reranker actually produced the scores —
+      // after a fallback that is the heuristic reranker, not the configured one.
+      rerankerName: rerankResult.fallback?.rerankerName ?? deps.reranker.name,
+      // "timeout" vs "provider-error", or null when the configured reranker
+      // succeeded. Cancellation is never reported here: a caller abort throws
+      // an AbortError out of the reranker instead of producing a fallback.
+      // The chat route's telemetry attributes and trace read this field; the
+      // reason travels here, never prompt or evidence content.
+      rerankerFallback: rerankResult.fallback?.kind ?? null,
       contextTokens: context.contextTokens,
       droppedDuplicates: context.droppedDuplicates,
     },
@@ -100,6 +125,8 @@ export function createLiveDeps(options: {
   userId: string;
   documentIds: string[] | null;
   provider?: AiProvider;
+  /** Caller-owned cancellation forwarded to the reranker (e.g. request.signal). */
+  signal?: AbortSignal | undefined;
   config?: RetrievalConfig;
 }): RetrievalDeps {
   const config = options.config ?? RETRIEVAL_CONFIG;
@@ -126,6 +153,12 @@ export function createLiveDeps(options: {
         documentIds: options.documentIds,
         limit: config.lexicalCandidates,
       }),
-    reranker: config.reranker === "llm" ? createLlmReranker(provider) : heuristicReranker,
+    reranker:
+      config.reranker === "llm"
+        ? // The declared llmRerankerTimeoutMs bounds the real provider call.
+          createLlmReranker(provider, undefined, { timeoutMs: config.llmRerankerTimeoutMs })
+        : heuristicReranker,
+    // Caller-owned cancellation forwarded to the reranker (e.g. request.signal).
+    ...(options.signal ? { signal: options.signal } : {}),
   };
 }

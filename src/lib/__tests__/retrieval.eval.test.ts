@@ -445,7 +445,7 @@ describe("reranker plumbing", () => {
       lexicalPosition: null,
       fusionScore: 0.1,
     };
-    const ranked = await heuristicReranker.rerank(
+    const { ranked } = await heuristicReranker.rerank(
       "termination notice period",
       [
         { ...base, chunkId: "noise", content: "pumpkin soup and bread", similarity: 0.5 },
