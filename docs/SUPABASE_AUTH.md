@@ -32,7 +32,7 @@ The sender name is not controlled by `supabase.auth.signUp()`. Configure it in
 Supabase:
 
 1. Go to **Authentication → Email Templates** and select **Confirm signup**.
-2. Set the subject to `Confirm your QueryVault account`.
+2. Set the subject to `QueryVault invites you`.
 3. Paste the HTML from `supabase/templates/confirmation.html` into the body.
 4. Go to **Authentication → SMTP Settings** and use a verified sender/display
    name of `QueryVault` (for example, `no-reply@your-queryvault-domain.example`).
@@ -44,3 +44,20 @@ sender identity and deliverability.
 
 After changing the template or sender, send a new signup email. Existing emails
 keep their original redirect URL and content.
+
+## 3. Push the local configuration
+
+Link the local Supabase CLI project and push the auth configuration and branded
+confirmation template:
+
+```sh
+supabase link --project-ref <ref> && supabase config push
+```
+
+Replace `<ref>` with the Supabase project reference used by this environment.
+
+## Troubleshooting
+
+- **"Website isn't responding" after clicking an email link:** the configured Site URL or redirect URL does not exactly match the address serving QueryVault. Add the exact scheme, host, port, and `/auth` or `/chat` path in Supabase Dashboard → Authentication → URL Configuration.
+- **"Invalid login credentials":** verify that the local `.env` public Supabase URL and publishable key belong to the same project where the account was created, confirm the email address, and check for email/password typos.
+- **Development is slow:** `npm run dev` prioritizes hot reloading and can be slower than the production server. For a production-like local check, run `npm run build:node && npm start`.

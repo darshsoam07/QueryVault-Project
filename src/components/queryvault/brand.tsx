@@ -8,10 +8,7 @@ export function VaultMark({ className }: { className?: string }) {
       alt="QueryVault"
       width={816}
       height={816}
-      className={cn(
-        "h-7 w-7 shrink-0 object-contain [filter:sepia(0)_saturate(1.6)_hue-rotate(180deg)_brightness(1.3)]",
-        className,
-      )}
+      className={cn("h-7 w-7 shrink-0 object-contain", className)}
     />
   );
 }
@@ -20,11 +17,11 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "font-semibold tracking-tight text-[#F2F2EF] text-[15px] leading-none",
+        "text-foreground text-[15px] leading-none font-semibold tracking-tight",
         className,
       )}
     >
-      Query<span className="text-[#78BFEA]">Vault</span>
+      Query<span className="text-cyan">Vault</span>
     </span>
   );
 }

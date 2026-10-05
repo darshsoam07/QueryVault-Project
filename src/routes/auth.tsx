@@ -11,9 +11,79 @@ import { gsap } from "@/lib/motion/gsap";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
 import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+type AuthMode = "signin" | "signup" | "reset" | "update";
+type AuthErrorLike = { message?: unknown };
+
+function authErrorMessage(error: unknown, fallback: string): string {
+  const rawMessage =
+    typeof error === "object" && error !== null ? (error as AuthErrorLike).message : null;
+  const message = typeof rawMessage === "string" ? rawMessage.toLowerCase() : "";
+  if (message.includes("invalid login credentials"))
+    return "Invalid email or password. Check your password with the eye icon, and confirm your email if you just signed up.";
+  if (message.includes("email not confirmed"))
+    return "Your email has not been confirmed yet. Check your inbox or resend the confirmation email.";
+  if (message.includes("rate limit") || message.includes("too many requests"))
+    return "Too many attempts. Please wait a moment and try again.";
+  if (message.includes("password") && (message.includes("short") || message.includes("least")))
+    return "Your password must be at least 8 characters.";
+  if (message.includes("failed to fetch") || message.includes("network"))
+    return "We could not reach the authentication service. Check your connection and try again.";
+  return userMessage(error, fallback);
+}
+
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  autoComplete,
+  minLength,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: "current-password" | "new-password";
+  minLength?: number;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div data-auth-field className="space-y-1.5">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type={visible ? "text" : "password"}
+          required
+          {...(minLength ? { minLength } : {})}
+          autoComplete={autoComplete}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="••••••••"
+          className="bg-surface/60 pr-10"
+        />
+        <button
+          type="button"
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          onClick={() => setVisible((current) => !current)}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -39,35 +109,46 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
+  const recoveryRef = useRef(
+    typeof window !== "undefined" &&
+      new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery",
+  );
+  const [mode, setMode] = useState<AuthMode>(recoveryRef.current ? "update" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmationNotice, setConfirmationNotice] = useState("");
+  const [resendAvailable, setResendAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/chat" });
+    const enterRecovery = () => {
+      recoveryRef.current = true;
+      setMode("update");
+      setPassword("");
+      setConfirmPassword("");
+      setConfirmationNotice("");
+      setResendAvailable(false);
+    };
+    if (
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery"
+    )
+      enterRecovery();
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") enterRecovery();
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    if (!loading && session && !recoveryRef.current) navigate({ to: "/chat" });
   }, [loading, session, navigate]);
-
-  /**
-   * Entrance sequence, replacing the old `animate-rise` class on the wrapper.
-   *
-   * A single timeline rather than one CSS animation on the whole block, so the
-   * order carries meaning: you are told where you are (mark, wordmark, promise)
-   * before you are shown what to do (card, then fields). It is also short —
-   * roughly 900 ms end to end, with every step overlapping the one before, since
-   * this is a form somebody arrived here to fill in, not a hero to admire.
-   *
-   * `mode` toggling re-renders but never remounts, so this runs exactly once.
-   */
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
-    if (prefersReducedMotion()) return;
-
+    if (!root || prefersReducedMotion()) return;
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: EASE.out } });
-
       tl.from("[data-auth-brand] > *", {
         y: -8,
         opacity: 0,
@@ -81,17 +162,21 @@ function AuthPage() {
           "-=0.35",
         );
     }, root);
-
     return () => ctx.revert();
   }, []);
-
+  const normalizedEmail = () => email.trim().toLowerCase();
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if ((mode === "signup" || mode === "update") && password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
     setBusy(true);
+    setResendAvailable(false);
     try {
       if (mode === "reset") {
         const redirectTo = authRedirectTo("/auth");
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail(), {
           ...(redirectTo ? { redirectTo } : {}),
         });
         if (error) throw error;
@@ -99,64 +184,103 @@ function AuthPage() {
         setMode("signin");
         return;
       }
+      if (mode === "update") {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        recoveryRef.current = false;
+        toast.success("Your password has been updated.");
+        navigate({ to: "/chat" });
+        return;
+      }
       if (mode === "signup") {
         const redirectTo = authRedirectTo("/chat");
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail(),
           password,
           options: { ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
         });
         if (error) throw error;
-        // When the project requires email confirmation, signUp succeeds but
-        // returns no session — the user is NOT signed in yet. Claiming "you're
-        // in" left them staring at a sign-in form with no idea why.
-        if (data.session) toast.success("Account created. You're in.");
-        else toast.success("Check your email to confirm your account, then sign in.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (data.user?.identities?.length === 0) {
+          setMode("signin");
+          toast.error("An account with this email already exists. Please sign in instead.");
+          return;
+        }
+        if (data.session) {
+          toast.success("Account created. You're in.");
+        } else {
+          const confirmedEmail = normalizedEmail();
+          setConfirmationNotice(
+            `We sent a confirmation link to ${confirmedEmail}. Open it, then come back here and sign in.`,
+          );
+          setMode("signin");
+          setPassword("");
+          setConfirmPassword("");
+        }
+        return;
       }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail(),
+        password,
+      });
+      if (error) throw error;
     } catch (error) {
-      toast.error(userMessage(error, "Authentication failed."));
+      const message = authErrorMessage(error, "Authentication failed.");
+      setResendAvailable(message.includes("not been confirmed"));
+      toast.error(message);
     } finally {
       setBusy(false);
     }
   };
-
+  const resendConfirmation = async () => {
+    setBusy(true);
+    try {
+      const redirectTo = authRedirectTo("/chat");
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: normalizedEmail(),
+        options: { ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) },
+      });
+      if (error) throw error;
+      toast.success("Confirmation email sent.");
+      setResendAvailable(false);
+    } catch (error) {
+      toast.error(authErrorMessage(error, "Could not resend the confirmation email."));
+    } finally {
+      setBusy(false);
+    }
+  };
   const google = async () => {
     setBusy(true);
     try {
-      // Supabase performs the redirect itself, so on success this promise
-      // resolves while the browser is already navigating away — there is no
-      // "signed in" branch to handle here.
       const redirectTo = oauthRedirectTo();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        // Conditional spread, not `redirectTo: undefined` — tsconfig sets
-        // exactOptionalPropertyTypes, so an explicit undefined is a type error.
         options: { ...(redirectTo ? { redirectTo } : {}) },
       });
       if (error) throw error;
     } catch (error) {
       setBusy(false);
-      toast.error(userMessage(error, "Google sign-in failed. Try email instead."));
+      toast.error(authErrorMessage(error, "Google sign-in failed. Try email instead."));
     }
   };
-
   const cardTitle =
     mode === "signin"
       ? "Sign in to your vault"
       : mode === "signup"
         ? "Create your vault"
-        : "Reset your password";
+        : mode === "update"
+          ? "Choose a new password"
+          : "Reset your password";
   const submitLabel =
-    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
-
+    mode === "signin"
+      ? "Sign in"
+      : mode === "signup"
+        ? "Create account"
+        : mode === "update"
+          ? "Update password"
+          : "Send reset link";
   return (
-    /* `header={false}`: a sign-in page should offer one thing to do. Lenis is
-       inert here — there is nothing to scroll — but the shell is shared so the
-       page keeps the same background and reduced-motion behaviour as `/`. */
-    <PublicShell header={false} variant="neutral">
+    <PublicShell header={false} variant="neutral" smoothScroll={false}>
       <div className="flex min-h-screen items-center justify-center px-4">
         <div ref={rootRef} className="w-full max-w-sm">
           <div data-auth-brand className="mb-8 flex flex-col items-center gap-3 text-center">
@@ -166,65 +290,80 @@ function AuthPage() {
               Cited answers from your own documents. Nothing invented.
             </p>
           </div>
-
           <div data-auth-card className="glass-panel rounded-2xl p-6 shadow-[var(--glow-amethyst)]">
             <h1 className="text-base font-semibold text-foreground">{cardTitle}</h1>
-
+            {confirmationNotice && (
+              <p className="mt-3 text-sm text-muted-foreground">{confirmationNotice}</p>
+            )}
             <form onSubmit={submit} className="mt-5 space-y-4">
-              <div data-auth-field className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs text-muted-foreground">
-                  Work email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@company.com"
-                  className="bg-surface/60"
-                />
-              </div>
-
-              {mode !== "reset" && (
+              {mode !== "update" && (
                 <div data-auth-field className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs text-muted-foreground">
-                    Password
+                  <Label htmlFor="email" className="text-xs text-muted-foreground">
+                    Work email
                   </Label>
                   <Input
-                    id="password"
-                    type="password"
+                    id="email"
+                    type="email"
                     required
-                    minLength={6}
-                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@company.com"
                     className="bg-surface/60"
                   />
                 </div>
               )}
-
+              {mode !== "reset" && (
+                <PasswordField
+                  id="password"
+                  label="Password"
+                  value={password}
+                  onChange={setPassword}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  {...(mode === "signup" || mode === "update" ? { minLength: 8 } : {})}
+                />
+              )}
+              {(mode === "signup" || mode === "update") && (
+                <PasswordField
+                  id="confirm-password"
+                  label="Confirm password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  autoComplete="new-password"
+                  minLength={8}
+                />
+              )}
               <Button
                 type="submit"
                 data-auth-field
                 disabled={busy}
-                className="w-full bg-[#F3F4F6] text-[#050607] hover:bg-[#FFFFFF] focus-visible:ring-2 focus-visible:ring-[rgba(99,199,255,0.45)]"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {submitLabel}
               </Button>
             </form>
-
-            {googleAuthEnabled && mode !== "reset" && (
+            {resendAvailable && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-3 w-full bg-surface/40 hover:bg-surface/80 border-border"
+                onClick={resendConfirmation}
+                disabled={busy}
+              >
+                Resend confirmation email
+              </Button>
+            )}
+            {googleAuthEnabled && (mode === "signin" || mode === "signup") && (
               <>
                 <div className="my-4 flex items-center gap-3 technical-label text-muted-foreground">
                   <span className="h-px flex-1 bg-border" />
                   or
                   <span className="h-px flex-1 bg-border" />
                 </div>
-
                 <Button
                   variant="outline"
                   className="w-full bg-surface/40 hover:bg-surface/80 border-border"
@@ -235,7 +374,6 @@ function AuthPage() {
                 </Button>
               </>
             )}
-
             <div className="mt-5 flex flex-col items-center gap-2">
               {mode === "signin" && (
                 <>

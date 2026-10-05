@@ -86,7 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Enterprise AI knowledge assistant: index your PDFs and get answers grounded in your documents with page-level citations.",
       },
-      { name: "theme-color", content: "#0a0a0a" },
+      { name: "theme-color", content: "#1E272E" },
       { property: "og:site_name", content: "QueryVault" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -98,7 +98,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap",
+        media: "print",
+        id: "qv-fonts",
       },
     ],
   }),
@@ -113,6 +115,12 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" className="dark">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'document.getElementById("qv-fonts")?.addEventListener("load", function () { this.media = "all"; });',
+          }}
+        />
       </head>
       <body>
         {children}

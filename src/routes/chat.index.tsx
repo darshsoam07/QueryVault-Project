@@ -165,7 +165,7 @@ function ChatIndex() {
               ) : (
                 <>
                   <span>Analyze</span>
-                  <kbd className="hidden rounded bg-white/20 px-1.5 py-0.5 font-mono text-[10px] text-white sm:inline-block">
+                  <kbd className="hidden rounded bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-secondary-foreground sm:inline-block">
                     ↵ Enter
                   </kbd>
                   <ArrowRight className="h-3.5 w-3.5 sm:hidden" />

@@ -101,8 +101,8 @@ export function TraceWaterfall({
       id: "rerank",
       label: "Reranking",
       ms: num(rerank["latencyMs"]) ?? 0,
-      color: "bg-violet-500",
-      textColor: "text-violet-400",
+      color: "bg-amethyst",
+      textColor: "text-amethyst",
     },
     {
       id: "generation",

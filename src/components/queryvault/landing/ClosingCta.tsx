@@ -24,10 +24,10 @@ export function ClosingCta() {
     <section className="border-t border-border/50">
       <div className="mx-auto max-w-4xl px-6 py-24 text-center">
         <Reveal>
-          <h2 className="text-[clamp(2.15rem,3.6vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.042em] text-[#F2F2EF] [text-wrap:balance]">
+          <h2 className="text-[clamp(2.15rem,3.6vw,3.7rem)] font-semibold leading-[1.02] tracking-[-0.042em] text-foreground [text-wrap:balance]">
             Point it at your documents.
           </h2>
-          <p className="mx-auto mt-4 max-w-[58ch] text-[15px] leading-relaxed text-[#A7ABB2]">
+          <p className="mx-auto mt-4 max-w-[58ch] text-[15px] leading-relaxed text-muted-foreground">
             Upload a PDF, ask a question, and check the citation. That is the whole evaluation —
             everything else is detail.
           </p>
@@ -41,18 +41,18 @@ export function ClosingCta() {
           <Button
             size="lg"
             asChild
-            className="bg-[#F2F2EF] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
+            className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Link to={session ? "/chat" : "/auth"}>
               {session ? "Open workspace" : "Start querying"}
-              <ArrowRight className="ml-1.5 h-4 w-4 text-[#050607]" />
+              <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
           <Button
             size="lg"
             variant="outline"
             asChild
-            className="border-[#1B1F25] bg-[#080A0D]/80 text-[#828791] hover:bg-[#0F1216] hover:border-[rgba(120,191,234,0.3)] hover:text-[#F2F2EF] transition-colors focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
+            className="border-border bg-surface/80 text-muted-foreground hover:bg-surface-raised hover:border-cyan/40 hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Link to="/reference">Read the reference</Link>
           </Button>
@@ -62,7 +62,7 @@ export function ClosingCta() {
           {STACK.map((item) => (
             <span
               key={item}
-              className="rounded-md border border-[#1B1F25] bg-[#080A0D]/60 px-2 py-1 font-mono text-[10.5px] text-[#828791]"
+              className="rounded-md border border-border bg-surface/60 px-2 py-1 font-mono text-[10.5px] text-muted-foreground"
             >
               {item}
             </span>

@@ -29,19 +29,19 @@ export function TrustSection() {
   };
 
   return (
-    <section className="border-b border-white/[0.06] bg-[#09090b] py-20 sm:py-28">
+    <section className="border-b border-border bg-background py-20 sm:py-28">
       <div className="mx-auto max-w-5xl px-6 sm:px-8">
         {/* Section Header with Reproduction Command */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-md border border-white/[0.08] bg-zinc-900/60 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-              <Activity className="h-3.5 w-3.5 text-zinc-400" />
+            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+              <Activity className="h-3.5 w-3.5 text-cyan" />
               Empirical Benchmarks
             </div>
-            <h2 className="mt-3 text-2xl font-medium tracking-tight text-zinc-100 sm:text-3xl">
+            <h2 className="mt-3 text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
               Measured, not asserted.
             </h2>
-            <p className="mt-1 text-xs text-zinc-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Offline evaluation fixture across factual lookup, semantic paraphrase, and
               prompt-injection cases.
             </p>
@@ -50,41 +50,43 @@ export function TrustSection() {
           {/* Copyable Evaluator Command */}
           <button
             onClick={copyCommand}
-            className="inline-flex h-8 items-center gap-2 self-start rounded-md border border-white/[0.08] bg-zinc-900/60 px-3 font-mono text-xs text-zinc-300 transition-colors hover:border-white/[0.16] hover:text-white"
+            className="inline-flex h-8 items-center gap-2 self-start rounded-md border border-border bg-surface px-3 font-mono text-xs text-foreground transition-colors hover:border-cyan/40"
           >
-            <Terminal className="h-3.5 w-3.5 text-zinc-500" />
+            <Terminal className="h-3.5 w-3.5 text-cyan" />
             <span>npm run eval:gate</span>
             {copied ? (
               <Check className="h-3 w-3 text-emerald-400" />
             ) : (
-              <Copy className="h-3 w-3 text-zinc-500" />
+              <Copy className="h-3 w-3 text-muted-foreground" />
             )}
           </button>
         </div>
 
         {/* Dense Telemetry Matrix Grid */}
-        <div className="mt-8 grid grid-cols-2 divide-x divide-y divide-white/[0.06] rounded-lg border border-white/[0.06] bg-zinc-900/20 sm:grid-cols-4 sm:divide-y-0">
+        <div className="mt-8 grid grid-cols-2 divide-x divide-y divide-border rounded-lg border border-border bg-surface sm:grid-cols-4 sm:divide-y-0">
           {METRICS.map((metric) => (
             <div key={metric.label} className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   {metric.label}
                 </span>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80 shadow-[0_0_6px_rgba(52,211,153,0.4)]" />
               </div>
 
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-medium tracking-tight text-zinc-100 tabular-nums">
+                <span className="font-mono text-2xl font-medium tracking-tight text-foreground tabular-nums">
                   {metric.value}
                 </span>
-                <span className="font-mono text-[10px] text-zinc-500">target {metric.target}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  target {metric.target}
+                </span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Footer Note */}
-        <p className="mt-4 text-[11px] font-mono text-zinc-500">
+        <p className="mt-4 text-[11px] font-mono text-muted-foreground">
           * Measured against a 13-case golden fixture set. Fails exit code non-zero if any metric
           falls below threshold.
         </p>

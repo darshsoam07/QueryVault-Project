@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { SmoothScroll } from "@/components/motion/SmoothScroll";
 import { VaultMark, Wordmark } from "@/components/queryvault/brand";
@@ -91,14 +91,14 @@ function SiteHeader() {
               variant="ghost"
               size="sm"
               asChild
-              className="text-[#828791] hover:text-[#F2F2EF] hover:bg-[rgba(120,191,234,0.06)] transition-colors"
+              className="text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
             >
               <Link to="/reference">Python reference</Link>
             </Button>
             <Button
               size="sm"
               asChild
-              className="bg-[#F2F2EF] text-[#050607] font-semibold hover:bg-[#FFFFFF] transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-[rgba(120,191,234,0.45)]"
+              className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Link to={session ? "/chat" : "/auth"}>{session ? "Open workspace" : "Sign in"}</Link>
             </Button>
@@ -124,6 +124,7 @@ export function PublicShell({
   className,
   header = true,
   variant = "landing",
+  smoothScroll = true,
 }: {
   children: ReactNode;
   className?: string;
@@ -131,19 +132,23 @@ export function PublicShell({
   header?: boolean;
   /** "landing" activates the scoped landing theme. "neutral" preserves graphite UI for forms/code. */
   variant?: "landing" | "neutral";
+  /** Disable Lenis on static public surfaces that do not need a scroll loop. */
+  smoothScroll?: boolean;
 }) {
+  const content = (
+    <div
+      className={cn(
+        "grid-void relative min-h-screen",
+        variant === "landing" ? "landing-shell" : "public-shell",
+        className,
+      )}
+    >
+      {header && <SiteHeader />}
+      <main>{children}</main>
+    </div>
+  );
+
   return (
-    <SmoothScroll>
-      <div
-        className={cn(
-          "grid-void relative min-h-screen",
-          variant === "landing" ? "landing-shell" : "public-shell",
-          className,
-        )}
-      >
-        {header && <SiteHeader />}
-        <main>{children}</main>
-      </div>
-    </SmoothScroll>
+    <>{smoothScroll ? <SmoothScroll>{content}</SmoothScroll> : <Fragment>{content}</Fragment>}</>
   );
 }
