@@ -62,3 +62,15 @@ export function scoreDistribution(scores: Array<number | null | undefined>): Arr
   }
   return bins;
 }
+
+/** Computes items per second safely without division by zero. */
+export function throughputPerSec(items: number, durationMs: number): number {
+  if (durationMs <= 0 || items <= 0) return 0;
+  return Number(((items / durationMs) * 1000).toFixed(2));
+}
+
+/** Summarizes queue wait or pipeline phase durations. */
+export function queueWaitSummary(waitDurationsMs: number[]): LatencySummary {
+  return latencySummary(waitDurationsMs);
+}
+

@@ -60,6 +60,7 @@ export type RetrievalTelemetry = {
   requestId: string;
   queryRewritten: boolean;
   queryVariants: number;
+  rewriteLatencyMs?: number;
   embeddingLatencyMs: number;
   denseLatencyMs: number;
   lexicalLatencyMs: number;

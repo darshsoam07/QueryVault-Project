@@ -215,6 +215,12 @@ export const enqueueIngestion = createServerFn({ method: "POST" })
       document_id: data.documentId,
       job_id: job.id,
     });
+
+    // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
+    void import("@/lib/ingestion/worker.server")
+      .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
+      .catch(() => undefined);
+
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });
 

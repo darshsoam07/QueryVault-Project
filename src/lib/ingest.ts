@@ -15,7 +15,6 @@ import {
   createDocumentUpload,
   enqueueIngestion,
   getIngestionStatus,
-  runIngestionWorker,
 } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
 
@@ -29,6 +28,7 @@ export type IngestStatus = {
   detail: string;
   failed: boolean;
   reason: string | null;
+  uploadDurationMs?: number;
 };
 
 function toStatus(
@@ -37,6 +37,7 @@ function toStatus(
   phase: IngestionPhase,
   detail: string,
   reason: string | null = null,
+  uploadDurationMs?: number,
 ): IngestStatus {
   const { step, total } = phaseProgress(phase);
   return {
@@ -49,14 +50,15 @@ function toStatus(
     detail,
     failed: phase === "failed",
     reason,
+    ...(uploadDurationMs !== undefined ? { uploadDurationMs } : {}),
   };
 }
 
 const isPhase = (value: string): value is IngestionPhase => value in PHASE_LABELS;
 
-export type UploadHandle = { documentId: string; jobId: string };
+export type UploadHandle = { documentId: string; jobId: string; uploadDurationMs?: number };
 
-/** Upload + enqueue. Returns as soon as the job is queued. */
+/** Upload + enqueue. Returns as soon as the job is queued without executing worker tasks. */
 export async function uploadAndEnqueue(
   file: File,
   onStatus: (status: IngestStatus) => void,
@@ -69,8 +71,12 @@ export async function uploadAndEnqueue(
     );
   }
 
-  const buffer = await file.arrayBuffer();
-  const contentHash = await sha256Hex(buffer);
+  // Calculate sha256 in a scoped block so the buffer is immediately eligible for GC
+  let contentHash: string;
+  {
+    const sliceBuffer = await file.arrayBuffer();
+    contentHash = await sha256Hex(sliceBuffer);
+  }
 
   const { documentId, storagePath } = await createDocumentUpload({
     data: {
@@ -82,22 +88,20 @@ export async function uploadAndEnqueue(
   });
 
   onStatus(toStatus(documentId, null, "uploading", "Uploading the original file…"));
+  const uploadStart = Date.now();
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: true });
   if (uploadError) throw new Error(uploadError.message);
+  const uploadDurationMs = Date.now() - uploadStart;
 
   const { jobId } = await enqueueIngestion({ data: { documentId } });
-  onStatus(toStatus(documentId, jobId, "queued", "Queued for server-side indexing…"));
+  onStatus(toStatus(documentId, jobId, "queued", "Queued for server-side indexing…", null, uploadDurationMs));
 
-  // Kick the worker; if this request dies the job is still durable and gets
-  // picked up by the next drain.
-  void runIngestionWorker({ data: { maxJobs: 1 } }).catch(() => undefined);
-
-  return { documentId, jobId };
+  return { documentId, jobId, uploadDurationMs };
 }
 
-/** Polls real server phases until the document is ready or failed. */
+/** Polls real server phases until the document is ready or failed. Never runs worker jobs. */
 export async function pollIngestion(
   handle: UploadHandle,
   onStatus: (status: IngestStatus) => void,
@@ -105,7 +109,6 @@ export async function pollIngestion(
 ): Promise<IngestStatus> {
   const intervalMs = options.intervalMs ?? 1500;
   const deadline = Date.now() + (options.timeoutMs ?? 10 * 60 * 1000);
-  let kicks = 0;
 
   for (;;) {
     let snapshot: Awaited<ReturnType<typeof getIngestionStatus>>;
@@ -125,6 +128,8 @@ export async function pollIngestion(
         job?.id ?? handle.jobId,
         "ready",
         `${document.chunk_count} chunks indexed`,
+        null,
+        handle.uploadDurationMs,
       );
       onStatus(status);
       return status;
@@ -137,6 +142,7 @@ export async function pollIngestion(
         "failed",
         reason ?? "Ingestion failed.",
         reason,
+        handle.uploadDurationMs,
       );
       onStatus(status);
       return status;
@@ -151,6 +157,7 @@ export async function pollIngestion(
           ? `Retrying after a transient failure (attempt ${job.attempt_count})…`
           : `${PHASE_LABELS[phase]}…`,
         reason,
+        handle.uploadDurationMs,
       ),
     );
 
@@ -160,15 +167,12 @@ export async function pollIngestion(
         job?.id ?? handle.jobId,
         "failed",
         "Indexing is taking longer than expected. It will continue in the background.",
+        null,
+        handle.uploadDurationMs,
       );
-    }
-
-    // Nudge the worker if the job is still waiting (serverless has no daemon).
-    if ((job?.status === "queued" || job?.status === "retrying") && kicks < 40) {
-      kicks += 1;
-      void runIngestionWorker({ data: { maxJobs: 1 } }).catch(() => undefined);
     }
 
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
+

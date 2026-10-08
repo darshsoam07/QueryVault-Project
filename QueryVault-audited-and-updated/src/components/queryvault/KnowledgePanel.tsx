@@ -19,7 +19,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export type DocumentRow = {
@@ -125,7 +125,19 @@ export function KnowledgePanel({
   const { data: documents = [], isLoading } = useDocuments(userId);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<IngestStatus | null>(null);
+  const [filter, setFilter] = useState("");
+  const [pageLimit, setPageLimit] = useState(50);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const filteredDocs = useMemo(() => {
+    if (!filter.trim()) return documents;
+    const q = filter.trim().toLowerCase();
+    return documents.filter((doc) => doc.filename.toLowerCase().includes(q));
+  }, [documents, filter]);
+
+  const visibleDocs = useMemo(() => {
+    return filteredDocs.slice(0, pageLimit);
+  }, [filteredDocs, pageLimit]);
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -261,6 +273,18 @@ export function KnowledgePanel({
         <span className="font-mono text-[11px] text-muted-foreground">{documents.length}</span>
       </div>
 
+      {documents.length > 5 && (
+        <div className="px-0.5 pt-1">
+          <input
+            type="text"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search documents…"
+            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-amethyst"
+          />
+        </div>
+      )}
+
       {/* ── Document list ── */}
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
         {isLoading && <p className="px-1 text-xs text-muted-foreground">Loading…</p>}
@@ -270,7 +294,7 @@ export function KnowledgePanel({
             grounded answers.
           </p>
         )}
-        {documents.map((doc) => {
+        {visibleDocs.map((doc) => {
           const isSelected = selected.includes(doc.id);
           const isReady = doc.status === "ready";
           const isFailed = doc.status === "failed";
@@ -348,6 +372,18 @@ export function KnowledgePanel({
             </div>
           );
         })}
+        {filteredDocs.length > pageLimit && (
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPageLimit((l) => l + 50)}
+              className="text-xs text-muted-foreground"
+            >
+              Show more ({filteredDocs.length - pageLimit} remaining)
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Scope indicator ── */}

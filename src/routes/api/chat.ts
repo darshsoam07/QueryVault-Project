@@ -269,6 +269,7 @@ export const Route = createFileRoute("/api/chat")({
               grounded: outcome.verdict.grounded,
               gate_reason: outcome.verdict.reason,
               retrieval_latency_ms: t.retrievalLatencyMs,
+              rewrite_latency_ms: t.rewriteLatencyMs ?? 0,
               embedding_latency_ms: t.embeddingLatencyMs,
               dense_latency_ms: t.denseLatencyMs,
               lexical_latency_ms: t.lexicalLatencyMs,
@@ -708,6 +709,7 @@ export const Route = createFileRoute("/api/chat")({
           // expects streaming — NOT raw model-token streaming. The text was
           // fully generated and validated above; chunks carry no artificial
           // delays and the invalid candidate (if any) was already discarded.
+          let ttfbMs: number | null = null;
           const stream = createUIMessageStream({
             originalMessages,
             execute: async ({ writer }) => {
@@ -723,6 +725,7 @@ export const Route = createFileRoute("/api/chat")({
                 },
               });
               writer.write({ type: "text-start", id: "answer" });
+              ttfbMs = Date.now() - startedAt;
               for (const chunk of chunkAnswerForEmission(plan.text)) {
                 writer.write({ type: "text-delta", id: "answer", delta: chunk });
               }
@@ -784,6 +787,8 @@ export const Route = createFileRoute("/api/chat")({
                   answer_length: plan.text.length,
                   generation_latency_ms: Date.now() - generationStart,
                   retrieval_latency_ms: t.retrievalLatencyMs,
+                  rewrite_latency_ms: t.rewriteLatencyMs ?? 0,
+                  ttfb_ms: ttfbMs ?? Date.now() - startedAt,
                   total_latency_ms: Date.now() - startedAt,
                 },
               });

@@ -8,25 +8,38 @@ import type {
 } from "@/lib/motion/structure-flow-renderer";
 
 /**
- * Responsive particle count.
+ * Responsive particle count with device capability detection.
  *
- * Desktop: 8,000 — GPU work drops proportionally, visual density remains intentional.
- * Tablet:  5,000 — scaled for mid-power devices.
- * Mobile:  3,500 — preserved; conservatively sized.
+ * Desktop: 2,000 — 75% reduction from 8,000, preserving visual density while dropping GPU work drastically.
+ * Tablet:  1,200 — scaled for mid-power devices.
+ * Mobile:  600 — conservatively sized for mobile GPUs.
+ * Low-power/budget devices: further clamped to 400.
  */
 function getParticleCount(): number {
-  if (typeof window === "undefined") return 8_000;
+  if (typeof window === "undefined") return 2_000;
+  const nav = typeof navigator !== "undefined" ? navigator : null;
+  const isLowTier =
+    nav &&
+    ((nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
+      ((nav as any).deviceMemory && (nav as any).deviceMemory <= 4));
+
   const width = window.innerWidth;
-  if (width < 640) return 3_500;
-  if (width < 1024) return 5_000;
-  return 8_000;
+  if (width < 640) return isLowTier ? 400 : 600;
+  if (width < 1024) return isLowTier ? 800 : 1_200;
+  return isLowTier ? 1_200 : 2_000;
 }
 
 /**
  * WebGL capability probe. Called before the dynamic import so we skip the
- * ~600 kB Three.js download entirely on devices that cannot use WebGL.
+ * ~600 kB Three.js download entirely on devices that cannot use WebGL or have Save-Data enabled.
  */
 function canUseWebGl(): boolean {
+  if (typeof navigator !== "undefined") {
+    const conn = (navigator as any).connection;
+    if (conn && (conn.saveData || conn.effectiveType === "2g" || conn.effectiveType === "slow-2g")) {
+      return false;
+    }
+  }
   try {
     const canvas = document.createElement("canvas");
     return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
@@ -114,14 +127,20 @@ export function QueryVaultField({ className }: { className?: string }) {
     resizeObserver.observe(host);
     intersectionObserver.observe(host);
 
-    // ── Animation loop ────────────────────────────────────────────────────
+    // ── Animation loop (capped at 30 FPS to reduce GPU consumption) ──
+    const TARGET_FPS = 30;
+    const FRAME_MIN_MS = 1000 / TARGET_FPS;
+    let lastRenderMs = 0;
 
-    function tick() {
+    function tick(now: number) {
       if (cancelled || !rendererInstance) {
         frame = 0;
         return;
       }
-      rendererInstance.render();
+      if (now - lastRenderMs >= FRAME_MIN_MS) {
+        lastRenderMs = now;
+        rendererInstance.render();
+      }
       if (intersecting && !document.hidden) {
         frame = requestAnimationFrame(tick);
       } else {

@@ -14,6 +14,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { VaultMark } from "@/components/queryvault/brand";
 import { useDocuments } from "@/components/queryvault/KnowledgePanel";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
@@ -28,7 +29,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { FileText, Layers, Sparkle } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/chat/$threadId")({
@@ -183,6 +184,41 @@ const STARTERS = [
   "Compare the conclusions of each document",
 ];
 
+const ChatMessageItem = memo(function ChatMessageItem({
+  message,
+}: {
+  message: UIMessage;
+}) {
+  const sources = extractSources(message);
+  const text = message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+
+  return (
+    <Message
+      from={message.role}
+      className={cn(message.role === "assistant" && "animate-rise")}
+    >
+      <MessageContent
+        className={cn(
+          message.role === "user"
+            ? "rounded-xl border border-border bg-surface px-4 py-3 text-foreground shadow-sm"
+            : "bg-transparent p-0 text-foreground",
+        )}
+      >
+        {message.role === "assistant" ? (
+          <>
+            <MessageResponse>{text}</MessageResponse>
+            <SourceRail sources={sources} />
+          </>
+        ) : (
+          <span className="whitespace-pre-wrap text-sm">{text}</span>
+        )}
+      </MessageContent>
+    </Message>
+  );
+});
+
 function ThreadPage() {
   const { threadId } = Route.useParams();
   const { userId, selectedDocs } = useChatShell();
@@ -195,8 +231,11 @@ function ThreadPage() {
   const { data: documents = [] } = useDocuments(userId);
   const readyDocs = documents.filter((doc) => doc.status === "ready");
 
+  const PAGE_SIZE = 50;
+  const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
+
   const { data: history, isLoading } = useQuery({
-    queryKey: ["messages", threadId],
+    queryKey: ["messages", userId, threadId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
@@ -247,6 +286,11 @@ function ThreadPage() {
       void sendMessage({ text: pending });
     }
   }, [history, threadId, setMessages, sendMessage]);
+
+  const visibleMessages = useMemo(() => {
+    if (messages.length <= displayedCount) return messages;
+    return messages.slice(messages.length - displayedCount);
+  }, [messages, displayedCount]);
 
   const busy = status === "submitted" || status === "streaming";
 
@@ -317,48 +361,22 @@ function ThreadPage() {
             </div>
           )}
 
-          {messages.map((message) => {
-            const sources = extractSources(message);
-            const text = message.parts
-              .map((part) => (part.type === "text" ? part.text : ""))
-              .join("");
-
-            return (
-              /*
-                `animate-rise` — the existing CSS keyframe — stays for assistant
-                messages: transform + opacity, 400 ms, an expo-ish curve. It is
-                already what the motion rules ask for, and it costs no JS on a
-                path that re-renders on every streamed token.
-
-                It is deliberately *not* applied to the user's own message. They
-                just pressed enter; nothing needs to announce that the text
-                exists, and an 8px rise there only adds perceived latency at the
-                most latency-sensitive moment in the app.
-              */
-              <Message
-                from={message.role}
-                key={message.id}
-                className={cn(message.role === "assistant" && "animate-rise")}
+          {messages.length > displayedCount && (
+            <div className="flex justify-center pb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDisplayedCount((c) => c + PAGE_SIZE)}
+                className="text-xs text-muted-foreground"
               >
-                <MessageContent
-                  className={cn(
-                    message.role === "user"
-                      ? "rounded-xl border border-border bg-surface px-4 py-3 text-foreground shadow-sm"
-                      : "bg-transparent p-0 text-foreground",
-                  )}
-                >
-                  {message.role === "assistant" ? (
-                    <>
-                      <MessageResponse>{text}</MessageResponse>
-                      <SourceRail sources={sources} />
-                    </>
-                  ) : (
-                    <span className="whitespace-pre-wrap text-sm">{text}</span>
-                  )}
-                </MessageContent>
-              </Message>
-            );
-          })}
+                Load older messages ({messages.length - displayedCount} remaining)
+              </Button>
+            </div>
+          )}
+
+          {visibleMessages.map((message) => (
+            <ChatMessageItem key={message.id} message={message} />
+          ))}
 
           {status === "submitted" && (
             <Message from="assistant">

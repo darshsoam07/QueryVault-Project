@@ -24,15 +24,18 @@ export const RETRIEVAL_CONFIG = {
   denseWeight: 1,
   lexicalWeight: 0.8,
 
-  /** Query expansion: "auto" only expands short/vague questions. */
-  queryRewrite: "auto" as QueryRewriteStrategy,
+  /** Query expansion: "off" by default for fast first-token latency; "auto" only expands short/vague questions. */
+  queryRewrite: ((typeof process !== "undefined" && process.env?.["QV_QUERY_REWRITE"]) ||
+    "off") as QueryRewriteStrategy,
   maxQueryVariants: 3,
   /** A question with more content words than this is treated as specific enough. */
   rewriteWordThreshold: 6,
   /** Phase 4: caps the query rewrite prompt to avoid excessively long rewrites. */
   maxCharsPerQuery: 1000,
 
-  reranker: "llm" as RerankerStrategy,
+  /** Production default: heuristic reranking eliminates 2-5s LLM rerank latency. */
+  reranker: ((typeof process !== "undefined" && process.env?.["QV_RERANKER"]) ||
+    "heuristic") as RerankerStrategy,
   /** Phase 4: degrade to heuristic reranking if the LLM does not respond in time. */
   llmRerankerTimeoutMs: 5000,
 

@@ -52,7 +52,9 @@ export async function runRetrieval(
   const config = deps.config ?? RETRIEVAL_CONFIG;
   const started = Date.now();
 
+  const expandStart = Date.now();
   const { queries, rewritten } = await deps.expand(question);
+  const rewriteLatencyMs = Date.now() - expandStart;
   const [dense, lexical] = await Promise.all([deps.dense(queries), deps.lexical(queries)]);
 
   const fused = fuseCandidates({
@@ -92,6 +94,7 @@ export async function runRetrieval(
     telemetry: {
       queryRewritten: rewritten,
       queryVariants: queries.length,
+      rewriteLatencyMs,
       embeddingLatencyMs: dense.embeddingLatencyMs,
       denseLatencyMs: dense.queryLatencyMs,
       lexicalLatencyMs: lexical.queryLatencyMs,

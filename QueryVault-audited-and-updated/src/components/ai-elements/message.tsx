@@ -4,10 +4,6 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
@@ -270,16 +266,50 @@ export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProp
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins = { cjk, code, math, mermaid };
-
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  ({ className, ...props }: MessageResponseProps) => {
+    const content = typeof props.children === "string" ? props.children : "";
+    const [plugins, setPlugins] = useState<Record<string, unknown>>({});
+
+    useEffect(() => {
+      const hasCode = content.includes("```");
+      const hasMath = content.includes("$$");
+      const hasMermaid = content.includes("```mermaid");
+      const hasCJK = /[\u4e00-\u9fa5\u3040-\u30ff]/.test(content);
+
+      if (!hasCode && !hasMath && !hasMermaid && !hasCJK) return;
+
+      let cancelled = false;
+
+      Promise.all([
+        hasCode ? import("@streamdown/code").then((m) => m.code) : null,
+        hasMath ? import("@streamdown/math").then((m) => m.math) : null,
+        hasMermaid ? import("@streamdown/mermaid").then((m) => m.mermaid) : null,
+        hasCJK ? import("@streamdown/cjk").then((m) => m.cjk) : null,
+      ]).then(([codePlugin, mathPlugin, mermaidPlugin, cjkPlugin]) => {
+        if (cancelled) return;
+        setPlugins((prev) => ({
+          ...prev,
+          ...(codePlugin ? { code: codePlugin } : {}),
+          ...(mathPlugin ? { math: mathPlugin } : {}),
+          ...(mermaidPlugin ? { mermaid: mermaidPlugin } : {}),
+          ...(cjkPlugin ? { cjk: cjkPlugin } : {}),
+        }));
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }, [content]);
+
+    return (
+      <Streamdown
+        className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+        plugins={plugins as any}
+        {...props}
+      />
+    );
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children && nextProps.isAnimating === prevProps.isAnimating,
 );

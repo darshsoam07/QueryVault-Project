@@ -156,6 +156,10 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   }
   const bytes = new Uint8Array(await blob.arrayBuffer());
 
+  const queueWaitMs = job.created_at
+    ? Math.max(0, Date.now() - new Date(job.created_at).getTime())
+    : null;
+
   await db
     .from("documents")
     .update({ storage_path: storagePath, byte_size: blob.size })
@@ -165,7 +169,9 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   // ---- parse -----------------------------------------------------------
   await assertLive(db, job);
   await setPhase(db, job, "parsing", { progress: 25 });
+  const parseStart = Date.now();
   const pages = await extractDocumentPages(bytes, document.filename);
+  const parseDurationMs = Date.now() - parseStart;
   const textLength = pages.reduce((sum, page) => sum + page.text.trim().length, 0);
   if (textLength < 40) {
     throw permanent(
@@ -193,7 +199,9 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   // ---- chunk -----------------------------------------------------------
   await advanceStatus(db, job, "processing");
   await setPhase(db, job, "chunking", { progress: 40, page_count: pages.length });
+  const chunkStart = Date.now();
   const chunks = preparePageChunks(pages, CHUNK_SIZE, CHUNK_OVERLAP);
+  const chunkDurationMs = Date.now() - chunkStart;
   if (chunks.length === 0) {
     throw permanent("NO_CHUNKS", "This document produced no usable text.");
   }
@@ -202,6 +210,8 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   const provider = requireAiProvider();
   const batches = batchArray(chunks, EMBED_BATCH);
   let indexed = 0;
+  let totalEmbedDurationMs = 0;
+  let totalUpsertDurationMs = 0;
 
   for (const batch of batches) {
     await assertLive(db, job);
@@ -210,6 +220,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     });
 
     let embeddings: number[][];
+    const embedStart = Date.now();
     try {
       embeddings = await embedTexts(
         batch.map((chunk) => chunk.content),
@@ -223,6 +234,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       }
       throw dependency("EMBEDDING_FAILED", "The embedding service did not respond.");
     }
+    totalEmbedDurationMs += Date.now() - embedStart;
 
     await setPhase(db, job, "indexing");
     const rows = await Promise.all(
@@ -241,12 +253,14 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     );
 
     // Deterministic ids + upsert = a retried batch overwrites, never duplicates.
+    const upsertStart = Date.now();
     const { error: upsertError } = await db
       .from("document_chunks")
       .upsert(rows, { onConflict: "id" });
     if (upsertError) {
       throw dependency("CHUNK_WRITE_FAILED", "Storing the index failed. Retrying shortly.");
     }
+    totalUpsertDurationMs += Date.now() - upsertStart;
 
     indexed += rows.length;
     await db
@@ -305,6 +319,11 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       chunks: chunks.length,
       pages: pages.length,
       duration_ms: Date.now() - startedAt,
+      queue_wait_ms: queueWaitMs,
+      parse_duration_ms: parseDurationMs,
+      chunk_duration_ms: chunkDurationMs,
+      embed_duration_ms: totalEmbedDurationMs,
+      upsert_duration_ms: totalUpsertDurationMs,
       embedding_calls: Math.ceil(chunks.length / EMBED_BATCH),
       embedded_texts: chunks.length,
       parser_version: PARSER_VERSION,
@@ -452,10 +471,20 @@ export async function drainIngestionJobs(options: {
   const db = await admin();
   const result: DrainResult = { claimed: 0, succeeded: 0, failed: 0, retrying: 0, cancelled: 0 };
 
+  const defaultConcurrency = 3;
+  const envConcurrency =
+    typeof process !== "undefined" && process.env["INGESTION_WORKER_CONCURRENCY"]
+      ? parseInt(process.env["INGESTION_WORKER_CONCURRENCY"], 10)
+      : defaultConcurrency;
+  const concurrency = Math.max(
+    1,
+    Math.min(Number.isFinite(envConcurrency) ? envConcurrency : defaultConcurrency, 5),
+  );
+
   const { data: jobs, error } = await db.rpc("claim_ingestion_jobs", {
     worker_id: `${WORKER_VERSION}:${requestId}`,
     worker_version: WORKER_VERSION,
-    max_jobs: Math.max(1, Math.min(options.maxJobs ?? 1, 5)),
+    max_jobs: Math.max(1, Math.min(options.maxJobs ?? concurrency, 5)),
     lock_seconds: LOCK_SECONDS,
     ...(options.userId ? { only_user_id: options.userId } : {}),
   });
@@ -465,34 +494,56 @@ export async function drainIngestionJobs(options: {
     return result;
   }
 
-  for (const job of (jobs ?? []) as Job[]) {
-    result.claimed += 1;
-    try {
-      await processJob(db, job, requestId);
-      await finishJob(db, job);
-      result.succeeded += 1;
-    } catch (error) {
-      if (error instanceof JobCancelled) {
-        await cancelJob(db, job, error.message);
-        result.cancelled += 1;
-        continue;
-      }
-      const failure = classifyError(error);
-      const retry = isRetryable(failure, job.attempt_count)
-        ? { delaySeconds: backoffSeconds(job.attempt_count, failure.failureClass) }
-        : null;
-      await failJob(db, job, failure.code, failure.message, retry, requestId);
-      if (retry) {
-        result.retrying += 1;
-        await setPhase(db, job, "queued");
-      } else {
-        result.failed += 1;
-      }
-    }
+  const claimedJobs = (jobs ?? []) as Job[];
+  result.claimed = claimedJobs.length;
+
+  if (claimedJobs.length > 0) {
+    // Process claimed jobs with bounded concurrency
+    await Promise.all(
+      claimedJobs.map(async (job) => {
+        try {
+          await processJob(db, job, requestId);
+          await finishJob(db, job);
+          result.succeeded += 1;
+        } catch (error) {
+          if (error instanceof JobCancelled) {
+            await cancelJob(db, job, error.message);
+            result.cancelled += 1;
+            return;
+          }
+          const failure = classifyError(error);
+          const retry = isRetryable(failure, job.attempt_count)
+            ? { delaySeconds: backoffSeconds(job.attempt_count, failure.failureClass) }
+            : null;
+          await failJob(db, job, failure.code, failure.message, retry, requestId);
+          if (retry) {
+            result.retrying += 1;
+            await setPhase(db, job, "queued");
+          } else {
+            result.failed += 1;
+          }
+        }
+      }),
+    );
   }
 
   // Phase 5+6: prune stale rate-limit counters at end of every drain cycle.
   await pruneExpiredRateLimits();
+
+  const { count: queueDepth } = await db
+    .from("ingestion_jobs")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["queued", "retrying"]);
+
+  logEvent("info", "worker.drain_cycle_completed", requestId, {
+    concurrency,
+    claimed: result.claimed,
+    succeeded: result.succeeded,
+    failed: result.failed,
+    retrying: result.retrying,
+    cancelled: result.cancelled,
+    queue_depth: queueDepth ?? 0,
+  });
 
   return result;
 }
