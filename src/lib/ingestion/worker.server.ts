@@ -123,7 +123,8 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     .eq("user_id", job.user_id)
     .single();
   if (!document) throw new JobCancelled("document removed");
-  const storagePath = document.storage_path ?? ownerScopedPath(job.user_id, job.document_id, document.filename);
+  const storagePath =
+    document.storage_path ?? ownerScopedPath(job.user_id, job.document_id, document.filename);
   const startedAt = Date.now();
   emitAsync({
     event: EVENTS.INGESTION_STARTED,
