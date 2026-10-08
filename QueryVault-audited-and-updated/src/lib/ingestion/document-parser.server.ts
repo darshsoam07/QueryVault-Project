@@ -11,9 +11,13 @@ function single(text: string): PageText[] {
 }
 
 function stripHtml(source: string): string {
-  return source.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
-    .replace(/\s{2,}/g, " ").trim();
+  return source
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 async function parsePdf(bytes: Uint8Array): Promise<PageText[]> {
@@ -49,17 +53,26 @@ async function parseWorkbook(bytes: Uint8Array): Promise<PageText[]> {
 async function parsePptx(bytes: Uint8Array): Promise<PageText[]> {
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(bytes);
-  const slides = Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))
+  const slides = Object.keys(zip.files)
+    .filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))
     .sort((a, b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0]));
-  return Promise.all(slides.map(async (path, index) => ({
-    page: index + 1,
-    text: (await zip.file(path)?.async("text") ?? "")
-      .replace(/<a:t[^>]*>/g, "").replace(/<\/a:t>/g, " ").replace(/<[^>]+>/g, " ")
-      .replace(/\s{2,}/g, " ").trim(),
-  })));
+  return Promise.all(
+    slides.map(async (path, index) => ({
+      page: index + 1,
+      text: ((await zip.file(path)?.async("text")) ?? "")
+        .replace(/<a:t[^>]*>/g, "")
+        .replace(/<\/a:t>/g, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim(),
+    })),
+  );
 }
 
-export async function extractDocumentPages(bytes: Uint8Array, filename: string): Promise<PageText[]> {
+export async function extractDocumentPages(
+  bytes: Uint8Array,
+  filename: string,
+): Promise<PageText[]> {
   const extension = extensionOf(filename);
   if (extension === "pdf") return parsePdf(bytes);
   if (extension === "docx") return parseDocx(bytes);
@@ -69,7 +82,10 @@ export async function extractDocumentPages(bytes: Uint8Array, filename: string):
   if (["txt", "md", "markdown", "csv", "json"].includes(extension)) return single(text);
   if (["html", "htm"].includes(extension)) return single(stripHtml(text));
   if (["png", "jpg", "jpeg", "webp"].includes(extension)) {
-    throw permanent("OCR_REQUIRED", "Images need an OCR provider. Configure one before uploading image-only files.");
+    throw permanent(
+      "OCR_REQUIRED",
+      "Images need an OCR provider. Configure one before uploading image-only files.",
+    );
   }
   throw permanent("UNSUPPORTED_FORMAT", "This file type is not supported.");
 }

@@ -226,7 +226,9 @@ export function KnowledgePanel({
           <UploadCloud className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-amethyst" />
         )}
         <p className="mt-1.5 text-xs font-medium text-foreground">Drop a document to index</p>
-        <p className="text-[11px] text-muted-foreground">PDF, Word, text, sheets, slides · max 25 MB</p>
+        <p className="text-[11px] text-muted-foreground">
+          PDF, Word, text, sheets, slides · max 25 MB
+        </p>
       </div>
 
       {/* ── Upload progress ── */}

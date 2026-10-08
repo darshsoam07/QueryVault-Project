@@ -76,7 +76,8 @@ export function Hero() {
                   // 1. Evidence gate evaluation
                 </div>
                 <div className="rounded border border-border bg-surface-raised p-2.5 text-[11px] leading-relaxed text-foreground">
-                  <span className="text-muted-foreground">const</span> isVerified = gate.evaluate(&#123;
+                  <span className="text-muted-foreground">const</span> isVerified =
+                  gate.evaluate(&#123;
                   <br />
                   &nbsp;&nbsp;evidence: evidenceSet.retrieved,
                   <br />

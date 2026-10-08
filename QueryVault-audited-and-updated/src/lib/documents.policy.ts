@@ -62,11 +62,18 @@ export const DOCUMENT_FORMATS = {
     mimeTypes: ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
     extensions: ["pptx"],
   },
-  image: { mimeTypes: ["image/png", "image/jpeg", "image/webp"], extensions: ["png", "jpg", "jpeg", "webp"] },
+  image: {
+    mimeTypes: ["image/png", "image/jpeg", "image/webp"],
+    extensions: ["png", "jpg", "jpeg", "webp"],
+  },
 } as const;
 
-export const ALLOWED_CONTENT_TYPES = Object.values(DOCUMENT_FORMATS).flatMap((format) => format.mimeTypes);
-export const ALLOWED_EXTENSIONS = Object.values(DOCUMENT_FORMATS).flatMap((format) => format.extensions);
+export const ALLOWED_CONTENT_TYPES = Object.values(DOCUMENT_FORMATS).flatMap(
+  (format) => format.mimeTypes,
+);
+export const ALLOWED_EXTENSIONS = Object.values(DOCUMENT_FORMATS).flatMap(
+  (format) => format.extensions,
+);
 export const PDF_MAGIC = "%PDF-";
 
 /** Strips paths/control characters and clamps length. Never trust the browser name. */
@@ -76,7 +83,11 @@ export function safeFilename(name: string): string {
   const cleaned = base.replace(/[^A-Za-z0-9._ ()-]+/g, "_").trim();
 
   const extension = cleaned.split(".").pop()?.toLowerCase();
-  return (extension && ALLOWED_EXTENSIONS.includes(extension as never) ? cleaned : `${cleaned || "document"}.pdf`).slice(-180);
+  return (
+    extension && ALLOWED_EXTENSIONS.includes(extension as never)
+      ? cleaned
+      : `${cleaned || "document"}.pdf`
+  ).slice(-180);
 }
 
 export function isAllowedContentType(contentType: string | null | undefined): boolean {
@@ -96,7 +107,9 @@ export function isSupportedDocument(name: string, contentType: string | null | u
   // bytes in the parser, so do not reject a legitimate file just for that.
   return (
     ALLOWED_EXTENSIONS.includes(extension as never) &&
-    (!contentType || contentType === "application/octet-stream" || isAllowedContentType(contentType))
+    (!contentType ||
+      contentType === "application/octet-stream" ||
+      isAllowedContentType(contentType))
   );
 }
 
@@ -109,7 +122,11 @@ export function hasPdfMagicBytes(bytes: Uint8Array): boolean {
   return true;
 }
 
-export function ownerScopedPath(userId: string, documentId: string, filename = "document.pdf"): string {
+export function ownerScopedPath(
+  userId: string,
+  documentId: string,
+  filename = "document.pdf",
+): string {
   const extension = extensionOf(filename);
   return `${userId}/${documentId}.${ALLOWED_EXTENSIONS.includes(extension as never) ? extension : "pdf"}`;
 }
