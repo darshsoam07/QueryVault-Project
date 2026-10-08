@@ -108,7 +108,10 @@ async function parsePptx(bytes: Uint8Array): Promise<PageText[]> {
   );
 }
 
-export async function extractDocumentPages(bytes: Uint8Array, filename: string): Promise<PageText[]> {
+export async function extractDocumentPages(
+  bytes: Uint8Array,
+  filename: string,
+): Promise<PageText[]> {
   const extension = extensionOf(filename);
   if (extension === "pdf") return parsePdf(bytes);
   if (extension === "docx") return parseDocx(bytes);
@@ -118,7 +121,10 @@ export async function extractDocumentPages(bytes: Uint8Array, filename: string):
   if (["txt", "md", "markdown", "csv", "json"].includes(extension)) return single(text);
   if (["html", "htm"].includes(extension)) return single(stripHtml(text));
   if (["png", "jpg", "jpeg", "webp"].includes(extension)) {
-    throw permanent("OCR_REQUIRED", "Images need an OCR provider. Configure one before uploading image-only files.");
+    throw permanent(
+      "OCR_REQUIRED",
+      "Images need an OCR provider. Configure one before uploading image-only files.",
+    );
   }
   throw permanent("UNSUPPORTED_FORMAT", "This file type is not supported.");
 }

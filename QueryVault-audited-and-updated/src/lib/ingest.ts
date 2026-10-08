@@ -63,7 +63,8 @@ export async function uploadAndEnqueue(
   file: File,
   onStatus: (status: IngestStatus) => void,
 ): Promise<UploadHandle> {
-  if (!isSupportedDocument(file.name, file.type)) throw new Error("This file type is not supported.");
+  if (!isSupportedDocument(file.name, file.type))
+    throw new Error("This file type is not supported.");
   if (file.size < MIN_UPLOAD_BYTES) throw new Error("That file is empty.");
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new Error(
@@ -91,7 +92,10 @@ export async function uploadAndEnqueue(
   const uploadStart = Date.now();
   const { error: uploadError } = await supabase.storage
     .from("documents")
-    .upload(storagePath, file, { contentType: file.type || "application/octet-stream", upsert: true });
+    .upload(storagePath, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: true,
+    });
   if (uploadError) throw new Error(uploadError.message);
   const uploadDurationMs = Date.now() - uploadStart;
 
