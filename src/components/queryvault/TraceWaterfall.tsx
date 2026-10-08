@@ -80,22 +80,22 @@ export function TraceWaterfall({
       id: "embedding",
       label: "Query Expansion",
       ms: num(embedding["latencyMs"]) ?? 0,
-      color: "bg-blue-500",
-      textColor: "text-blue-400",
+      color: "bg-primary",
+      textColor: "text-primary",
     },
     {
       id: "dense",
       label: "Dense Retrieval (pgvector)",
       ms: num(dense["latencyMs"]) ?? 0,
       color: "bg-emerald-500",
-      textColor: "text-emerald-400",
+      textColor: "text-emerald-700",
     },
     {
       id: "lexical",
       label: "Lexical Search (tsvector)",
       ms: num(lexical["latencyMs"]) ?? 0,
       color: "bg-amber-500",
-      textColor: "text-amber-400",
+      textColor: "text-amber-700",
     },
     {
       id: "rerank",
@@ -109,7 +109,7 @@ export function TraceWaterfall({
       label: "Generation & Validation",
       ms: num(validation["latencyMs"]) ?? num(generationLatencyMs) ?? 0,
       color: "bg-pink-500",
-      textColor: "text-pink-400",
+      textColor: "text-pink-700",
     },
   ];
 
@@ -122,14 +122,14 @@ export function TraceWaterfall({
       {rerankFallback && (
         <div
           data-testid="reranker-fallback-alert"
-          className="flex items-start gap-2.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200"
+          className="flex items-start gap-2.5 rounded-lg border border-amber-600/30 bg-amber-50 p-3 text-xs text-amber-900"
         >
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" />
           <div>
-            <span className="font-semibold text-amber-300">
+            <span className="font-semibold text-amber-800">
               Reranker Fallback Active: {rerankFallback}
             </span>
-            <p className="mt-0.5 text-amber-300/80">
+            <p className="mt-0.5 text-amber-700">
               {rerankFallback === "timeout"
                 ? "LLM reranker exceeded the 5000ms wall-clock ceiling. Pipeline safely fell back to reciprocal rank heuristic scoring."
                 : "Reranker provider encountered an upstream error. Heuristic fusion scores preserved."}
@@ -231,7 +231,7 @@ export function TraceWaterfall({
               {isGrounded ? (
                 <Badge
                   variant="default"
-                  className="gap-1 bg-emerald-600/80 text-white hover:bg-emerald-600"
+                  className="gap-1 border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                 >
                   <CheckCircle2 className="h-3 w-3" /> Grounded
                 </Badge>
@@ -250,7 +250,7 @@ export function TraceWaterfall({
                 {fmt(gate["bestRerankScore"])}
               </span>
               {(num(gate["bestRerankScore"]) ?? 0) >= 0.35 ? (
-                <span className="text-[10px] text-emerald-400">✓ PASS</span>
+                <span className="text-[10px] text-emerald-700">✓ PASS</span>
               ) : (
                 <span className="text-[10px] text-destructive">✗ BELOW FLOOR</span>
               )}
@@ -266,7 +266,7 @@ export function TraceWaterfall({
                 {fmt(gate["bestSimilarity"])}
               </span>
               {(num(gate["bestSimilarity"]) ?? 0) >= 0.3 ? (
-                <span className="text-[10px] text-emerald-400">✓ PASS</span>
+                <span className="text-[10px] text-emerald-700">✓ PASS</span>
               ) : (
                 <span className="text-[10px] text-destructive">✗ BELOW FLOOR</span>
               )}
@@ -356,11 +356,11 @@ export function TraceWaterfall({
                       </td>
                       <td className="py-1.5 text-center">
                         {delta > 0 ? (
-                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
                             ↑ +{delta}
                           </span>
                         ) : delta < 0 ? (
-                          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
+                          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
                             ↓ {delta}
                           </span>
                         ) : (

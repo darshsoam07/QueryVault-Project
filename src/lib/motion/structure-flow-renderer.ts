@@ -88,8 +88,8 @@ export function createStructureFlowRenderer(
 
   const material = new THREE.PointsMaterial({
     size: STRUCTURE_FLOW_DEFAULTS.pointSize,
-    // Cyan Neon (mirrors --landing-particle: #00CEC9)
-    color: 0x00cec9,
+    // Muted taupe (mirrors the premium landing palette).
+    color: 0xa69589,
     transparent: true,
     opacity: STRUCTURE_FLOW_DEFAULTS.opacity,
     blending: THREE.AdditiveBlending,

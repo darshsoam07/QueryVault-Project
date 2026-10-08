@@ -379,14 +379,14 @@ function AuthPage() {
                 <>
                   <button
                     type="button"
-                    className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                    className="text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
                     onClick={() => setMode("signup")}
                   >
                     No account yet? Create one
                   </button>
                   <button
                     type="button"
-                    className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                    className="text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
                     onClick={() => setMode("reset")}
                   >
                     Forgot your password?
@@ -396,7 +396,7 @@ function AuthPage() {
               {mode === "signup" && (
                 <button
                   type="button"
-                  className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                  className="text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => setMode("signin")}
                 >
                   Already have an account? Sign in
@@ -405,7 +405,7 @@ function AuthPage() {
               {mode === "reset" && (
                 <button
                   type="button"
-                  className="text-center text-xs text-muted-foreground transition-colors hover:text-cyan"
+                  className="text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => setMode("signin")}
                 >
                   Back to sign in

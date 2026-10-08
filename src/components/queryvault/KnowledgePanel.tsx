@@ -81,9 +81,9 @@ function StatusBadge({ status, phase }: { status: string; phase: string }) {
     return (
       <Badge
         variant="outline"
-        className="gap-1 border-emerald-300 bg-emerald-50 font-mono text-[10px] font-medium text-emerald-700"
+        className="gap-1 border-emerald-600/30 bg-emerald-50 font-mono text-[10px] font-medium text-emerald-800"
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
         Ready
       </Badge>
     );
@@ -92,7 +92,7 @@ function StatusBadge({ status, phase }: { status: string; phase: string }) {
     return (
       <Badge
         variant="outline"
-        className="gap-1 border-red-300 bg-red-50 font-mono text-[10px] font-medium text-destructive"
+        className="gap-1 border-red-200 bg-red-50 font-mono text-[10px] font-medium text-destructive"
       >
         <AlertTriangle className="h-2.5 w-2.5" />
         Failed

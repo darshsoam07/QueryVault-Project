@@ -73,7 +73,7 @@ export function PipelineSection() {
           {/* Left Sticky Header */}
           <div className="lg:col-span-4 lg:sticky lg:top-24 lg:self-start">
             <div className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              <GitCommitHorizontal className="h-3.5 w-3.5 text-cyan" />
+              <GitCommitHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
               Pipeline Trace
             </div>
 
@@ -87,7 +87,7 @@ export function PipelineSection() {
             </p>
 
             <div className="mt-6 flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 text-emerald-400/80" />
+              <ShieldCheck className="h-4 w-4 text-foreground/60" />
               <span>Unsupported answers are refused before generation</span>
             </div>
           </div>
@@ -98,12 +98,12 @@ export function PipelineSection() {
               {STAGES.map((stage) => (
                 <div key={stage.id} className="group relative">
                   {/* Timeline Node Point */}
-                  <div className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background transition-colors group-hover:border-cyan">
-                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground transition-colors group-hover:bg-cyan" />
+                  <div className="absolute -left-[31px] top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background transition-colors group-hover:border-foreground/40">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground transition-colors group-hover:bg-foreground" />
                   </div>
 
                   {/* Stage Card */}
-                  <div className="rounded-lg border border-border bg-surface p-4 transition-all hover:border-cyan/40 hover:bg-surface-raised">
+                  <div className="rounded-lg border border-border bg-surface p-4 transition-all hover:border-foreground/20 hover:bg-surface-raised">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[11px] text-muted-foreground">

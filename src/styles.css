@@ -5,8 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * QueryVault design system — premium dark UI.
- * Electric blue and cyan accents on a unified Night Black surface.
+ * QueryVault design system — premium cream luxury UI.
  */
 
 @theme inline {
@@ -71,61 +70,61 @@
     sans-serif;
   --radius: 0.75rem;
 
-  --background: #131a1f;
-  --foreground: #f5f6fa;
-  --surface: #1e272e;
-  --surface-raised: #27323b;
-  --card: #1e272e;
-  --card-foreground: #f5f6fa;
-  --popover: #1e272e;
-  --popover-foreground: #f5f6fa;
-  --primary: #f5f6fa;
-  --primary-foreground: #1e272e;
-  --amethyst: #0984e3;
-  --amethyst-foreground: #f5f6fa;
-  --cyan: #00cec9;
-  --cyan-foreground: #1e272e;
-  --secondary: #27323b;
-  --secondary-foreground: #9fb0bc;
-  --muted: #27323b;
-  --muted-foreground: #9fb0bc;
-  --accent: #27323b;
-  --accent-foreground: #f5f6fa;
-  --destructive: #c44040;
-  --destructive-foreground: #f5f6fa;
-  --border: #71818c;
-  --input: #71818c;
-  --ring: #0984e3;
-  --chart-1: #0984e3;
-  --chart-2: #00cec9;
-  --chart-3: #63b3ed;
-  --chart-4: #8edbd8;
-  --chart-5: #f5f6fa;
-  --link: #63b3ed;
-  --sidebar: #1e272e;
-  --sidebar-foreground: #9fb0bc;
-  --sidebar-primary: #f5f6fa;
-  --sidebar-primary-foreground: #1e272e;
-  --sidebar-accent: #27323b;
-  --sidebar-accent-foreground: #f5f6fa;
-  --sidebar-border: #71818c;
-  --sidebar-ring: #0984e3;
+  --background: #f5f2eb;
+  --foreground: #2c2a29;
+  --surface: #f5f2eb;
+  --surface-raised: #eae5db;
+  --card: #eae5db;
+  --card-foreground: #2c2a29;
+  --popover: #f5f2eb;
+  --popover-foreground: #2c2a29;
+  --primary: #2c2a29;
+  --primary-foreground: #f5f2eb;
+  --amethyst: #2c2a29;
+  --amethyst-foreground: #f5f2eb;
+  --cyan: #2c2a29;
+  --cyan-foreground: #f5f2eb;
+  --secondary: #eae5db;
+  --secondary-foreground: #2c2a29;
+  --muted: #eae5db;
+  --muted-foreground: #5f5955;
+  --accent: #eae5db;
+  --accent-foreground: #2c2a29;
+  --destructive: #9b4540;
+  --destructive-foreground: #f5f2eb;
+  --border: #d4c5b9;
+  --input: #d4c5b9;
+  --ring: #2c2a29;
+  --chart-1: #2c2a29;
+  --chart-2: #7c7068;
+  --chart-3: #a69589;
+  --chart-4: #d4c5b9;
+  --chart-5: #eae5db;
+  --link: #2c2a29;
+  --sidebar: #eae5db;
+  --sidebar-foreground: #2c2a29;
+  --sidebar-primary: #2c2a29;
+  --sidebar-primary-foreground: #f5f2eb;
+  --sidebar-accent: #f5f2eb;
+  --sidebar-accent-foreground: #2c2a29;
+  --sidebar-border: #d4c5b9;
+  --sidebar-ring: #2c2a29;
   --landing-bg: var(--background);
   --landing-surface: var(--surface);
-  --landing-headline: #f5f6fa;
-  --landing-headline-strong: #f5f6fa;
-  --landing-accent: #00cec9;
-  --landing-body: #c2cdd5;
-  --landing-body-secondary: #9fb0bc;
-  --landing-muted: #9fb0bc;
-  --landing-very-muted: #71818c;
-  --landing-on-accent: #1e272e;
-  --landing-border: #71818c;
-  --landing-border-subtle: #27323b;
-  --landing-particle: #00cec9;
-  --gradient-brand: linear-gradient(100deg, #0984e3, #00cec9);
-  --glow-amethyst: 0 1px 4px rgba(9, 132, 227, 0.22);
-  --glow-cyan: 0 1px 4px rgba(0, 206, 201, 0.2);
+  --landing-headline: #2c2a29;
+  --landing-headline-strong: #2c2a29;
+  --landing-accent: #2c2a29;
+  --landing-body: #5f5955;
+  --landing-body-secondary: #5f5955;
+  --landing-muted: #5f5955;
+  --landing-very-muted: #7c7068;
+  --landing-on-accent: #f5f2eb;
+  --landing-border: #d4c5b9;
+  --landing-border-subtle: #eae5db;
+  --landing-particle: #a69589;
+  --gradient-brand: linear-gradient(100deg, #2c2a29, #4a4541);
+  --glow-amethyst: 0 1px 4px rgba(44, 42, 41, 0.12);
+  --glow-cyan: 0 1px 4px rgba(124, 112, 104, 0.12);
 }
 
 /* Scoped palette for the landing presentation */
@@ -157,11 +156,11 @@
 }
 
 .dark {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 .workspace-shell {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 @layer base {
@@ -171,7 +170,7 @@
 
   /* Crisp, high-end font smoothing */
   html {
-    color-scheme: dark;
+    color-scheme: light;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -205,7 +204,7 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--cyan) 30%, transparent);
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
   }
 
   ::-webkit-scrollbar {
@@ -239,9 +238,10 @@
 }
 
 @utility glass-panel {
-  background-color: color-mix(in srgb, var(--foreground) 5%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background-color: color-mix(in srgb, var(--card) 88%, var(--background));
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 30px rgba(44, 42, 41, 0.06);
 }
 
 /*
@@ -259,7 +259,7 @@
 
 /*
  * source-card — used for citation / retrieval result cards.
- * Slightly elevated background with Electric Blue hover accents.
+ * Slightly elevated background with a restrained taupe border.
  */
 @utility source-card {
   background-color: var(--surface-raised);
@@ -283,11 +283,10 @@
 @utility grid-void {
   background-image:
     /* engineering grid — vertical lines */
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(90deg, rgba(44, 42, 41, 0.035) 0 1px, transparent 1px 120px),
     /* engineering grid — horizontal lines */
-      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 120px),
-    /* subtle blue depth glow — restrained, non-competing */
-      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(0, 206, 201, 0.04), transparent 70%);
+      repeating-linear-gradient(180deg, rgba(44, 42, 41, 0.035) 0 1px, transparent 1px 120px),
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(212, 197, 185, 0.34), transparent 70%);
 }
 
 @keyframes qv-rise {

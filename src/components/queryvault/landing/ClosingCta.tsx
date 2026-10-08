@@ -52,7 +52,7 @@ export function ClosingCta() {
             size="lg"
             variant="outline"
             asChild
-            className="border-border bg-surface/80 text-muted-foreground hover:bg-surface-raised hover:border-cyan/40 hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring"
+            className="border-border bg-surface/80 text-muted-foreground hover:bg-surface-raised hover:border-foreground/20 hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Link to="/reference">Read the reference</Link>
           </Button>

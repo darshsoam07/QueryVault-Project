@@ -35,7 +35,7 @@ export function TrustSection() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              <Activity className="h-3.5 w-3.5 text-cyan" />
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
               Empirical Benchmarks
             </div>
             <h2 className="mt-3 text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
@@ -50,12 +50,12 @@ export function TrustSection() {
           {/* Copyable Evaluator Command */}
           <button
             onClick={copyCommand}
-            className="inline-flex h-8 items-center gap-2 self-start rounded-md border border-border bg-surface px-3 font-mono text-xs text-foreground transition-colors hover:border-cyan/40"
+            className="inline-flex h-8 items-center gap-2 self-start rounded-md border border-border bg-surface px-3 font-mono text-xs text-foreground transition-colors hover:border-foreground/30"
           >
-            <Terminal className="h-3.5 w-3.5 text-cyan" />
+            <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
             <span>npm run eval:gate</span>
             {copied ? (
-              <Check className="h-3 w-3 text-emerald-400" />
+              <Check className="h-3 w-3 text-foreground" />
             ) : (
               <Copy className="h-3 w-3 text-muted-foreground" />
             )}
@@ -70,7 +70,7 @@ export function TrustSection() {
                 <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   {metric.label}
                 </span>
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80 shadow-[0_0_6px_rgba(52,211,153,0.4)]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-foreground/50" />
               </div>
 
               <div className="mt-3 flex items-baseline gap-2">

@@ -10,7 +10,7 @@ export function Hero() {
           <div className="lg:col-span-7">
             {/* Flat Micro-Pill (No glow, pure structural border) */}
             <div className="inline-flex items-center gap-2 rounded border border-border bg-surface/90 px-2.5 py-1 text-[11px] font-mono uppercase tracking-wide text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <span className="h-1.5 w-1.5 rounded-full bg-foreground/60" />
               <span>Pipeline Engine v1.2</span>
               <span className="text-muted-foreground">/</span>
               <span className="text-foreground">Deterministic RAG</span>
@@ -48,11 +48,11 @@ export function Hero() {
             {/* Micro Trust Matrix */}
             <div className="mt-10 flex items-center gap-6 border-t border-border pt-6 text-[11px] font-mono text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-cyan stroke-[1.5]" />
+                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground stroke-[1.5]" />
                 Refuses unsupported answers
               </span>
               <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-cyan stroke-[1.5]" />
+                <Lock className="h-3.5 w-3.5 text-muted-foreground stroke-[1.5]" />
                 Postgres RLS
               </span>
             </div>
@@ -63,10 +63,10 @@ export function Hero() {
             <div className="rounded-lg border border-border bg-card p-5 shadow-2xl">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                  <Terminal className="h-3.5 w-3.5 text-cyan stroke-[1.5]" />
+                  <Terminal className="h-3.5 w-3.5 text-muted-foreground stroke-[1.5]" />
                   <span>retrieval_guard.ts</span>
                 </div>
-                <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-400">
+                <span className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[10px] text-foreground">
                   Verified 1.00
                 </span>
               </div>
@@ -76,7 +76,7 @@ export function Hero() {
                   // 1. Evidence gate evaluation
                 </div>
                 <div className="rounded border border-border bg-surface-raised p-2.5 text-[11px] leading-relaxed text-foreground">
-                  <span className="text-cyan">const</span> isVerified = gate.evaluate(&#123;
+                  <span className="text-muted-foreground">const</span> isVerified = gate.evaluate(&#123;
                   <br />
                   &nbsp;&nbsp;evidence: evidenceSet.retrieved,
                   <br />
@@ -86,7 +86,7 @@ export function Hero() {
                 </div>
 
                 <div className="text-[11px] text-muted-foreground">// 2. Deterministic outcome</div>
-                <div className="flex items-center gap-2 text-[11px] text-emerald-400">
+                <div className="flex items-center gap-2 text-[11px] text-foreground">
                   <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" />
                   <span>Pass: Evidence attached to response stream</span>
                 </div>

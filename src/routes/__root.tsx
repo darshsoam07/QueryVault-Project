@@ -86,7 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Enterprise AI knowledge assistant: index your PDFs and get answers grounded in your documents with page-level citations.",
       },
-      { name: "theme-color", content: "#1E272E" },
+      { name: "theme-color", content: "#F5F2EB" },
       { property: "og:site_name", content: "QueryVault" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -112,7 +112,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <HeadContent />
         <script
@@ -137,7 +137,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster position="top-center" richColors theme="dark" />
+      <Toaster position="top-center" richColors theme="light" />
     </QueryClientProvider>
   );
 }

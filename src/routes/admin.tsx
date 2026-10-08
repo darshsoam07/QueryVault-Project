@@ -439,7 +439,7 @@ function TracesPanel() {
                       ) : (
                         <Badge
                           variant="default"
-                          className="h-5 bg-emerald-600/80 px-1.5 text-[10px] text-white"
+                          className="h-5 border-emerald-600/30 bg-emerald-50 px-1.5 text-[10px] text-emerald-800"
                         >
                           Grounded
                         </Badge>
@@ -447,7 +447,7 @@ function TracesPanel() {
                       {hasFallback && (
                         <Badge
                           variant="outline"
-                          className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-300"
+                          className="h-5 border-amber-600/30 bg-amber-50 px-1.5 text-[10px] text-amber-800"
                         >
                           Fallback
                         </Badge>
