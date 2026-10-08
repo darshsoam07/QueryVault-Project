@@ -1,0 +1,584 @@
+/**
+ * Operator diagnostics. Gated twice: the UI hides itself for non-operators and
+ * every server function re-checks the caller's role against `user_roles`.
+ */
+import { VaultMark } from "@/components/queryvault/brand";
+import { TraceWaterfall } from "@/components/queryvault/TraceWaterfall";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  getObservabilitySummary,
+  getOperatorStatus,
+  getQueryTrace,
+  listQueryTraces,
+  listRecentEvents,
+} from "@/lib/admin.functions";
+import { gsap } from "@/lib/motion/gsap";
+import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
+import { DUR, EASE } from "@/lib/motion/tokens";
+import { pct } from "@/lib/observability/metrics";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { Activity, ArrowLeft, RefreshCw } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+
+export const Route = createFileRoute("/admin")({
+  head: () => ({
+    meta: [
+      { title: "Diagnostics — QueryVault" },
+      {
+        name: "description",
+        content:
+          "Operator diagnostics for QueryVault: API latency, retrieval quality, ingestion health and per-query pipeline traces.",
+      },
+      { property: "og:title", content: "QueryVault Diagnostics" },
+      {
+        property: "og:description",
+        content: "Latency, groundedness, refusal rate, ingestion health and query trajectories.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: AdminPage,
+});
+
+const WINDOWS = [
+  { label: "1h", minutes: 60 },
+  { label: "6h", minutes: 360 },
+  { label: "24h", minutes: 1440 },
+  { label: "7d", minutes: 10080 },
+];
+
+function AdminPage() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const status = useServerFn(getOperatorStatus);
+  const [windowMinutes, setWindowMinutes] = useState(60);
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
+
+  const access = useQuery({
+    queryKey: ["operator-status", user?.id],
+    queryFn: () => status({}),
+    enabled: Boolean(user),
+  });
+
+  if (loading || !user || access.isLoading) {
+    return (
+      <div className="grid-void flex h-screen items-center justify-center">
+        <VaultMark className="h-10 w-10 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!access.data?.isOperator) {
+    return (
+      <div className="grid-void flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <VaultMark className="h-10 w-10 opacity-60" />
+        <h1 className="text-lg font-medium">Diagnostics are restricted</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          This area is limited to accounts with the operator or admin role. Ask a workspace admin to
+          grant access.
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/chat">Back to workspace</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid-void min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/80 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-4">
+          <Link to="/chat" className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <Activity className="h-4 w-4 text-primary" />
+          <h1 className="text-sm font-medium tracking-tight">Diagnostics</h1>
+          <div className="ml-auto flex items-center gap-1">
+            {WINDOWS.map((option) => (
+              <Button
+                key={option.minutes}
+                size="sm"
+                variant={windowMinutes === option.minutes ? "secondary" : "ghost"}
+                onClick={() => setWindowMinutes(option.minutes)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-6 py-6">
+        <Tabs defaultValue="metrics">
+          <TabsList>
+            <TabsTrigger value="metrics">Metrics</TabsTrigger>
+            <TabsTrigger value="traces">Query traces</TabsTrigger>
+            <TabsTrigger value="events">Event stream</TabsTrigger>
+          </TabsList>
+          <TabsContent value="metrics" className="mt-6">
+            <MetricsPanel windowMinutes={windowMinutes} />
+          </TabsContent>
+          <TabsContent value="traces" className="mt-6">
+            <TracesPanel />
+          </TabsContent>
+          <TabsContent value="events" className="mt-6">
+            <EventsPanel />
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Leading number plus whatever trails it, so a count-up can drive the digits and
+ * leave the unit alone: `1234` → `1234` + ``, `48 ms` → `48` + ` ms`,
+ * `12.4%` → `12.4` + `%`. `—` does not match, and is left as-is.
+ */
+const LEADING_NUMBER = /^(\d+(?:\.\d+)?)(.*)$/;
+
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string | undefined;
+}) {
+  const valueRef = useRef<HTMLParagraphElement>(null);
+  const hasAnimated = useRef(false);
+
+  /**
+   * Count-up on first load only.
+   *
+   * `MetricsPanel` refetches every 30 seconds. Re-running this on each refetch
+   * would mean the numbers an operator is trying to read are scrambling once a
+   * minute — the animation would actively destroy the thing it decorates. So it
+   * fires once, when the figure first appears, and never again.
+   *
+   * Killing the tween in cleanup is enough: React commits the new text before
+   * running effect cleanups, so a mid-flight value change lands on the fresh
+   * number rather than the one we were counting toward.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    const el = valueRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const match = LEADING_NUMBER.exec(value);
+    const digits = match?.[1];
+    if (!digits) return;
+
+    const suffix = match?.[2] ?? "";
+    const dot = digits.indexOf(".");
+    const decimals = dot === -1 ? 0 : digits.length - dot - 1;
+    const counter = { value: 0 };
+
+    const tween = gsap.to(counter, {
+      value: Number(digits),
+      duration: DUR.card,
+      ease: EASE.out,
+      onUpdate: () => {
+        el.textContent = `${counter.value.toFixed(decimals)}${suffix}`;
+      },
+    });
+
+    return () => {
+      tween.kill();
+    };
+  }, [value]);
+
+  return (
+    <Card data-metric-card className="border-border/60 bg-card/40 p-4">
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
+      {/* The final figure is already the rendered text — the tween overwrites it
+          and lands back on the same string, so nothing is hidden without JS. */}
+      <p ref={valueRef} className="mt-2 text-2xl font-semibold tabular-nums">
+        {value}
+      </p>
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+    </Card>
+  );
+}
+
+function ms(value: unknown): string {
+  return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)} ms` : "—";
+}
+
+function MetricsPanel({ windowMinutes }: { windowMinutes: number }) {
+  const load = useServerFn(getObservabilitySummary);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
+  const query = useQuery({
+    queryKey: ["observability-summary", windowMinutes],
+    queryFn: () => load({ data: { windowMinutes } }),
+    refetchInterval: 30_000,
+  });
+
+  /**
+   * One pass of the cards as the grid first fills in.
+   *
+   * `stagger: { amount: … }` rather than `each`, because there are nineteen
+   * cards: a per-card delay would leave the last one arriving most of a second
+   * after the first. `amount` spreads a fixed total across however many exist, so
+   * the whole sequence stays inside half a second no matter how the panel grows.
+   *
+   * Once only — same reasoning as the count-up. Refetches must not re-animate.
+   */
+  useLayoutEffect(() => {
+    if (hasAnimated.current) return;
+    const el = panelRef.current;
+    if (!el) return;
+
+    hasAnimated.current = true;
+    if (prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from("[data-metric-card]", {
+        y: 10,
+        opacity: 0,
+        duration: DUR.micro,
+        ease: EASE.soft,
+        stagger: { amount: 0.25 },
+      });
+    }, el);
+
+    return () => ctx.revert();
+  }, [query.isSuccess]);
+
+  if (query.isLoading) return <p className="text-sm text-muted-foreground">Loading metrics…</p>;
+  if (query.isError) return <p className="text-sm text-destructive">Metrics unavailable.</p>;
+
+  const s = query.data!;
+  const answered = s.rag.answers || 0;
+
+  return (
+    <div ref={panelRef} className="space-y-8">
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          API
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Requests" value={String(s.api.requests)} />
+          <Metric
+            label="Error rate"
+            value={pct(s.api.error_rate)}
+            hint={`${s.api.errors} failed`}
+          />
+          <Metric label="p95 latency" value={ms(s.api.p95_ms)} hint={`p50 ${ms(s.api.p50_ms)}`} />
+          <Metric label="p99 latency" value={ms(s.api.p99_ms)} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Retrieval quality
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric
+            label="Grounded rate"
+            value={answered ? pct(s.rag.grounded / answered) : "—"}
+            hint={`${s.rag.grounded}/${answered} answered`}
+          />
+          <Metric
+            label="Refusal rate"
+            value={answered ? pct(s.rag.refusals / answered) : "—"}
+            hint={`${s.rag.refusals} refusals`}
+          />
+          <Metric
+            label="Retrieval p95"
+            value={ms(s.rag.retrieval_p95_ms)}
+            hint={`p50 ${ms(s.rag.retrieval_p50_ms)}`}
+          />
+          <Metric
+            label="Generation p95"
+            value={ms(s.rag.generation_p95_ms)}
+            hint={`p50 ${ms(s.rag.generation_p50_ms)}`}
+          />
+          <Metric label="Avg passages used" value={(s.rag.avg_hits ?? 0).toFixed(1)} />
+          <Metric label="Avg best cosine" value={(s.rag.avg_best_similarity ?? 0).toFixed(3)} />
+          <Metric label="Avg best rerank" value={(s.rag.avg_best_rerank ?? 0).toFixed(3)} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Ingestion
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Succeeded" value={String(s.ingestion.succeeded)} />
+          <Metric
+            label="Failed"
+            value={String(s.ingestion.failed)}
+            hint={`${s.ingestion.retries} retries`}
+          />
+          <Metric
+            label="In flight"
+            value={String(s.ingestion.queued + s.ingestion.running + s.ingestion.retrying)}
+            hint={`${s.ingestion.queued} queued · ${s.ingestion.running} running`}
+          />
+          <Metric label="Avg duration" value={ms(s.ingestion.avg_duration_ms)} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          AI usage
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric
+            label="Embedding calls"
+            value={String(s.cost.embedding_calls)}
+            hint={`${s.cost.embedded_texts} texts`}
+          />
+          <Metric label="Generations" value={String(s.cost.generation_calls)} />
+          <Metric label="Context tokens" value={String(s.cost.context_tokens)} />
+          <Metric
+            label="Model tokens"
+            value={String(s.cost.prompt_tokens + s.cost.completion_tokens)}
+            hint={`${s.cost.prompt_tokens} in · ${s.cost.completion_tokens} out`}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TracesPanel() {
+  const list = useServerFn(listQueryTraces);
+  const detail = useServerFn(getQueryTrace);
+  const [filter, setFilter] = useState<"all" | "refused" | "fallback">("all");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const traces = useQuery({
+    queryKey: ["query-traces", filter],
+    queryFn: () => list({ data: { limit: 40, filter } }),
+    refetchInterval: 30_000,
+  });
+
+  const trace = useQuery({
+    queryKey: ["query-trace", selected],
+    queryFn: () => detail({ data: { traceId: selected! } }),
+    enabled: Boolean(selected),
+  });
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+      <Card className="border-border/60 bg-card/40 p-0">
+        <div className="flex items-center gap-1 border-b border-border/60 p-2">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "refused" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("refused")}
+          >
+            Refusals
+          </Button>
+          <Button
+            size="sm"
+            variant={filter === "fallback" ? "secondary" : "ghost"}
+            className="h-7 px-2.5 text-xs"
+            onClick={() => setFilter("fallback")}
+          >
+            Fallbacks
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-7 w-7 p-0"
+            onClick={() => void traces.refetch()}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <ScrollArea className="h-[65vh]">
+          <ul className="divide-y divide-border/50">
+            {(traces.data ?? []).map((row) => {
+              const stages = (row.stages as Record<string, unknown>) ?? {};
+              const rerank = (stages["rerank"] as Record<string, unknown>) ?? {};
+              const hasFallback = Boolean(rerank["fallback"]);
+
+              return (
+                <li key={row.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(row.id)}
+                    className={`w-full px-3 py-2.5 text-left text-xs transition-colors hover:bg-muted/30 ${
+                      selected === row.id ? "bg-muted/40 font-medium" : ""
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {row.refused ? (
+                        <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
+                          Refusal
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="default"
+                          className="h-5 border-emerald-600/30 bg-emerald-50 px-1.5 text-[10px] text-emerald-800"
+                        >
+                          Grounded
+                        </Badge>
+                      )}
+                      {hasFallback && (
+                        <Badge
+                          variant="outline"
+                          className="h-5 border-amber-600/30 bg-amber-50 px-1.5 text-[10px] text-amber-800"
+                        >
+                          Fallback
+                        </Badge>
+                      )}
+                      <span className="ml-auto text-[11px] tabular-nums text-muted-foreground">
+                        {ms(row.total_latency_ms)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 line-clamp-2 font-normal text-foreground">
+                      {row.question}
+                    </p>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {new Date(row.created_at).toLocaleTimeString()} ·{" "}
+                      {row.reranker ?? "no rerank"}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+            {(traces.data ?? []).length === 0 && !traces.isLoading ? (
+              <li className="px-3 py-8 text-center text-xs text-muted-foreground">
+                No traces recorded for this filter.
+              </li>
+            ) : null}
+          </ul>
+        </ScrollArea>
+      </Card>
+
+      <Card className="border-border/60 bg-card/40 p-4">
+        {!selected ? (
+          <p className="text-sm text-muted-foreground">
+            Select a query from the feed to inspect its full waterfall.
+          </p>
+        ) : trace.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading trace…</p>
+        ) : trace.isError || !trace.data ? (
+          <p className="text-sm text-destructive">That trace is unavailable.</p>
+        ) : (
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Question</p>
+              <p className="mt-1 text-sm font-medium">{trace.data.question}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                request {trace.data.request_id} · total {ms(trace.data.total_latency_ms)} ·
+                retrieval {ms(trace.data.retrieval_latency_ms)} · generation{" "}
+                {ms(trace.data.generation_latency_ms)}
+              </p>
+            </div>
+            <TraceWaterfall
+              stages={(trace.data.stages ?? {}) as Record<string, unknown>}
+              totalLatencyMs={trace.data.total_latency_ms}
+              retrievalLatencyMs={trace.data.retrieval_latency_ms}
+              generationLatencyMs={trace.data.generation_latency_ms}
+              citations={
+                Array.isArray(trace.data.citations) ? (trace.data.citations as string[]) : []
+              }
+              refused={trace.data.refused}
+              gateReason={trace.data.gate_reason}
+              question={trace.data.question}
+            />
+            {trace.data.answer_preview ? (
+              <div>
+                <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                  Answer (truncated)
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {trace.data.answer_preview}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function EventsPanel() {
+  const load = useServerFn(listRecentEvents);
+  const events = useQuery({
+    queryKey: ["telemetry-events"],
+    queryFn: () => load({ data: { limit: 80 } }),
+    refetchInterval: 15_000,
+  });
+
+  return (
+    <Card className="border-border/60 bg-card/40 p-0">
+      <ScrollArea className="h-[65vh]">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-card/90 text-muted-foreground backdrop-blur">
+            <tr>
+              <th className="px-3 py-2 text-left font-normal">time</th>
+              <th className="px-3 py-2 text-left font-normal">event</th>
+              <th className="px-3 py-2 text-left font-normal">status</th>
+              <th className="px-3 py-2 text-left font-normal">request</th>
+              <th className="px-3 py-2 text-right font-normal">latency</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(events.data ?? []).map((row) => (
+              <tr key={row.id} className="border-t border-border/40">
+                <td className="px-3 py-1.5 text-muted-foreground tabular-nums">
+                  {new Date(row.created_at).toLocaleTimeString()}
+                </td>
+                <td className="px-3 py-1.5">{row.event}</td>
+                <td className="px-3 py-1.5">
+                  <Badge
+                    variant={
+                      row.status === "error"
+                        ? "destructive"
+                        : row.status === "refused"
+                          ? "outline"
+                          : "secondary"
+                    }
+                  >
+                    {row.status}
+                    {row.error_code ? ` · ${row.error_code}` : ""}
+                  </Badge>
+                </td>
+                <td className="px-3 py-1.5 font-mono text-[10px] text-muted-foreground">
+                  {row.request_id}
+                </td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{ms(row.latency_ms)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {(events.data ?? []).length === 0 && !events.isLoading ? (
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">No events yet.</p>
+        ) : null}
+      </ScrollArea>
+    </Card>
+  );
+}

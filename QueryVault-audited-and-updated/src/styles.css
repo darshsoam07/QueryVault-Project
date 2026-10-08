@@ -1,0 +1,378 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * QueryVault design system — premium cream luxury UI.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-cyan: var(--cyan);
+  --color-cyan-foreground: var(--cyan-foreground);
+  --color-amethyst: var(--amethyst);
+  --color-amethyst-foreground: var(--amethyst-foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-link: var(--link);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  font-family:
+    "Geist",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  --radius: 0.75rem;
+
+  --background: #f5f2eb;
+  --foreground: #2c2a29;
+  --surface: #f5f2eb;
+  --surface-raised: #eae5db;
+  --card: #eae5db;
+  --card-foreground: #2c2a29;
+  --popover: #f5f2eb;
+  --popover-foreground: #2c2a29;
+  --primary: #2c2a29;
+  --primary-foreground: #f5f2eb;
+  --amethyst: #2c2a29;
+  --amethyst-foreground: #f5f2eb;
+  --cyan: #2c2a29;
+  --cyan-foreground: #f5f2eb;
+  --secondary: #eae5db;
+  --secondary-foreground: #2c2a29;
+  --muted: #eae5db;
+  --muted-foreground: #5f5955;
+  --accent: #eae5db;
+  --accent-foreground: #2c2a29;
+  --destructive: #9b4540;
+  --destructive-foreground: #f5f2eb;
+  --border: #d4c5b9;
+  --input: #d4c5b9;
+  --ring: #2c2a29;
+  --chart-1: #2c2a29;
+  --chart-2: #7c7068;
+  --chart-3: #a69589;
+  --chart-4: #d4c5b9;
+  --chart-5: #eae5db;
+  --link: #2c2a29;
+  --sidebar: #eae5db;
+  --sidebar-foreground: #2c2a29;
+  --sidebar-primary: #2c2a29;
+  --sidebar-primary-foreground: #f5f2eb;
+  --sidebar-accent: #f5f2eb;
+  --sidebar-accent-foreground: #2c2a29;
+  --sidebar-border: #d4c5b9;
+  --sidebar-ring: #2c2a29;
+  --landing-bg: var(--background);
+  --landing-surface: var(--surface);
+  --landing-headline: #2c2a29;
+  --landing-headline-strong: #2c2a29;
+  --landing-accent: #2c2a29;
+  --landing-body: #5f5955;
+  --landing-body-secondary: #5f5955;
+  --landing-muted: #5f5955;
+  --landing-very-muted: #7c7068;
+  --landing-on-accent: #f5f2eb;
+  --landing-border: #d4c5b9;
+  --landing-border-subtle: #eae5db;
+  --landing-particle: #a69589;
+  --gradient-brand: linear-gradient(100deg, #2c2a29, #4a4541);
+  --glow-amethyst: 0 1px 4px rgba(44, 42, 41, 0.12);
+  --glow-cyan: 0 1px 4px rgba(124, 112, 104, 0.12);
+}
+
+/* Scoped palette for the landing presentation */
+.landing-shell {
+  --background: var(--landing-bg);
+  --surface: var(--landing-surface);
+  --foreground: var(--landing-headline);
+  --muted-foreground: var(--landing-muted);
+  --primary: var(--landing-headline);
+  --primary-foreground: var(--landing-on-accent);
+  --border: var(--landing-border);
+  --card: var(--landing-surface);
+  --card-foreground: var(--landing-headline);
+  color: var(--landing-body);
+}
+
+/* Public shell wrapper maintains clean neutral dark theme for auth, code reference, and docs */
+.public-shell {
+  --background: var(--landing-bg);
+  --surface: var(--landing-surface);
+  --foreground: var(--landing-headline);
+  --muted-foreground: var(--landing-muted);
+  --primary: var(--landing-headline);
+  --primary-foreground: var(--landing-on-accent);
+  --border: var(--landing-border);
+  --card: var(--landing-surface);
+  --card-foreground: var(--landing-headline);
+  color: var(--landing-headline);
+}
+
+.dark {
+  color-scheme: light;
+}
+
+.workspace-shell {
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  /* Crisp, high-end font smoothing */
+  html {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Force intentional, refined letter-spacing on all headings */
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.03em;
+  }
+
+  /* Editorial serif pairing for selective high-craft accents */
+  .font-serif {
+    font-family: "Newsreader", "Playfair Display", "Times New Roman", serif;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: "Geist Mono", monospace;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--foreground) 12%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--foreground) 22%, transparent);
+    background-clip: content-box;
+  }
+}
+
+@utility text-gradient-brand {
+  background-image: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-brand {
+  background-image: var(--gradient-brand);
+}
+
+@utility glass-panel {
+  background-color: color-mix(in srgb, var(--card) 88%, var(--background));
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 30px rgba(44, 42, 41, 0.06);
+}
+
+/*
+ * workspace-card — thin-bordered, lightly shadowed card for workspace surfaces.
+ * Semantic alternative to the public glass-panel — no blur on workspace.
+ */
+@utility workspace-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/*
+ * source-card — used for citation / retrieval result cards.
+ * Slightly elevated background with a restrained taupe border.
+ */
+@utility source-card {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 150ms ease;
+}
+
+/*
+ * technical-label — JetBrains Mono, 11px, uppercase, tracked.
+ * Used for scores, step counts, status codes, and metadata.
+ */
+@utility technical-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@utility grid-void {
+  background-image:
+    /* engineering grid — vertical lines */
+    repeating-linear-gradient(90deg, rgba(44, 42, 41, 0.035) 0 1px, transparent 1px 120px),
+    /* engineering grid — horizontal lines */
+      repeating-linear-gradient(180deg, rgba(44, 42, 41, 0.035) 0 1px, transparent 1px 120px),
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(212, 197, 185, 0.34), transparent 70%);
+}
+
+@keyframes qv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-rise {
+  animation: qv-rise 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/*
+ * Lenis — verbatim from `lenis/dist/lenis.css` @ 1.3.26.
+ *
+ * Inlined rather than `@import`-ed from the package so `__root.tsx` keeps its
+ * single stylesheet link and we aren't relying on bare-module CSS resolution
+ * through Tailwind v4's `@import` handling. Update this block if lenis is
+ * upgraded — it is the only copy.
+ *
+ * These rules are inert unless Lenis is actually running: every selector is
+ * scoped to `.lenis` on <html>, which only `SmoothScroll` adds, and only on the
+ * public surfaces. `/chat` and `/admin` never see them.
+ */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch],
+.lenis [data-lenis-prevent-vertical],
+.lenis [data-lenis-prevent-horizontal] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+.lenis.lenis-autoToggle {
+  transition-property: overflow;
+  transition-duration: 1ms;
+  transition-behavior: allow-discrete;
+}
+
+/*
+ * Reduced-motion backstop.
+ *
+ * Every GSAP entry point already checks `prefers-reduced-motion` and Lenis is
+ * never constructed under it, so this covers what JS can't: the CSS keyframes
+ * above, `tw-animate-css`'s Radix enter/exit animations, and any `transition-*`
+ * utility. `0.01ms` rather than `none` so that `animation-fill-mode: both`
+ * still lands on the end state — `animation: none` would leave anything
+ * animating in from `opacity: 0` stuck invisible.
+ *
+ * `animate-spin` and `animate-pulse` are exempt: they are loading indicators, and
+ * freezing them would report "still working" as "hung".
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .animate-pulse {
+    animation-duration: 2s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

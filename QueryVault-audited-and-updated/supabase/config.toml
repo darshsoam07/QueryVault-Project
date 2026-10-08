@@ -1,0 +1,21 @@
+project_id = "fultpxfredyqvcrwmcyx"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000/chat",
+  "http://localhost:3000/auth",
+  "http://localhost:8080/chat",
+  "http://localhost:8080/auth",
+  "http://127.0.0.1:8080/chat",
+  "http://127.0.0.1:8080/auth",
+]
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_confirmations = true
+
+[auth.email.template.confirmation]
+subject = "QueryVault invites you"
+content_path = "./supabase/templates/confirmation.html"
