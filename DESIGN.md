@@ -10,7 +10,7 @@ The naive approach to reducing hallucination is a system-prompt instruction:
 own uncertainty, and a model shown five semi-relevant passages will often
 stitch together a plausible-sounding answer anyway.
 
-Instead, `evidence-gate.ts` runs a hard check *before* the LLM is ever called:
+Instead, `evidence-gate.ts` runs a hard check _before_ the LLM is ever called:
 best similarity, best rerank score, and supporting-chunk count all have
 thresholds. If they aren't met, the system returns a fixed refusal string and
 never makes a generation call.
@@ -28,7 +28,7 @@ query-dependent number). Averaging or weighting these directly would let
 whichever retriever happens to produce larger raw numbers dominate, for
 reasons that have nothing to do with actual relevance.
 
-RRF (`fusion.ts`) instead fuses by *rank position*: `1 / (k + rank)` per
+RRF (`fusion.ts`) instead fuses by _rank position_: `1 / (k + rank)` per
 retriever, summed. It only cares about where each retriever placed a
 candidate relative to its own other results, not the scale of the score.
 This is a well-known IR technique for exactly this reason — it's simple,
@@ -44,7 +44,7 @@ an external model that can fail, time out, or return unparseable output.
 Rather than letting a reranker failure take down retrieval, `createLlmReranker`
 catches any failure (HTTP error, malformed JSON, unparseable scores) and falls
 back to `heuristicReranker` — a dependency-free scorer blending query-term
-coverage with dense similarity. It's a worse ranker, but it's *available*, and
+coverage with dense similarity. It's a worse ranker, but it's _available_, and
 retrieval degrading gracefully to "good enough" beats it going down entirely
 because a third-party API had a bad minute.
 
@@ -62,18 +62,18 @@ a separate "delete everything and start over" step.
 
 Instead, chunk ids are derived deterministically from
 `(document_id, chunking_version, chunk_index)` via SHA-256
-(`deterministicChunkId`). A retried batch re-computes the *same* ids and
+(`deterministicChunkId`). A retried batch re-computes the _same_ ids and
 upserts (`onConflict: "id"`), so retries are naturally idempotent. Bumping
 `CHUNKER_VERSION` when chunking logic changes forces new ids for all chunks of
 that document, and a pruning step removes chunks from stale versions once a
 reprocess completes — so an in-progress reprocess doesn't leave old and new
 chunk boundaries both retrievable indefinitely.
 
-## 5. RLS *and* application-level user-id checks — deliberately redundant
+## 5. RLS _and_ application-level user-id checks — deliberately redundant
 
 Every table has Postgres Row-Level Security scoped to `auth.uid()`. That alone
 would be sufficient. The retrieval SQL functions (`match_document_chunks`,
-`lexical_document_chunks`) *also* take a `requesting_user_id` parameter and
+`lexical_document_chunks`) _also_ take a `requesting_user_id` parameter and
 independently assert `auth.uid() = requesting_user_id` inside the function
 body, on top of RLS.
 
@@ -86,7 +86,7 @@ content.
 
 ## Known trade-offs / what I'd do differently at larger scale
 
-- **No cost-based rate limiting.** The rate limiter caps *requests* (e.g. 30
+- **No cost-based rate limiting.** The rate limiter caps _requests_ (e.g. 30
   chat messages/min), not the actual number of downstream LLM calls a request
   can trigger (query rewrite + N dense embeddings + rerank + generation — up
   to ~4 model calls per question). At scale this needs a token- or cost-based

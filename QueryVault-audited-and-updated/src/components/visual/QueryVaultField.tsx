@@ -15,13 +15,21 @@ import type {
  * Mobile:  600 — conservatively sized for mobile GPUs.
  * Low-power/budget devices: further clamped to 400.
  */
+interface NavigatorWithHardware extends Navigator {
+  deviceMemory?: number;
+  connection?: {
+    saveData?: boolean;
+    effectiveType?: string;
+  };
+}
+
 function getParticleCount(): number {
   if (typeof window === "undefined") return 2_000;
-  const nav = typeof navigator !== "undefined" ? navigator : null;
+  const nav = typeof navigator !== "undefined" ? (navigator as NavigatorWithHardware) : null;
   const isLowTier =
     nav &&
     ((nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
-      ((nav as any).deviceMemory && (nav as any).deviceMemory <= 4));
+      (nav.deviceMemory && nav.deviceMemory <= 4));
 
   const width = window.innerWidth;
   if (width < 640) return isLowTier ? 400 : 600;
@@ -35,8 +43,11 @@ function getParticleCount(): number {
  */
 function canUseWebGl(): boolean {
   if (typeof navigator !== "undefined") {
-    const conn = (navigator as any).connection;
-    if (conn && (conn.saveData || conn.effectiveType === "2g" || conn.effectiveType === "slow-2g")) {
+    const conn = (navigator as NavigatorWithHardware).connection;
+    if (
+      conn &&
+      (conn.saveData || conn.effectiveType === "2g" || conn.effectiveType === "slow-2g")
+    ) {
       return false;
     }
   }

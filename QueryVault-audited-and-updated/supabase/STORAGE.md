@@ -3,14 +3,14 @@
 Declarative record of the bucket QueryVault depends on. Recreate it exactly if
 the project is rebuilt in a new environment.
 
-| Setting | Value |
-| --- | --- |
-| Bucket id / name | `documents` |
-| Public | `false` (private, all access via RLS + signed reads) |
-| Object path convention | `<auth.uid()>/<document_id>.pdf` (owner-scoped) |
-| Allowed extension | `.pdf` only (enforced in the INSERT/UPDATE policies) |
-| Max object size | 25 MB — enforced in application code (`MAX_UPLOAD_BYTES` in `src/lib/documents.policy.ts`) and re-checked server-side after upload |
-| Content type | `application/pdf` declared on upload; the server re-validates the object's `%PDF-` magic bytes before ingestion continues |
+| Setting                | Value                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Bucket id / name       | `documents`                                                                                                                        |
+| Public                 | `false` (private, all access via RLS + signed reads)                                                                               |
+| Object path convention | `<auth.uid()>/<document_id>.pdf` (owner-scoped)                                                                                    |
+| Allowed extension      | `.pdf` only (enforced in the INSERT/UPDATE policies)                                                                               |
+| Max object size        | 25 MB — enforced in application code (`MAX_UPLOAD_BYTES` in `src/lib/documents.policy.ts`) and re-checked server-side after upload |
+| Content type           | `application/pdf` declared on upload; the server re-validates the object's `%PDF-` magic bytes before ingestion continues          |
 
 ## RLS policies on `storage.objects`
 

@@ -116,12 +116,36 @@ async function assertLive(db: Admin, job: Job): Promise<void> {
 /* ------------------------------ the pipeline ------------------------------ */
 
 async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chunks: number }> {
-  const { data: document } = await db
+  let document: {
+    filename: string;
+    storage_path: string | null;
+    content_type?: string | null;
+  } | null = null;
+  const primaryDoc = await db
     .from("documents")
     .select("filename, storage_path, content_type")
     .eq("id", job.document_id)
     .eq("user_id", job.user_id)
-    .single();
+    .maybeSingle();
+
+  if (primaryDoc.data) {
+    document = primaryDoc.data;
+  } else if (
+    primaryDoc.error &&
+    (primaryDoc.error.code === "42703" ||
+      primaryDoc.error.code === "PGRST204" ||
+      (typeof primaryDoc.error.message === "string" &&
+        primaryDoc.error.message.includes("content_type")))
+  ) {
+    const fallback = await db
+      .from("documents")
+      .select("filename, storage_path")
+      .eq("id", job.document_id)
+      .eq("user_id", job.user_id)
+      .maybeSingle();
+    document = fallback.data ? { ...fallback.data, content_type: null } : null;
+  }
+
   if (!document) throw new JobCancelled("document removed");
   const storagePath =
     document.storage_path ?? ownerScopedPath(job.user_id, job.document_id, document.filename);

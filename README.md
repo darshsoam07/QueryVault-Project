@@ -1,20 +1,20 @@
 <div align="center">
   <img src="src/assets/queryvault-logo.png" alt="QueryVault logo" width="120" />
 
-  # QueryVault
+# QueryVault
 
-  **AI-powered, evidence-grounded knowledge platform**
+**AI-powered, evidence-grounded knowledge platform**
 
-  Upload your documents, ask questions in plain English, and get answers that are grounded in your own knowledge base — with every claim traceable back to its source.
+Upload your documents, ask questions in plain English, and get answers that are grounded in your own knowledge base — with every claim traceable back to its source.
 
-  [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-  [![CI](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml)
-  ![Node](https://img.shields.io/badge/node-22%2B-339933?logo=node.js&logoColor=white)
-  ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
-  ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
-  ![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20pgvector-3ECF8E?logo=supabase&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/darshsoam07/QueryVault-Project/actions/workflows/ci.yml)
+![Node](https://img.shields.io/badge/node-22%2B-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20pgvector-3ECF8E?logo=supabase&logoColor=white)
 
-  [Report Bug](https://github.com/darshsoam07/QueryVault-Project/issues) · [Request Feature](https://github.com/darshsoam07/QueryVault-Project/issues)
+[Report Bug](https://github.com/darshsoam07/QueryVault-Project/issues) · [Request Feature](https://github.com/darshsoam07/QueryVault-Project/issues)
 
 </div>
 
@@ -62,16 +62,16 @@ Every answer QueryVault produces is checked against the retrieved evidence befor
 
 ## ⭐ Key Features
 
-| Category | What it does |
-|---|---|
-| 📄 **Document knowledge base** | Upload, track, and manage documents; source files live in private Supabase Storage; deleting a document removes its indexed chunks too. |
-| 🔎 **Hybrid search** | Combines semantic similarity (`pgvector`) with keyword-aware full-text search (PostgreSQL FTS), merged via Reciprocal Rank Fusion and re-ranked before use. |
-| 🤖 **Evidence-grounded answers** | An evidence gate checks similarity/rerank scores and supporting-chunk count *before* generation — if the bar isn't met, the system returns a refusal instead of guessing. |
-| 💬 **Conversational Q&A** | Thread-based conversations with streaming responses, Markdown rendering, inline source citations, and full evidence inspection. |
-| 🔐 **Multi-tenant security** | Supabase Auth + PostgreSQL Row-Level Security isolate every user's documents, chunks, and conversations at the database layer. |
-| ⚙️ **Durable background ingestion** | Document processing runs as database-backed jobs executed by a scheduled worker, so it survives closed browser tabs and page reloads. |
-| 📊 **Observability** | Health endpoints, structured telemetry, query tracing, rate limiting, and structured error handling are built in, not bolted on. |
-| 🧪 **Automated validation** | An extensive automated test suite plus a dedicated RAG evaluation harness with quality gates. |
+| Category                            | What it does                                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📄 **Document knowledge base**      | Upload, track, and manage documents; source files live in private Supabase Storage; deleting a document removes its indexed chunks too.                                   |
+| 🔎 **Hybrid search**                | Combines semantic similarity (`pgvector`) with keyword-aware full-text search (PostgreSQL FTS), merged via Reciprocal Rank Fusion and re-ranked before use.               |
+| 🤖 **Evidence-grounded answers**    | An evidence gate checks similarity/rerank scores and supporting-chunk count _before_ generation — if the bar isn't met, the system returns a refusal instead of guessing. |
+| 💬 **Conversational Q&A**           | Thread-based conversations with streaming responses, Markdown rendering, inline source citations, and full evidence inspection.                                           |
+| 🔐 **Multi-tenant security**        | Supabase Auth + PostgreSQL Row-Level Security isolate every user's documents, chunks, and conversations at the database layer.                                            |
+| ⚙️ **Durable background ingestion** | Document processing runs as database-backed jobs executed by a scheduled worker, so it survives closed browser tabs and page reloads.                                     |
+| 📊 **Observability**                | Health endpoints, structured telemetry, query tracing, rate limiting, and structured error handling are built in, not bolted on.                                          |
+| 🧪 **Automated validation**         | An extensive automated test suite plus a dedicated RAG evaluation harness with quality gates.                                                                             |
 
 <br/>
 
@@ -96,16 +96,16 @@ flowchart TD
 
 **Design principles**
 
-| Principle | Implementation |
-|---|---|
-| Grounding | Retrieved document evidence is supplied to generation, not the model's own memory |
-| Traceability | Every response exposes the source chunks and citations behind it |
-| Hybrid retrieval | Vector search and lexical search are fused, not used in isolation |
-| Tenant isolation | PostgreSQL RLS enforces per-user data boundaries at the database level |
-| Durable ingestion | Processing is represented as resumable, database-backed jobs |
-| Fail-closed security | Privileged credentials and worker secrets never leave the server |
-| Observability | Health checks, telemetry, and query tracing ship with the app |
-| Testability | Retrieval, security, and RLS behavior are covered by automated tests |
+| Principle            | Implementation                                                                    |
+| -------------------- | --------------------------------------------------------------------------------- |
+| Grounding            | Retrieved document evidence is supplied to generation, not the model's own memory |
+| Traceability         | Every response exposes the source chunks and citations behind it                  |
+| Hybrid retrieval     | Vector search and lexical search are fused, not used in isolation                 |
+| Tenant isolation     | PostgreSQL RLS enforces per-user data boundaries at the database level            |
+| Durable ingestion    | Processing is represented as resumable, database-backed jobs                      |
+| Fail-closed security | Privileged credentials and worker secrets never leave the server                  |
+| Observability        | Health checks, telemetry, and query tracing ship with the app                     |
+| Testability          | Retrieval, security, and RLS behavior are covered by automated tests              |
 
 <br/>
 
@@ -145,21 +145,21 @@ flowchart LR
 
 ## 🧰 Tech Stack
 
-| Layer | Technology | Role |
-|---|---|---|
-| **Frontend** | React 19 + TypeScript | Interactive product UI |
-| **Application** | TanStack Start (+ TanStack Router, React Query) | Full-stack routing, SSR, and server APIs |
-| **Runtime** | Node.js 22 / Nitro | Application runtime |
-| **Database** | Supabase PostgreSQL | Application and RAG data |
-| **Vector search** | pgvector + HNSW | Semantic retrieval |
-| **Lexical search** | PostgreSQL Full-Text Search | Keyword-aware retrieval |
-| **Authentication** | Supabase Auth | User authentication (email + Google OAuth) |
-| **File storage** | Supabase Storage | Private document storage |
-| **AI** | OpenAI-compatible AI gateway | Chat generation and embeddings |
-| **Scheduling** | pg_cron + pg_net | Durable, in-database ingestion scheduling |
-| **UI** | Tailwind CSS 4 + Radix UI | Design system and accessible components |
-| **Testing** | Vitest + Testing Library | Automated validation |
-| **CI / Deployment** | GitHub Actions + Docker | Automation and container deployment |
+| Layer               | Technology                                      | Role                                       |
+| ------------------- | ----------------------------------------------- | ------------------------------------------ |
+| **Frontend**        | React 19 + TypeScript                           | Interactive product UI                     |
+| **Application**     | TanStack Start (+ TanStack Router, React Query) | Full-stack routing, SSR, and server APIs   |
+| **Runtime**         | Node.js 22 / Nitro                              | Application runtime                        |
+| **Database**        | Supabase PostgreSQL                             | Application and RAG data                   |
+| **Vector search**   | pgvector + HNSW                                 | Semantic retrieval                         |
+| **Lexical search**  | PostgreSQL Full-Text Search                     | Keyword-aware retrieval                    |
+| **Authentication**  | Supabase Auth                                   | User authentication (email + Google OAuth) |
+| **File storage**    | Supabase Storage                                | Private document storage                   |
+| **AI**              | OpenAI-compatible AI gateway                    | Chat generation and embeddings             |
+| **Scheduling**      | pg_cron + pg_net                                | Durable, in-database ingestion scheduling  |
+| **UI**              | Tailwind CSS 4 + Radix UI                       | Design system and accessible components    |
+| **Testing**         | Vitest + Testing Library                        | Automated validation                       |
+| **CI / Deployment** | GitHub Actions + Docker                         | Automation and container deployment        |
 
 <br/>
 
@@ -243,11 +243,11 @@ cp .env.example .env
 
 Then populate `.env`. The variables fall into three groups:
 
-| Scope | Examples | Notes |
-|---|---|---|
-| Public (browser-visible) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID` | Safe to expose to the client |
-| Server-only | `SUPABASE_SERVICE_ROLE_KEY`, `AI_PROVIDER`, `OPENAI_API_KEY` / `AI_API_KEY`, `INGESTION_WORKER_SECRET` | Never exposed to the browser; validated at boot |
-| Runtime tuning | `PORT`, `HOST`, `QV_RELEASE` | Optional, sensible defaults provided |
+| Scope                    | Examples                                                                                               | Notes                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Public (browser-visible) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`                       | Safe to expose to the client                    |
+| Server-only              | `SUPABASE_SERVICE_ROLE_KEY`, `AI_PROVIDER`, `OPENAI_API_KEY` / `AI_API_KEY`, `INGESTION_WORKER_SECRET` | Never exposed to the browser; validated at boot |
+| Runtime tuning           | `PORT`, `HOST`, `QV_RELEASE`                                                                           | Optional, sensible defaults provided            |
 
 > 🔒 **Never commit `.env`, service-role keys, AI provider keys, or worker secrets.**
 
@@ -280,13 +280,13 @@ npm run eval      # RAG evaluation against a ground-truth dataset
 npm run eval:gate # evaluation with pass/fail quality thresholds
 ```
 
-| Area | Coverage |
-|---|---|
-| Automated unit & integration tests | Auth, documents, ingestion, config, health, client errors |
-| RLS isolation tests | Every user-data table policy is verified as scoped to `auth.uid()` |
-| RAG ground-truth evaluation | Factual, semantic, cross-document, multi-hop, negative, and prompt-injection cases |
-| Static analysis | TypeScript strict mode + ESLint |
-| CI | GitHub Actions runs typecheck → lint → test on every push and PR, fully offline (mocked Supabase & AI provider) |
+| Area                               | Coverage                                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Automated unit & integration tests | Auth, documents, ingestion, config, health, client errors                                                       |
+| RLS isolation tests                | Every user-data table policy is verified as scoped to `auth.uid()`                                              |
+| RAG ground-truth evaluation        | Factual, semantic, cross-document, multi-hop, negative, and prompt-injection cases                              |
+| Static analysis                    | TypeScript strict mode + ESLint                                                                                 |
+| CI                                 | GitHub Actions runs typecheck → lint → test on every push and PR, fully offline (mocked Supabase & AI provider) |
 
 <br/>
 
@@ -316,16 +316,16 @@ Full write-up: [`docs/SECURITY.md`](./docs/SECURITY.md)
 
 ## 📚 Documentation
 
-| Document | Description |
-|---|---|
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | End-to-end system architecture |
-| [`DESIGN.md`](./DESIGN.md) | Notable design trade-offs, explained in plain language |
-| [`docs/DECISIONS.md`](./docs/DECISIONS.md) | Architecture Decision Records (ADRs) |
-| [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Deployment, Supabase setup, and platform choice |
-| [`docs/SECURITY.md`](./docs/SECURITY.md) | Security model and considerations |
-| [`docs/TESTING.md`](./docs/TESTING.md) | Test strategy and validation approach |
-| [`docs/DOCKER.md`](./docs/DOCKER.md) | Docker build & run workflow |
-| [`CHANGELOG.md`](./CHANGELOG.md) | Project history, phase by phase |
+| Document                                     | Description                                            |
+| -------------------------------------------- | ------------------------------------------------------ |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md)       | End-to-end system architecture                         |
+| [`DESIGN.md`](./DESIGN.md)                   | Notable design trade-offs, explained in plain language |
+| [`docs/DECISIONS.md`](./docs/DECISIONS.md)   | Architecture Decision Records (ADRs)                   |
+| [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) | Deployment, Supabase setup, and platform choice        |
+| [`docs/SECURITY.md`](./docs/SECURITY.md)     | Security model and considerations                      |
+| [`docs/TESTING.md`](./docs/TESTING.md)       | Test strategy and validation approach                  |
+| [`docs/DOCKER.md`](./docs/DOCKER.md)         | Docker build & run workflow                            |
+| [`CHANGELOG.md`](./CHANGELOG.md)             | Project history, phase by phase                        |
 
 <br/>
 
@@ -333,11 +333,11 @@ Full write-up: [`docs/SECURITY.md`](./docs/SECURITY.md)
 
 > Add screenshots to `assets/screenshots/` and reference them here before presenting or sharing the repository.
 
-| | |
-|---|---|
-| **Dashboard** | `assets/screenshots/dashboard.png` |
-| **Document upload & processing** | `assets/screenshots/document-upload.png` |
-| **Chat with grounded answer** | `assets/screenshots/chat-answer.png` |
+|                                    |                                             |
+| ---------------------------------- | ------------------------------------------- |
+| **Dashboard**                      | `assets/screenshots/dashboard.png`          |
+| **Document upload & processing**   | `assets/screenshots/document-upload.png`    |
+| **Chat with grounded answer**      | `assets/screenshots/chat-answer.png`        |
 | **Retrieved evidence / citations** | `assets/screenshots/evidence-citations.png` |
 
 <br/>

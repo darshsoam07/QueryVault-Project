@@ -118,7 +118,8 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
     const filename = safeFilename(data.filename);
     // Pipeline-owned table: the browser has no INSERT/UPDATE grant on `documents`.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: doc, error } = await supabaseAdmin
+
+    let { data: doc, error } = await supabaseAdmin
       .from("documents")
       .insert({
         user_id: userId,
@@ -135,12 +136,67 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
       .select("id")
       .single();
 
+    // If the schema cache or table is missing the content_type column (PGRST204 / 42703),
+    // fall back safely to inserting without content_type so uploads succeed across migration states.
+    if (
+      error &&
+      (error.code === "PGRST204" ||
+        error.code === "42703" ||
+        (typeof error.message === "string" && error.message.includes("content_type")))
+    ) {
+      logEvent("warn", "ingest.schema_fallback", requestId, {
+        user_id: userId,
+        reason: "missing_content_type_col",
+        db_error_code: error.code ?? null,
+      });
+
+      const fallback = await supabaseAdmin
+        .from("documents")
+        .insert({
+          user_id: userId,
+          filename,
+          byte_size: data.byteSize,
+          status: "uploaded",
+          phase: "uploading",
+          progress: 0,
+          content_hash: data.contentHash,
+          parser_version: PARSER_VERSION,
+          started_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      doc = fallback.data;
+      error = fallback.error;
+    }
+
     if (error || !doc) {
       if (error?.code === "23505") {
         throw new ApiError("DOCUMENT_DUPLICATE", "This file is already in your vault.");
       }
-      logEvent("error", "ingest.create_failed", requestId, { user_id: userId });
+      logEvent("error", "ingest.create_failed", requestId, {
+        user_id: userId,
+        stage: "document_insert",
+        db_error_code: error?.code ?? null,
+        db_error_message: error?.message ? error.message.slice(0, 200) : null,
+        db_error_details: error?.details ? error.details.slice(0, 200) : null,
+        db_error_hint: error?.hint ? error.hint.slice(0, 200) : null,
+      });
       throw new ApiError("INTERNAL", "Could not create the document record.");
+    }
+
+    const storagePath = ownerScopedPath(userId, doc.id, filename);
+    let signedToken: string | null = null;
+    let signedUrl: string | null = null;
+    try {
+      const { data: signedData, error: signedErr } = await supabaseAdmin.storage
+        .from("documents")
+        .createSignedUploadUrl(storagePath);
+      if (!signedErr && signedData) {
+        signedToken = signedData.token ?? null;
+        signedUrl = signedData.signedUrl ?? null;
+      }
+    } catch {
+      // Non-fatal: if createSignedUploadUrl is unavailable, client falls back to direct upload
     }
 
     emitAsync({
@@ -155,7 +211,9 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
     return {
       documentId: doc.id,
       filename,
-      storagePath: ownerScopedPath(userId, doc.id, filename),
+      storagePath,
+      signedToken,
+      signedUrl,
       requestId,
     };
   });
@@ -334,6 +392,12 @@ export const reindexDocument = createServerFn({ method: "POST" })
       document_id: data.documentId,
       job_id: job.id,
     });
+
+    // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
+    void import("@/lib/ingestion/worker.server")
+      .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
+      .catch(() => undefined);
+
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });
 

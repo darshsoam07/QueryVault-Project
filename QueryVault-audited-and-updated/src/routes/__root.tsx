@@ -136,10 +136,16 @@ function RootComponent() {
   useEffect(() => {
     if (typeof window !== "undefined" && window.performance) {
       const hydrationTimeMs = Math.round(performance.now());
-      const nav = performance.getEntriesByType?.("navigation")?.[0] as PerformanceNavigationTiming | undefined;
+      const nav = performance.getEntriesByType?.("navigation")?.[0] as
+        PerformanceNavigationTiming | undefined;
       const domContentLoadedMs = nav ? Math.round(nav.domContentLoadedEventEnd) : null;
-      if (typeof window !== "undefined" && (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS === undefined) {
-        (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS = hydrationTimeMs;
+      if (
+        typeof window !== "undefined" &&
+        (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS ===
+          undefined
+      ) {
+        (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS =
+          hydrationTimeMs;
         if (process.env["NODE_ENV"] !== "production") {
           console.info(`[perf] hydration complete in ${hydrationTimeMs}ms`, { domContentLoadedMs });
         }
@@ -155,4 +161,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

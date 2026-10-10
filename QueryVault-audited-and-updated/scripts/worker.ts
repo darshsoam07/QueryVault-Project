@@ -13,10 +13,7 @@ const DEFAULT_POLL_INTERVAL_MS = 2000;
 const MAX_IDLE_INTERVAL_MS = 5000;
 const CONCURRENCY = Math.max(
   1,
-  Math.min(
-    parseInt(process.env["INGESTION_WORKER_CONCURRENCY"] || "3", 10) || 3,
-    5,
-  ),
+  Math.min(parseInt(process.env["INGESTION_WORKER_CONCURRENCY"] || "3", 10) || 3, 5),
 );
 
 let isShuttingDown = false;

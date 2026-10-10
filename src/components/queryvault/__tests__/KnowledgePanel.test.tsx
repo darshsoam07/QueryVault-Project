@@ -324,14 +324,12 @@ describe("deletion flow", () => {
 // ---------------------------------------------------------------------------
 
 describe("retry flow", () => {
-  it("queues a reindex and drains the worker for the failed document", async () => {
+  it("queues a reindex on the server for the failed document", async () => {
     renderPanel([doc({ id: "doc-bad", status: "failed", failure_message: "Timed out." })]);
 
     fireEvent.click(await screen.findByLabelText("Retry annual-report.pdf"));
 
     await waitFor(() => expect(reindexDocument).toHaveBeenCalledOnce());
     expect(reindexDocument).toHaveBeenCalledWith({ data: { documentId: "doc-bad" } });
-    // Queueing alone would leave the job waiting for the next drain tick.
-    await waitFor(() => expect(runIngestionWorker).toHaveBeenCalledOnce());
   });
 });

@@ -175,7 +175,7 @@ Response with inline citations:
   "The policy was updated in Q1 [source_01]."
 ```
 
-> Correction (2026-09-22): this section previously named `text-embedding-3-small`, described a "top 10 fused → LLM prompt" flow with no reranker, and framed the evidence gate as a post-generation check ("if a claim has no citation → reject"). That was wrong. As built (see `src/lib/retrieval/config.ts`, `pipeline.ts`, `reranker.ts`, `citations.ts`, `src/routes/api/chat.ts`): the pipeline embeds with `text-embedding-3-large`, retrieves 20 dense + 20 lexical candidates, fuses them with RRF (k=60) to 12 chunks, reranks with an LLM reranker whose timeout is enforced (a linked AbortController aborts the in-flight provider request at `llmRerankerTimeoutMs` = 5000 ms, with a deterministic heuristic fallback on timeout/provider error/caller cancellation), applies the evidence gate *before* generation, builds a grounded context of up to 6 sources, and validates citations *after* generation before anything is delivered or persisted. The evidence-gate threshold (`gate.minTopRerankScore`) remains 0.35 — it was never changed (see CHANGELOG "Corrections").
+> Correction (2026-09-22): this section previously named `text-embedding-3-small`, described a "top 10 fused → LLM prompt" flow with no reranker, and framed the evidence gate as a post-generation check ("if a claim has no citation → reject"). That was wrong. As built (see `src/lib/retrieval/config.ts`, `pipeline.ts`, `reranker.ts`, `citations.ts`, `src/routes/api/chat.ts`): the pipeline embeds with `text-embedding-3-large`, retrieves 20 dense + 20 lexical candidates, fuses them with RRF (k=60) to 12 chunks, reranks with an LLM reranker whose timeout is enforced (a linked AbortController aborts the in-flight provider request at `llmRerankerTimeoutMs` = 5000 ms, with a deterministic heuristic fallback on timeout/provider error/caller cancellation), applies the evidence gate _before_ generation, builds a grounded context of up to 6 sources, and validates citations _after_ generation before anything is delivered or persisted. The evidence-gate threshold (`gate.minTopRerankScore`) remains 0.35 — it was never changed (see CHANGELOG "Corrections").
 
 The evidence gate is the part that makes this "grounded RAG" rather than "chatbot that sometimes cites things." Weak evidence turns into an honest refusal instead of an invitation to hallucinate.
 
@@ -197,11 +197,11 @@ The worker endpoint accepts only one auth header:
 x-worker-secret: <INGESTION_WORKER_SECRET>
 ```
 
-| Caller | How it sends |
-|---|---|
-| `pg_net` scheduler | Reads from `vault.decrypted_secrets`, sends as header |
-| Manual ops curl | `curl -H "x-worker-secret: $INGESTION_WORKER_SECRET" ...` |
-| Deep health probe | Same env var, same header |
+| Caller             | How it sends                                              |
+| ------------------ | --------------------------------------------------------- |
+| `pg_net` scheduler | Reads from `vault.decrypted_secrets`, sends as header     |
+| Manual ops curl    | `curl -H "x-worker-secret: $INGESTION_WORKER_SECRET" ...` |
+| Deep health probe  | Same env var, same header                                 |
 
 - `timingSafeEqual` protects against timing attacks
 - Missing env var --> immediate 401 (fail-closed, no fallback)
@@ -212,13 +212,13 @@ x-worker-secret: <INGESTION_WORKER_SECRET>
 
 ## 6. Secret management
 
-| Secret | Where it lives | Who can read it |
-|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Server env (`process.env`) | Server code only |
-| `INGESTION_WORKER_SECRET` | Server env + Vault | Server + pg_cron |
-| `OPENAI_API_KEY` | Server env | Server code only |
-| `VITE_SUPABASE_URL` | Build-time `VITE_*` | Browser (safe) |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Build-time `VITE_*` | Browser (safe, anon key) |
+| Secret                          | Where it lives             | Who can read it          |
+| ------------------------------- | -------------------------- | ------------------------ |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Server env (`process.env`) | Server code only         |
+| `INGESTION_WORKER_SECRET`       | Server env + Vault         | Server + pg_cron         |
+| `OPENAI_API_KEY`                | Server env                 | Server code only         |
+| `VITE_SUPABASE_URL`             | Build-time `VITE_*`        | Browser (safe)           |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Build-time `VITE_*`        | Browser (safe, anon key) |
 
 The `validateSupabaseConfig` boot check rejects any setup where `SUPABASE_SERVICE_ROLE_KEY` accidentally has a `VITE_` prefix.
 

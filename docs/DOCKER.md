@@ -5,12 +5,12 @@ Packages the Phase 6A–verified Node runtime (`NITRO_PRESET=node-server` →
 
 ## Files
 
-| File | Purpose |
-| --- | --- |
-| `Dockerfile` | 3-stage build: Bun deps → Node 22 Vite/Nitro build → Node 22 slim runtime |
-| `.dockerignore` | Keeps secrets, tests, `node_modules`, `.output`, and local-only material out of the build context |
-| `docker-compose.yml` | Local verification harness (read-only rootfs, dropped caps, non-root) |
-| `.env.docker.example` | Documents the runtime environment contract — contains no values |
+| File                  | Purpose                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| `Dockerfile`          | 3-stage build: Bun deps → Node 22 Vite/Nitro build → Node 22 slim runtime                         |
+| `.dockerignore`       | Keeps secrets, tests, `node_modules`, `.output`, and local-only material out of the build context |
+| `docker-compose.yml`  | Local verification harness (read-only rootfs, dropped caps, non-root)                             |
+| `.env.docker.example` | Documents the runtime environment contract — contains no values                                   |
 
 ## Build
 

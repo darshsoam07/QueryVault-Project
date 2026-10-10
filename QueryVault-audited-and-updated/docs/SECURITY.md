@@ -23,12 +23,12 @@ This document covers the security model of QueryVault. For secret configuration 
 
 `VITE_*` variables are inlined into the browser bundle at build time and are therefore public. Only publishable values belong there:
 
-| Variable | Safe because |
-|---|---|
-| `VITE_SUPABASE_URL` | Supabase project URL -- visible in browser network tab anyway |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key -- RLS enforces access regardless |
-| `VITE_SUPABASE_PROJECT_ID` | Project reference -- not a credential |
-| `VITE_ENABLE_GOOGLE_AUTH` | Feature flag -- no secret value |
+| Variable                        | Safe because                                                  |
+| ------------------------------- | ------------------------------------------------------------- |
+| `VITE_SUPABASE_URL`             | Supabase project URL -- visible in browser network tab anyway |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key -- RLS enforces access regardless                    |
+| `VITE_SUPABASE_PROJECT_ID`      | Project reference -- not a credential                         |
+| `VITE_ENABLE_GOOGLE_AUTH`       | Feature flag -- no secret value                               |
 
 No `VITE_*` variable holds any secret. This is enforced at boot, not by convention.
 

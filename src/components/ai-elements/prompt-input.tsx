@@ -34,12 +34,7 @@ export interface PromptInputProps extends Omit<HTMLAttributes<HTMLFormElement>, 
   children: ReactNode;
 }
 
-export const PromptInput = ({
-  onSubmit,
-  children,
-  className,
-  ...props
-}: PromptInputProps) => {
+export const PromptInput = ({ onSubmit, children, className, ...props }: PromptInputProps) => {
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
@@ -54,12 +49,7 @@ export const PromptInput = ({
   );
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className={cn("w-full", className)}
-      {...props}
-    >
+    <form ref={formRef} onSubmit={handleSubmit} className={cn("w-full", className)} {...props}>
       <InputGroup className="overflow-hidden">{children}</InputGroup>
     </form>
   );

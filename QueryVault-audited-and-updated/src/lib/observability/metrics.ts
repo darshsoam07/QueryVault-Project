@@ -73,4 +73,3 @@ export function throughputPerSec(items: number, durationMs: number): number {
 export function queueWaitSummary(waitDurationsMs: number[]): LatencySummary {
   return latencySummary(waitDurationsMs);
 }
-

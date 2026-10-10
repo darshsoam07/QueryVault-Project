@@ -8,17 +8,20 @@ An enterprise-grade AI knowledge assistant: upload PDFs, ask questions, get stre
 Email/password sign-in and sign-up. Every document, thread, and message is private to its owner.
 
 **2. Knowledge base (left sidebar, bottom)**
+
 - Drag-and-drop PDF upload zone with progress through each stage: uploading, parsing, chunking, embedding, ready.
 - List of uploaded PDFs with page count, chunk count, status badge, and delete.
 - Deleting a document removes its chunks and vectors.
 
 **3. Ingestion pipeline (server-side)**
+
 - PDF text extraction per page (page numbers preserved as metadata).
 - Recursive character chunking, 1000 chars / 200 overlap, paragraph → sentence → word fallback, mirroring the reference implementation.
 - Embeddings via Lovable AI (`google/gemini-embedding-2`), stored as pgvector `halfvec` with an HNSW index.
 - Runs asynchronously with status written back to the document row so the UI can poll and show live progress.
 
 **4. Chat (main stage)**
+
 - Threaded conversations, each on its own URL (`/chat/$threadId`). Sidebar lists threads; new-chat button creates and navigates. Reload restores that thread's messages.
 - Question → embed query → top-k vector retrieval (k=5, configurable) → strict grounded prompt ("answer ONLY from context; otherwise say I don't know") → streamed answer.
 - Retrieval is written behind a swappable retriever interface so hybrid (keyword + vector) search and a re-ranking stage can be added later without touching the chat route.

@@ -75,20 +75,20 @@ Each chunk carries `document_id`, `document_name`, `source`, `page_number` and
 
 ## API
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/health` | Backend, Ollama, model, vector store status |
-| GET | `/api/stats` | Document / chunk / conversation counts |
-| GET | `/api/settings` | Effective backend configuration |
-| POST | `/api/documents/upload` | Upload + ingest a PDF |
-| GET | `/api/documents` | List documents with live status |
-| GET | `/api/documents/{id}` | Single document |
-| DELETE | `/api/documents/{id}` | Delete document, vectors and file |
-| POST | `/api/documents/{id}/reindex` | Re-run the pipeline for one document |
-| POST | `/api/chat` | Ask a question, get answer + sources |
-| GET | `/api/conversations` | Chat history |
-| GET | `/api/conversations/{id}/messages` | Messages in a conversation |
-| DELETE | `/api/conversations/{id}` | Delete a conversation |
+| Method | Path                               | Purpose                                     |
+| ------ | ---------------------------------- | ------------------------------------------- |
+| GET    | `/api/health`                      | Backend, Ollama, model, vector store status |
+| GET    | `/api/stats`                       | Document / chunk / conversation counts      |
+| GET    | `/api/settings`                    | Effective backend configuration             |
+| POST   | `/api/documents/upload`            | Upload + ingest a PDF                       |
+| GET    | `/api/documents`                   | List documents with live status             |
+| GET    | `/api/documents/{id}`              | Single document                             |
+| DELETE | `/api/documents/{id}`              | Delete document, vectors and file           |
+| POST   | `/api/documents/{id}/reindex`      | Re-run the pipeline for one document        |
+| POST   | `/api/chat`                        | Ask a question, get answer + sources        |
+| GET    | `/api/conversations`               | Chat history                                |
+| GET    | `/api/conversations/{id}/messages` | Messages in a conversation                  |
+| DELETE | `/api/conversations/{id}`          | Delete a conversation                       |
 
 ## Persistence
 
@@ -104,14 +104,14 @@ CORS origins.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-| --- | --- |
-| "Unable to connect to Ollama" | Run `ollama serve` and confirm `http://localhost:11434` |
-| "model 'llama3' is not installed" | `ollama pull llama3` |
-| "No selectable text was found" | The PDF is scanned; OCR it before uploading |
-| Frontend shows "Can't reach the backend" | Start uvicorn on port 8000 |
-| Slow first answer | Llama 3 loads into memory on first generation |
-| Want a clean slate | Delete `backend/data/` and restart the backend |
+| Symptom                                  | Fix                                                     |
+| ---------------------------------------- | ------------------------------------------------------- |
+| "Unable to connect to Ollama"            | Run `ollama serve` and confirm `http://localhost:11434` |
+| "model 'llama3' is not installed"        | `ollama pull llama3`                                    |
+| "No selectable text was found"           | The PDF is scanned; OCR it before uploading             |
+| Frontend shows "Can't reach the backend" | Start uvicorn on port 8000                              |
+| Slow first answer                        | Llama 3 loads into memory on first generation           |
+| Want a clean slate                       | Delete `backend/data/` and restart the backend          |
 
 ## Docker
 

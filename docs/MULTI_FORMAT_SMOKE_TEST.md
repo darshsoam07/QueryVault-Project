@@ -4,17 +4,17 @@ Use the exact marker `QueryVault Smoke Test — FORMAT — 2026-10-08` in every
 fixture. Keep each fixture below 1 MB. Mark a cell PASS only after verifying
 the matching stage; write failure details and the document/job ID in Notes.
 
-| Format | Upload | Storage | Database record | Worker completion | Parsing | Indexing | Retrieval | RLS isolation | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| PDF | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| DOCX | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| XLSX | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| PPTX | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| TXT | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| CSV | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| HTML | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| Markdown | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
-| **Overall** | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | |
+| Format      | Upload | Storage | Database record | Worker completion | Parsing | Indexing | Retrieval | RLS isolation | Notes |
+| ----------- | ------ | ------- | --------------- | ----------------- | ------- | -------- | --------- | ------------- | ----- |
+| PDF         | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| DOCX        | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| XLSX        | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| PPTX        | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| TXT         | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| CSV         | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| HTML        | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| Markdown    | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
+| **Overall** | ☐      | ☐       | ☐               | ☐                 | ☐       | ☐        | ☐         | ☐             |       |
 
 ## What each check means
 

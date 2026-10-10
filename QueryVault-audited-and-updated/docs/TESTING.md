@@ -18,20 +18,20 @@ All three commands run in CI on every push.
 
 ## Test file inventory
 
-| File | Tests | What it covers |
-|---|---|---|
-| `src/lib/__tests__/rls.test.ts` | 32 | Cross-tenant isolation; RLS blocks reads and writes |
-| `src/lib/__tests__/auth.test.ts` | 26 | Bearer token verification; fail-closed on missing config |
-| `src/lib/__tests__/config.test.ts` | 50 | Boot validation; service-role key detection in VITE_ vars; redaction |
-| `src/lib/__tests__/health.test.ts` | 17 | Liveness and readiness probe logic; deep probe auth |
-| `src/lib/__tests__/security.test.ts` | 22 | Secret exposure checks; header validation; timing-safe auth |
-| `src/lib/__tests__/ingestion.test.ts` | 16 | Ingestion pipeline stages; idempotency; retry logic |
-| `src/lib/__tests__/scheduler.test.ts` | 3 | Migration structure; Vault-backed credentials; canonical auth header |
-| `src/lib/__tests__/retrieval.eval.test.ts` | 20 | Hybrid retrieval; RRF fusion; chunk ranking |
-| `src/lib/__tests__/evaluation.test.ts` | 16 | RAG evaluation harness; evidence gate; citation validation |
-| `src/lib/__tests__/documents.test.ts` | 22 | Document CRUD; upload validation; tenant scoping |
-| `src/lib/__tests__/client-errors.test.ts` | 12 | Error sanitization; no internal details leaked to client |
-| `src/components/queryvault/__tests__/KnowledgePanel.test.tsx` | 18 | UI deletion flow; RLS error redaction in the component layer |
+| File                                                          | Tests | What it covers                                                       |
+| ------------------------------------------------------------- | ----- | -------------------------------------------------------------------- |
+| `src/lib/__tests__/rls.test.ts`                               | 32    | Cross-tenant isolation; RLS blocks reads and writes                  |
+| `src/lib/__tests__/auth.test.ts`                              | 26    | Bearer token verification; fail-closed on missing config             |
+| `src/lib/__tests__/config.test.ts`                            | 50    | Boot validation; service-role key detection in VITE_ vars; redaction |
+| `src/lib/__tests__/health.test.ts`                            | 17    | Liveness and readiness probe logic; deep probe auth                  |
+| `src/lib/__tests__/security.test.ts`                          | 22    | Secret exposure checks; header validation; timing-safe auth          |
+| `src/lib/__tests__/ingestion.test.ts`                         | 16    | Ingestion pipeline stages; idempotency; retry logic                  |
+| `src/lib/__tests__/scheduler.test.ts`                         | 3     | Migration structure; Vault-backed credentials; canonical auth header |
+| `src/lib/__tests__/retrieval.eval.test.ts`                    | 20    | Hybrid retrieval; RRF fusion; chunk ranking                          |
+| `src/lib/__tests__/evaluation.test.ts`                        | 16    | RAG evaluation harness; evidence gate; citation validation           |
+| `src/lib/__tests__/documents.test.ts`                         | 22    | Document CRUD; upload validation; tenant scoping                     |
+| `src/lib/__tests__/client-errors.test.ts`                     | 12    | Error sanitization; no internal details leaked to client             |
+| `src/components/queryvault/__tests__/KnowledgePanel.test.tsx` | 18    | UI deletion flow; RLS error redaction in the component layer         |
 
 **Total: 254 tests across 12 files.**
 

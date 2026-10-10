@@ -18,6 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
+import {
+  captureScrollSnapshot,
+  restoreScrollSnapshot,
+  type ScrollSnapshot,
+} from "@/lib/scroll-anchoring";
 import { gsap } from "@/lib/motion/gsap";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
 import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
@@ -31,6 +36,7 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { FileText, Layers, Sparkle } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { StickToBottomContext } from "use-stick-to-bottom";
 
 export const Route = createFileRoute("/chat/$threadId")({
   component: ThreadPage,
@@ -42,6 +48,7 @@ type StoredMessage = {
   content: string;
   sources: unknown;
   latency_ms: number | null;
+  created_at: string;
 };
 
 function toUIMessage(row: StoredMessage): UIMessage {
@@ -184,19 +191,15 @@ const STARTERS = [
   "Compare the conclusions of each document",
 ];
 
-const ChatMessageItem = memo(function ChatMessageItem({
-  message,
-}: {
-  message: UIMessage;
-}) {
+const ChatMessageItem = memo(function ChatMessageItem({ message }: { message: UIMessage }) {
   const sources = extractSources(message);
-  const text = message.parts
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
+  const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
 
   return (
     <Message
       from={message.role}
+      data-testid="chat-message"
+      data-message-id={message.id}
       className={cn(message.role === "assistant" && "animate-rise")}
     >
       <MessageContent
@@ -232,18 +235,25 @@ function ThreadPage() {
   const readyDocs = documents.filter((doc) => doc.status === "ready");
 
   const PAGE_SIZE = 50;
-  const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
+  const [olderCursor, setOlderCursor] = useState<{ createdAt: string; id: string } | null>(null);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const isLoadingOlderRef = useRef(false);
+  const pendingSnapshotRef = useRef<ScrollSnapshot | null>(null);
+  const stickRef = useRef<StickToBottomContext>(null);
 
-  const { data: history, isLoading } = useQuery({
+  const { data: initialHistory, isLoading } = useQuery({
     queryKey: ["messages", userId, threadId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
-        .select("id, role, content, sources, latency_ms")
+        .select("id, role, content, sources, latency_ms, created_at")
         .eq("thread_id", threadId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(PAGE_SIZE);
       if (error) throw fromQueryError(error, "Could not load this conversation.");
-      return (data ?? []).map(toUIMessage);
+      return (data ?? []) as StoredMessage[];
     },
   });
 
@@ -274,9 +284,25 @@ function ThreadPage() {
 
   const hydratedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!history || hydratedFor.current === threadId) return;
+    if (!initialHistory || hydratedFor.current === threadId) return;
     hydratedFor.current = threadId;
-    setMessages(history);
+
+    // Database returns newest first (created_at DESC, id DESC)
+    // Reverse so React renders chronologically (oldest -> newest)
+    const chronological = [...initialHistory].reverse().map(toUIMessage);
+    setMessages(chronological);
+
+    if (initialHistory.length > 0) {
+      const oldestRow = initialHistory[initialHistory.length - 1];
+      if (oldestRow) {
+        setOlderCursor({ createdAt: oldestRow.created_at, id: oldestRow.id });
+      }
+      setHasMoreOlder(initialHistory.length === PAGE_SIZE);
+    } else {
+      setOlderCursor(null);
+      setHasMoreOlder(false);
+    }
+
     textareaRef.current?.focus();
 
     const pendingKey = `pending_prompt_${threadId}`;
@@ -285,12 +311,78 @@ function ThreadPage() {
       sessionStorage.removeItem(pendingKey);
       void sendMessage({ text: pending });
     }
-  }, [history, threadId, setMessages, sendMessage]);
+  }, [initialHistory, threadId, setMessages, sendMessage]);
 
-  const visibleMessages = useMemo(() => {
-    if (messages.length <= displayedCount) return messages;
-    return messages.slice(messages.length - displayedCount);
-  }, [messages, displayedCount]);
+  useEffect(() => {
+    setOlderCursor(null);
+    setHasMoreOlder(false);
+    setIsLoadingOlder(false);
+    isLoadingOlderRef.current = false;
+    pendingSnapshotRef.current = null;
+    hydratedFor.current = null;
+  }, [threadId]);
+
+  const loadOlderMessages = async () => {
+    if (isLoadingOlderRef.current || !hasMoreOlder || !olderCursor) return;
+    isLoadingOlderRef.current = true;
+    setIsLoadingOlder(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("id, role, content, sources, latency_ms, created_at")
+        .eq("thread_id", threadId)
+        .or(
+          `created_at.lt.${olderCursor.createdAt},and(created_at.eq.${olderCursor.createdAt},id.lt.${olderCursor.id})`,
+        )
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(PAGE_SIZE);
+
+      if (error) throw fromQueryError(error, "Could not load older messages.");
+
+      const rawRows = (data ?? []) as StoredMessage[];
+      if (rawRows.length > 0) {
+        const oldestRow = rawRows[rawRows.length - 1];
+        if (oldestRow) {
+          setOlderCursor({ createdAt: oldestRow.created_at, id: oldestRow.id });
+        }
+        setHasMoreOlder(rawRows.length === PAGE_SIZE);
+
+        const olderUIMessages = [...rawRows].reverse().map(toUIMessage);
+
+        // Cancel any auto-scroll to bottom when loading older messages
+        stickRef.current?.stopScroll();
+
+        // Capture scroll snapshot immediately before React updates the DOM
+        const container =
+          stickRef.current?.scrollRef.current ??
+          (document.querySelector('[role="log"] > div') as HTMLElement | null);
+        pendingSnapshotRef.current = captureScrollSnapshot(container);
+
+        setMessages((prev) => [...olderUIMessages, ...prev]);
+      } else {
+        setHasMoreOlder(false);
+      }
+    } catch (err) {
+      toast.error(userMessage(err, "Failed to load older messages."));
+    } finally {
+      isLoadingOlderRef.current = false;
+      setIsLoadingOlder(false);
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (pendingSnapshotRef.current) {
+      const container =
+        stickRef.current?.scrollRef.current ??
+        (document.querySelector('[role="log"] > div') as HTMLElement | null);
+      if (container) {
+        restoreScrollSnapshot(container, pendingSnapshotRef.current);
+      }
+      pendingSnapshotRef.current = null;
+    }
+  }, [messages]);
 
   const busy = status === "submitted" || status === "streaming";
 
@@ -330,7 +422,7 @@ function ThreadPage() {
       </header>
 
       {/* ── Conversation ── */}
-      <Conversation className="min-h-0 flex-1">
+      <Conversation contextRef={stickRef} className="min-h-0 flex-1">
         <ConversationContent className="mx-auto w-full max-w-3xl px-6 py-8">
           {isLoading && <p className="text-xs text-muted-foreground">Loading conversation…</p>}
 
@@ -361,20 +453,22 @@ function ThreadPage() {
             </div>
           )}
 
-          {messages.length > displayedCount && (
+          {hasMoreOlder && (
             <div className="flex justify-center pb-4">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setDisplayedCount((c) => c + PAGE_SIZE)}
+                onClick={loadOlderMessages}
+                disabled={isLoadingOlder}
                 className="text-xs text-muted-foreground"
+                data-testid="load-older-messages-button"
               >
-                Load older messages ({messages.length - displayedCount} remaining)
+                {isLoadingOlder ? "Loading older messages…" : "Load older messages"}
               </Button>
             </div>
           )}
 
-          {visibleMessages.map((message) => (
+          {messages.map((message) => (
             <ChatMessageItem key={message.id} message={message} />
           ))}
 

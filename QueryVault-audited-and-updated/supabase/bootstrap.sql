@@ -457,8 +457,8 @@ DROP POLICY IF EXISTS ingestion_jobs_insert_own ON public.ingestion_jobs;
 -- WITH CHECK has to prove ownership of the *document*, not just of the job row.
 -- `auth.uid() = user_id` alone lets any authenticated caller enqueue a job whose
 -- document_id belongs to someone else: the row looks like theirs, so the policy
--- passes. The worker then refuses to act on it, because every document read is
--- scoped by user_id as well -- but the insert has already taken the single live
+-- passes. The worker then refuses to act on it, because every document read below
+-- is scoped by user_id as well -- but the insert has already taken the single live
 -- slot for that document (ingestion_jobs_one_live_per_document is unique on
 -- document_id alone), so the real owner's upload can no longer enqueue. That is a
 -- cross-tenant denial of service reachable from any signed-in session.
@@ -887,9 +887,92 @@ DROP INDEX IF EXISTS public.document_chunks_content_fts_idx;
 
 
 -- ---------------------------------------------------------------------------
+-- 20260904000000_schedule_ingestion_worker.sql
+-- ---------------------------------------------------------------------------
+-- Durable ingestion scheduler ------------------------------------------------
+--
+-- The application owns ingestion execution; this migration only wakes the
+-- existing authenticated /api/public/worker-drain endpoint once per minute.
+-- Jobs remain claimed, retried and made idempotent by the Node worker.
+--
+-- Before enabling production traffic, store these two values in Supabase Vault:
+--   queryvault_worker_drain_url       the deployed HTTPS endpoint URL
+--   queryvault_ingestion_worker_secret the same value injected as
+--                                      INGESTION_WORKER_SECRET in the app
+--
+-- They are intentionally looked up at execution time. No endpoint URL or
+-- credential is baked into a migration, cron command, table, or application
+-- bundle. If either is absent the scheduled no-op is safe and fail-closed.
+
+CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
+
+CREATE OR REPLACE FUNCTION public.trigger_ingestion_worker()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, vault, extensions
+AS $$
+DECLARE
+  worker_url text;
+  worker_secret text;
+BEGIN
+  SELECT decrypted_secret
+    INTO worker_url
+    FROM vault.decrypted_secrets
+   WHERE name = 'queryvault_worker_drain_url';
+
+  SELECT decrypted_secret
+    INTO worker_secret
+    FROM vault.decrypted_secrets
+   WHERE name = 'queryvault_ingestion_worker_secret';
+
+  -- A scheduler that cannot authenticate must never turn the endpoint public,
+  -- and must not create a failing pg_net request every minute.
+  IF worker_url IS NULL OR worker_url = '' OR worker_secret IS NULL OR worker_secret = '' THEN
+    RETURN false;
+  END IF;
+
+  PERFORM net.http_post(
+    url := worker_url,
+    headers := jsonb_build_object(
+      'content-type', 'application/json',
+      'x-worker-secret', worker_secret
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 1_000
+  );
+
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.trigger_ingestion_worker() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.trigger_ingestion_worker() TO service_role;
+
+-- Keep a single named schedule. Re-running the migration does not create a
+-- competing worker; changing its cadence is a deliberate future migration.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM cron.job
+     WHERE jobname = 'queryvault-ingestion-worker'
+  ) THEN
+    PERFORM cron.schedule(
+      'queryvault-ingestion-worker',
+      '* * * * *',
+      'SELECT public.trigger_ingestion_worker();'
+    );
+  END IF;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------------
 -- 20260908000000_ip_rate_limit_and_prune.sql
 -- ---------------------------------------------------------------------------
--- IP-level burst rate limiting + prune helper  (Phase 5)
+-- Migration: IP-level burst rate limiting + prune helper  (Phase 5)
+-- Non-destructive: only adds new table and functions.
 
 CREATE TABLE IF NOT EXISTS public.rate_limits_ip (
   ip              text        NOT NULL,
@@ -930,6 +1013,7 @@ REVOKE ALL ON FUNCTION public.check_ip_rate_limit(text, integer, interval) FROM 
 GRANT EXECUTE ON FUNCTION public.check_ip_rate_limit(text, integer, interval) TO service_role;
 
 -- Cleans both rate_limit_events (user) and rate_limits_ip; called from worker drain.
+-- References rate_limit_events (the original table name), NOT "rate_limits".
 CREATE OR REPLACE FUNCTION public.prune_expired_rate_limits(
   p_older_than interval DEFAULT '1 hour'
 )
@@ -946,10 +1030,11 @@ REVOKE ALL ON FUNCTION public.prune_expired_rate_limits(interval) FROM PUBLIC, a
 GRANT EXECUTE ON FUNCTION public.prune_expired_rate_limits(interval) TO service_role;
 
 
+
 -- ---------------------------------------------------------------------------
 -- 20260908000001_health_probe_fn.sql
 -- ---------------------------------------------------------------------------
--- health probe RPC  (Phase 6)
+-- Migration: health probe RPC  (Phase 6)
 -- Used by GET /api/health. Cheap SELECT now() — no table scans.
 
 CREATE OR REPLACE FUNCTION public.health_probe()
@@ -959,4 +1044,55 @@ $$;
 
 REVOKE ALL ON FUNCTION public.health_probe() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.health_probe() TO service_role;
+
+
+
+-- ---------------------------------------------------------------------------
+-- 20261008000000_expand_document_formats.sql
+-- ---------------------------------------------------------------------------
+-- Format-aware ingestion. Existing PDFs retain their metadata; new files keep
+-- their actual MIME type so the worker can route them to a local parser.
+ALTER TABLE public.documents
+  ADD COLUMN IF NOT EXISTS content_type text NOT NULL DEFAULT 'application/pdf';
+
+UPDATE storage.buckets
+SET allowed_mime_types = ARRAY[
+  'application/pdf', 'application/x-pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain', 'text/markdown', 'text/x-markdown', 'text/csv', 'application/csv',
+  'text/html', 'application/xhtml+xml',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'image/png', 'image/jpeg', 'image/webp'
+]
+WHERE id = 'documents';
+
+-- The original policies required a .pdf suffix. Keep ownership checks and
+-- broaden only the allowed extensions used by the server validation layer.
+DROP POLICY IF EXISTS documents_insert_own ON storage.objects;
+CREATE POLICY documents_insert_own ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'documents' AND (storage.foldername(name))[1] = auth.uid()::text
+  AND name ~* '\.(pdf|docx|txt|md|markdown|csv|html|htm|xlsx|pptx|png|jpe?g|webp)$'
+);
+
+DROP POLICY IF EXISTS documents_update_own ON storage.objects;
+CREATE POLICY documents_update_own ON storage.objects FOR UPDATE TO authenticated
+USING (bucket_id = 'documents' AND (storage.foldername(name))[1] = auth.uid()::text)
+WITH CHECK (
+  bucket_id = 'documents' AND (storage.foldername(name))[1] = auth.uid()::text
+  AND name ~* '\.(pdf|docx|txt|md|markdown|csv|html|htm|xlsx|pptx|png|jpe?g|webp)$'
+);
+
+
+-- ---------------------------------------------------------------------------
+-- 20261008000001_messages_pagination_index.sql
+-- ---------------------------------------------------------------------------
+-- Migration: 20261008000001_messages_pagination_index.sql
+-- Optimizes cursor-based pagination for conversation messages:
+-- WHERE thread_id = $1 AND (created_at < $2 OR (created_at = $2 AND id < $3))
+-- ORDER BY created_at DESC, id DESC LIMIT 50
+
+CREATE INDEX IF NOT EXISTS messages_thread_pagination_idx
+  ON public.messages (thread_id, created_at DESC, id DESC);
 

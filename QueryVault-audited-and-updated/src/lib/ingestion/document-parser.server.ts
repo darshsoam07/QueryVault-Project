@@ -128,4 +128,3 @@ export async function extractDocumentPages(
   }
   throw permanent("UNSUPPORTED_FORMAT", "This file type is not supported.");
 }
-

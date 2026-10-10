@@ -13,6 +13,7 @@ import {
 } from "@/lib/documents.policy";
 import {
   createDocumentUpload,
+  deleteDocument,
   enqueueIngestion,
   getIngestionStatus,
 } from "@/lib/documents.functions";
@@ -79,7 +80,7 @@ export async function uploadAndEnqueue(
     contentHash = await sha256Hex(sliceBuffer);
   }
 
-  const { documentId, storagePath } = await createDocumentUpload({
+  const { documentId, storagePath, signedToken } = await createDocumentUpload({
     data: {
       filename: file.name,
       byteSize: file.size,
@@ -90,17 +91,48 @@ export async function uploadAndEnqueue(
 
   onStatus(toStatus(documentId, null, "uploading", "Uploading the original file…"));
   const uploadStart = Date.now();
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(storagePath, file, {
+
+  let uploadError: { message: string } | null = null;
+  const storageBucket = supabase.storage.from("documents");
+  if (
+    signedToken &&
+    typeof (storageBucket as unknown as { uploadToSignedUrl?: unknown }).uploadToSignedUrl ===
+      "function"
+  ) {
+    const { error } = await storageBucket.uploadToSignedUrl(storagePath, signedToken, file, {
       contentType: file.type || "application/octet-stream",
       upsert: true,
     });
-  if (uploadError) throw new Error(uploadError.message);
+    if (error) uploadError = error;
+  } else {
+    const { error } = await storageBucket.upload(storagePath, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: true,
+    });
+    if (error) uploadError = error;
+  }
+
+  if (uploadError) {
+    try {
+      await deleteDocument({ data: { documentId } });
+    } catch {
+      // Best-effort cleanup of pending document record
+    }
+    throw new Error(uploadError.message);
+  }
   const uploadDurationMs = Date.now() - uploadStart;
 
   const { jobId } = await enqueueIngestion({ data: { documentId } });
-  onStatus(toStatus(documentId, jobId, "queued", "Queued for server-side indexing…", null, uploadDurationMs));
+  onStatus(
+    toStatus(
+      documentId,
+      jobId,
+      "queued",
+      "Queued for server-side indexing…",
+      null,
+      uploadDurationMs,
+    ),
+  );
 
   return { documentId, jobId, uploadDurationMs };
 }
@@ -179,4 +211,3 @@ export async function pollIngestion(
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
-

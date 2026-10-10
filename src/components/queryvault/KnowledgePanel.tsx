@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
-import { deleteDocument, reindexDocument, runIngestionWorker } from "@/lib/documents.functions";
+import { deleteDocument, reindexDocument } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
 import { pollIngestion, uploadAndEnqueue, type IngestStatus } from "@/lib/ingest";
 import { isSupportedDocument, MAX_UPLOAD_BYTES } from "@/lib/documents.policy";
@@ -161,7 +161,6 @@ export function KnowledgePanel({
   const retry = useMutation({
     mutationFn: async (id: string) => {
       await reindexDocument({ data: { documentId: id } });
-      await runIngestionWorker({ data: { maxJobs: 1 } });
     },
     onSuccess: () => {
       toast.success("Reindexing queued");
