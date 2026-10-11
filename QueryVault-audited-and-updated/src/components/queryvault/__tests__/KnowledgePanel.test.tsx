@@ -155,6 +155,45 @@ describe("knowledge base list", () => {
     expect(screen.getByLabelText(/^Retry /)).toBeTruthy();
   });
 
+  it("explains billing or API credits issue on a failed document without exposing internals", async () => {
+    renderPanel([
+      doc({
+        id: "doc-quota",
+        filename: "billing-failed.pdf",
+        status: "failed",
+        failure_code: "CREDITS_EXHAUSTED",
+        failure_message:
+          "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings.",
+      }),
+    ]);
+
+    expect(
+      await screen.findByText(
+        "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText(/^Retry /)).toBeTruthy();
+  });
+
+  it("safely retries a failed document via reindexDocument", async () => {
+    renderPanel([
+      doc({
+        id: "doc-retryable",
+        filename: "retry-me.pdf",
+        status: "failed",
+        failure_code: "CREDITS_EXHAUSTED",
+        failure_message:
+          "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings.",
+      }),
+    ]);
+
+    const retryBtn = await screen.findByLabelText(/^Retry retry-me\.pdf/);
+    fireEvent.click(retryBtn);
+    await waitFor(() =>
+      expect(reindexDocument).toHaveBeenCalledWith({ data: { documentId: "doc-retryable" } }),
+    );
+  });
+
   it("offers no retry control for a healthy document", async () => {
     renderPanel([doc()]);
     await screen.findByText("annual-report.pdf");

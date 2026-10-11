@@ -1,4 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import type { LanguageModel } from "ai";
+import { isCreditsOrQuotaExhausted, isInvalidCredentialsError } from "@/lib/ingestion/contract";
 
 /**
  * AI provider abstraction.
@@ -22,7 +25,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 /** Embedding width pinned by the database schema (`halfvec(3072)` + HNSW). */
 export const EMBEDDING_DIMENSIONS = 3072;
 
-export type AiProviderId = "openai" | "lovable" | "openai-compatible";
+export type AiProviderId = "openai" | "lovable" | "openai-compatible" | "gemini";
 
 export type AiProvider = {
   id: AiProviderId;
@@ -45,12 +48,25 @@ export type AiProvider = {
   authHeaders: () => Record<string, string>;
 };
 
+export type GatewayErrorOptions = {
+  code?: string | undefined;
+  errorType?: string | undefined;
+  rawMessage?: string | undefined;
+};
+
 export class GatewayError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
+  readonly status: number;
+  readonly code?: string | undefined;
+  readonly errorType?: string | undefined;
+  readonly rawMessage?: string | undefined;
+
+  constructor(message: string, status: number, options?: GatewayErrorOptions) {
     super(message);
     this.name = "GatewayError";
     this.status = status;
+    if (options?.code) this.code = options.code;
+    if (options?.errorType) this.errorType = options.errorType;
+    if (options?.rawMessage) this.rawMessage = options.rawMessage;
   }
 }
 
@@ -90,6 +106,19 @@ const PROVIDERS: Record<AiProviderId, ProviderDefinition> = {
     keyVar: "OPENAI_API_KEY",
     headers: bearer,
   },
+  gemini: {
+    label: "Google Gemini",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    // gemini-1.5-flash is official, stable, and cost-efficient for chat completions.
+    // gemini-embedding-001 natively outputs 3072 dimensions, matching halfvec(3072).
+    defaultChatModel: "gemini-1.5-flash",
+    defaultUtilityModel: "gemini-1.5-flash",
+    defaultEmbeddingModel: "gemini-embedding-001",
+    defaultEmbeddingDimensions: 3072,
+    supportsDimensionsParam: true,
+    keyVar: "GEMINI_API_KEY",
+    headers: (key) => ({ "x-goog-api-key": key }),
+  },
   lovable: {
     label: "Lovable AI Gateway",
     defaultBaseUrl: "https://ai.gateway.lovable.dev/v1",
@@ -118,8 +147,9 @@ function resolveProviderId(): AiProviderId {
   const raw = env("AI_PROVIDER")?.toLowerCase();
   if (!raw) {
     // No explicit choice: infer from whichever credential is present so an
-    // existing Lovable-only deployment keeps working after this refactor.
+    // existing deployment keeps working without this setting.
     if (env("OPENAI_API_KEY")) return "openai";
+    if (env("GEMINI_API_KEY")) return "gemini";
     if (env("LOVABLE_API_KEY")) return "lovable";
     return "openai";
   }
@@ -142,10 +172,12 @@ export function requireAiProvider(): AiProvider {
   const key = env(def.keyVar);
   if (!key) throw new GatewayError("AI is not configured for this workspace.", 500);
 
-  const baseUrl = (env("AI_BASE_URL") ?? env("OPENAI_BASE_URL") ?? def.defaultBaseUrl).replace(
-    /\/+$/,
-    "",
-  );
+  const baseUrl = (
+    env("AI_BASE_URL") ??
+    env("GEMINI_BASE_URL") ??
+    env("OPENAI_BASE_URL") ??
+    def.defaultBaseUrl
+  ).replace(/\/+$/, "");
   const chatModel = env("AI_CHAT_MODEL") ?? def.defaultChatModel;
   const utilityModel = env("AI_UTILITY_MODEL") ?? def.defaultUtilityModel ?? chatModel;
   const embeddingModel = env("AI_EMBEDDING_MODEL") ?? def.defaultEmbeddingModel;
@@ -164,6 +196,18 @@ export function requireAiProvider(): AiProvider {
   if (!chatModel || !embeddingModel) {
     throw new GatewayError(
       `AI_CHAT_MODEL and AI_EMBEDDING_MODEL are required when AI_PROVIDER=${id}.`,
+      500,
+    );
+  }
+  if (
+    id === "gemini" &&
+    embeddingModel.includes("text-embedding-004") &&
+    declaredDimensions > 768
+  ) {
+    throw new GatewayError(
+      `Model "${embeddingModel}" has a maximum output dimension of 768 and cannot produce ` +
+        `the ${declaredDimensions} dimensions required by the database column halfvec(${EMBEDDING_DIMENSIONS}). ` +
+        `Use "gemini-embedding-001" or migrate the database schema.`,
       500,
     );
   }
@@ -206,24 +250,182 @@ export function describeAiProvider():
 }
 
 /** Vercel AI SDK provider for streaming chat, bound to the resolved config. */
-export function createAiSdkProvider(provider: AiProvider) {
-  return createOpenAICompatible({
+export function createAiSdkProvider(provider: AiProvider): (modelId: string) => LanguageModel {
+  if (provider.id === "gemini") {
+    const key = provider.authHeaders()["x-goog-api-key"] ?? "";
+    const google = createGoogleGenerativeAI({
+      apiKey: key,
+      baseURL: provider.baseUrl,
+    });
+    return (modelId: string) => google(modelId) as unknown as LanguageModel;
+  }
+  const compatible = createOpenAICompatible({
     name: provider.id,
     baseURL: provider.baseUrl,
     headers: provider.authHeaders(),
   });
+  return (modelId: string) => compatible(modelId) as unknown as LanguageModel;
 }
 
-export function gatewayMessageForStatus(status: number): string {
-  if (status === 429) return "Rate limit reached. Give it a few seconds and try again.";
-  if (status === 401 || status === 403) {
+export type ProviderErrorDetails = {
+  code?: string | undefined;
+  type?: string | undefined;
+  rawMessage?: string | undefined;
+};
+
+export function parseProviderErrorBody(bodyText: string): ProviderErrorDetails {
+  if (!bodyText || typeof bodyText !== "string") return {};
+  try {
+    const parsed = JSON.parse(bodyText);
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const parsedObj = parsed as Record<string, unknown>;
+    const errorProp = parsedObj["error"];
+    const errorObj =
+      typeof errorProp === "object" && errorProp !== null
+        ? (errorProp as Record<string, unknown>)
+        : typeof errorProp === "string"
+          ? { message: errorProp }
+          : parsedObj;
+
+    const details = Array.isArray(errorObj["details"])
+      ? (errorObj["details"] as Array<Record<string, unknown>>)
+      : undefined;
+    const detailReason =
+      typeof details?.[0]?.["reason"] === "string" ? (details[0]["reason"] as string) : undefined;
+    const statusStr =
+      typeof errorObj["status"] === "string" ? (errorObj["status"] as string) : undefined;
+
+    const code =
+      typeof errorObj["code"] === "string"
+        ? (errorObj["code"] as string)
+        : typeof errorObj["code"] === "number"
+          ? String(errorObj["code"])
+          : typeof parsedObj["code"] === "string"
+            ? (parsedObj["code"] as string)
+            : typeof parsedObj["code"] === "number"
+              ? String(parsedObj["code"])
+              : statusStr;
+
+    const type =
+      typeof errorObj["type"] === "string"
+        ? (errorObj["type"] as string)
+        : (statusStr ??
+          detailReason ??
+          (typeof parsedObj["type"] === "string" ? (parsedObj["type"] as string) : undefined));
+
+    const rawMessage =
+      typeof errorObj["message"] === "string"
+        ? (errorObj["message"] as string)
+        : typeof parsedObj["message"] === "string"
+          ? (parsedObj["message"] as string)
+          : undefined;
+
+    return {
+      ...(code ? { code } : {}),
+      ...(type ? { type } : {}),
+      ...(rawMessage ? { rawMessage } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+export function gatewayMessageForStatus(
+  status: number,
+  details?: {
+    code?: string | undefined;
+    type?: string | undefined;
+    rawMessage?: string | undefined;
+  },
+): string {
+  if (
+    status === 402 ||
+    isCreditsOrQuotaExhausted(status, details?.code, details?.type, details?.rawMessage)
+  ) {
+    return "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings.";
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    isInvalidCredentialsError(status, details?.code, details?.type, details?.rawMessage)
+  ) {
     // Deliberately vague to the user; the operator sees the real status in logs.
     return "The AI service rejected our credentials. An operator needs to check the configuration.";
   }
-  if (status === 402) return "The AI provider rejected the request for billing reasons.";
+  if (status === 429) return "Rate limit reached. Give it a few seconds and try again.";
   if (status === 404)
     return "The configured AI model is unavailable. An operator needs to check it.";
   return "The AI service failed to respond. Please try again.";
+}
+
+/** Gemini chat completion via Google Generative Language REST API. */
+async function chatCompletionGemini(
+  provider: AiProvider,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<string> {
+  const model =
+    typeof body["model"] === "string" && body["model"] ? body["model"] : provider.utilityModel;
+  const modelName = model.replace(/^models\//, "");
+
+  const rawMessages = (Array.isArray(body["messages"]) ? body["messages"] : []) as Array<{
+    role?: string;
+    content?: string;
+  }>;
+
+  const systemMessages = rawMessages.filter((m) => m.role === "system");
+  const systemText = systemMessages
+    .map((m) => m.content ?? "")
+    .filter(Boolean)
+    .join("\n\n");
+
+  const nonSystemMessages = rawMessages.filter((m) => m.role !== "system");
+  const contents = nonSystemMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content ?? "" }],
+  }));
+
+  const geminiBody: Record<string, unknown> = {
+    contents: contents.length > 0 ? contents : [{ role: "user", parts: [{ text: "" }] }],
+    generationConfig: {
+      ...(typeof body["temperature"] === "number" ? { temperature: body["temperature"] } : {}),
+      ...(typeof body["max_tokens"] === "number"
+        ? { maxOutputTokens: body["max_tokens"] }
+        : typeof body["maxTokens"] === "number"
+          ? { maxOutputTokens: body["maxTokens"] }
+          : {}),
+    },
+    ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+  };
+
+  const response = await fetch(`${provider.baseUrl}/models/${modelName}:generateContent`, {
+    method: "POST",
+    ...(signal ? { signal } : {}),
+    headers: { "Content-Type": "application/json", ...provider.authHeaders() },
+    body: JSON.stringify(geminiBody),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const parsed = parseProviderErrorBody(detail);
+    console.error("[ai:chat] failed", provider.id, response.status, detail.slice(0, 400));
+    throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
+      code: parsed.code,
+      errorType: parsed.type,
+      rawMessage: parsed.rawMessage,
+    });
+  }
+
+  const payload = (await response.json()) as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>;
+      };
+    }>;
+  };
+  const parts = payload.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p) => p.text ?? "").join("");
 }
 
 /** POSTs to the provider's chat completions endpoint. Used by rerank + rewrite. */
@@ -232,23 +434,118 @@ export async function chatCompletion(
   body: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<string> {
+  if (provider.id === "gemini") {
+    return chatCompletionGemini(provider, body, signal);
+  }
   const response = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
     ...(signal ? { signal } : {}),
     headers: { "Content-Type": "application/json", ...provider.authHeaders() },
     body: JSON.stringify(body),
   });
-  if (!response.ok)
-    throw new GatewayError(gatewayMessageForStatus(response.status), response.status);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    const parsed = parseProviderErrorBody(detail);
+    console.error("[ai:chat] failed", provider.id, response.status, detail.slice(0, 400));
+    throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
+      code: parsed.code,
+      errorType: parsed.type,
+      rawMessage: parsed.rawMessage,
+    });
+  }
   const payload = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   return payload.choices?.[0]?.message?.content ?? "";
 }
 
+/** Gemini batch embedding via Google Generative Language REST API. */
+async function embedTextsGemini(texts: string[], provider: AiProvider): Promise<number[][]> {
+  if (texts.length === 0) return [];
+
+  const modelName = provider.embeddingModel.replace(/^models\//, "");
+  if (modelName === "text-embedding-004" && provider.embeddingDimensions > 768) {
+    throw new GatewayError(
+      `Model "${modelName}" has a maximum output dimension of 768 and is incompatible with ` +
+        `the database column halfvec(${provider.embeddingDimensions}). ` +
+        `Use "gemini-embedding-001" or migrate the database schema.`,
+      500,
+    );
+  }
+
+  // Google Gemini batchEmbedContents endpoint accepts up to 100 requests per batch call
+  const BATCH_SIZE = 100;
+  const allEmbeddings: number[][] = [];
+
+  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+    const chunk = texts.slice(i, i + BATCH_SIZE);
+    const requests = chunk.map((text) => ({
+      model: `models/${modelName}`,
+      content: {
+        parts: [{ text }],
+      },
+      ...(provider.supportsDimensionsParam
+        ? { outputDimensionality: provider.embeddingDimensions }
+        : {}),
+    }));
+
+    const response = await fetch(`${provider.baseUrl}/models/${modelName}:batchEmbedContents`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...provider.authHeaders() },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      const parsed = parseProviderErrorBody(detail);
+      console.error("[ai:embeddings] failed", provider.id, response.status, detail.slice(0, 400));
+      throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
+        code: parsed.code,
+        errorType: parsed.type,
+        rawMessage: parsed.rawMessage,
+      });
+    }
+
+    const payload = (await response.json()) as {
+      embeddings?: Array<{ values?: number[] }>;
+    };
+
+    const rows = payload.embeddings ?? [];
+    if (rows.length !== chunk.length) {
+      throw new GatewayError("Embedding service returned an unexpected response.", 502);
+    }
+
+    for (let r = 0; r < rows.length; r++) {
+      const values = rows[r]?.values;
+      if (!Array.isArray(values)) {
+        throw new GatewayError("Embedding service returned an invalid embedding structure.", 502);
+      }
+      if (values.length !== provider.embeddingDimensions) {
+        throw new GatewayError(
+          `Embedding model returned ${values.length} dimensions, expected ${provider.embeddingDimensions}.`,
+          502,
+        );
+      }
+      const hasNonFinite = values.some((val) => typeof val !== "number" || !Number.isFinite(val));
+      if (hasNonFinite) {
+        throw new GatewayError(
+          "Embedding model returned non-finite numbers (NaN or Infinity).",
+          502,
+        );
+      }
+      allEmbeddings.push(values);
+    }
+  }
+
+  return allEmbeddings;
+}
+
 /** Embeds a batch of texts through the configured provider. */
 export async function embedTexts(texts: string[], provider: AiProvider): Promise<number[][]> {
   if (texts.length === 0) return [];
+  if (provider.id === "gemini") {
+    return embedTextsGemini(texts, provider);
+  }
 
   const response = await fetch(`${provider.baseUrl}/embeddings`, {
     method: "POST",
@@ -262,10 +559,15 @@ export async function embedTexts(texts: string[], provider: AiProvider): Promise
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
+    const parsed = parseProviderErrorBody(detail);
     // Provider error bodies do not echo the credential, but they are truncated
     // anyway and never forwarded to the client.
     console.error("[ai:embeddings] failed", provider.id, response.status, detail.slice(0, 400));
-    throw new GatewayError(gatewayMessageForStatus(response.status), response.status);
+    throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
+      code: parsed.code,
+      errorType: parsed.type,
+      rawMessage: parsed.rawMessage,
+    });
   }
 
   const payload = (await response.json()) as {
@@ -288,6 +590,13 @@ export async function embedTexts(texts: string[], provider: AiProvider): Promise
       `Embedding model returned ${wrong.length} dimensions, expected ${provider.embeddingDimensions}.`,
       502,
     );
+  }
+
+  const nonFinite = ordered.find((embedding) =>
+    embedding.some((val) => typeof val !== "number" || !Number.isFinite(val)),
+  );
+  if (nonFinite) {
+    throw new GatewayError("Embedding model returned non-finite numbers (NaN or Infinity).", 502);
   }
 
   return ordered;

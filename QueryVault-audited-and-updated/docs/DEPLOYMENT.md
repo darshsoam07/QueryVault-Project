@@ -293,16 +293,17 @@ server-side writers and must never be handed to a browser.
 ## 6. AI provider configuration
 
 Chat and embeddings go through one abstraction, `src/lib/ai-gateway.server.ts`, which
-selects a provider from the environment. Three are supported:
+selects a provider from the environment. Four are supported:
 
-| Provider                       | Key variable      | Base URL                            |
-| ------------------------------ | ----------------- | ----------------------------------- |
-| OpenAI (default)               | `OPENAI_API_KEY`  | `https://api.openai.com/v1`         |
-| Lovable AI Gateway             | `LOVABLE_API_KEY` | `https://ai.gateway.lovable.dev/v1` |
-| Any OpenAI-compatible endpoint | `AI_API_KEY`      | `AI_BASE_URL` (required)            |
+| Provider                       | Key variable      | Base URL                                           | Default models / dimensions                        |
+| ------------------------------ | ----------------- | -------------------------------------------------- | -------------------------------------------------- |
+| OpenAI (default)               | `OPENAI_API_KEY`  | `https://api.openai.com/v1`                        | `gpt-4o` / `text-embedding-3-large` (3072)         |
+| Google Gemini                  | `GEMINI_API_KEY`  | `https://generativelanguage.googleapis.com/v1beta` | `gemini-1.5-flash` / `gemini-embedding-001` (3072) |
+| Lovable AI Gateway             | `LOVABLE_API_KEY` | `https://ai.gateway.lovable.dev/v1`                | `gemini-3.6-flash` / `gemini-embedding-2` (3072)   |
+| Any OpenAI-compatible endpoint | `AI_API_KEY`      | `AI_BASE_URL` (required)                           | Configured via env (must output 3072 dims)         |
 
-Selection is by which key is present, so an existing Lovable-only deployment keeps
-working untouched. To be explicit, set `AI_PROVIDER` to `openai`, `lovable`, or
+Selection is by which key is present, so an existing single-provider deployment keeps
+working untouched. To be explicit, set `AI_PROVIDER` to `openai`, `gemini`, `lovable`, or
 `openai-compatible`.
 
 For `openai-compatible` you must also set `AI_CHAT_MODEL` and `AI_EMBEDDING_MODEL` —

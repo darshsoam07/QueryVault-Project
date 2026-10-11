@@ -131,21 +131,177 @@ export const dependency = (code: string, message: string) =>
 export const resourceLimit = (code: string, message: string) =>
   new IngestionFailure("RESOURCE_LIMIT", code, message);
 
+export function isCreditsOrQuotaExhausted(
+  status?: number,
+  code?: string,
+  type?: string,
+  message?: string,
+): boolean {
+  if (status === 402) return true;
+  const normalizedCode = code?.toLowerCase().trim() ?? "";
+  const normalizedType = type?.toLowerCase().trim() ?? "";
+  if (
+    normalizedCode === "credit_balance_exhausted" ||
+    normalizedCode === "insufficient_quota" ||
+    normalizedCode === "billing_not_active" ||
+    normalizedCode === "account_deactivated" ||
+    normalizedCode === "quota_exceeded"
+  ) {
+    return true;
+  }
+  if (
+    normalizedType === "insufficient_quota" ||
+    normalizedType === "credit_balance_exhausted" ||
+    normalizedType === "billing_error"
+  ) {
+    return true;
+  }
+  const text = `${message ?? ""} ${code ?? ""} ${type ?? ""}`.toLowerCase();
+  if (
+    text.includes("insufficient_quota") ||
+    text.includes("credit_balance_exhausted") ||
+    text.includes("credit balance") ||
+    text.includes("exceeded your current quota") ||
+    text.includes("check your plan and billing") ||
+    text.includes("billing reasons") ||
+    text.includes("quota exceeded") ||
+    text.includes("quota limit reached") ||
+    text.includes("daily quota") ||
+    text.includes("billing is not enabled") ||
+    text.includes("billing not enabled")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function isInvalidCredentialsError(
+  status?: number,
+  code?: string,
+  type?: string,
+  message?: string,
+): boolean {
+  if (status === 401 || status === 403) return true;
+  const normalizedCode = code?.toLowerCase().trim() ?? "";
+  const normalizedType = type?.toLowerCase().trim() ?? "";
+  if (
+    normalizedCode === "invalid_api_key" ||
+    normalizedCode === "unauthorized" ||
+    normalizedCode === "forbidden" ||
+    normalizedCode === "authentication_error" ||
+    normalizedCode === "permission_denied" ||
+    normalizedCode === "api_key_invalid"
+  ) {
+    return true;
+  }
+  if (
+    normalizedType === "authentication_error" ||
+    normalizedType === "permission_denied" ||
+    normalizedType === "api_key_invalid"
+  ) {
+    return true;
+  }
+  const text = `${message ?? ""} ${code ?? ""} ${type ?? ""}`.toLowerCase();
+  if (
+    text.includes("invalid api key") ||
+    text.includes("incorrect api key") ||
+    text.includes("rejected our credentials") ||
+    text.includes("invalid_api_key") ||
+    text.includes("unauthorized") ||
+    text.includes("api key not valid") ||
+    text.includes("api_key_invalid") ||
+    text.includes("unregistered callers")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Anything unrecognised is treated as transient — but bounded by max attempts. */
 export function classifyError(error: unknown): IngestionFailure {
   if (error instanceof IngestionFailure) return error;
-  const message = error instanceof Error ? error.message : "Ingestion failed.";
-  const status = (error as { status?: number } | null)?.status;
+
+  const candidate =
+    typeof error === "object" && error !== null ? (error as Record<string, unknown>) : {};
+  const status = typeof candidate["status"] === "number" ? candidate["status"] : undefined;
+
+  const details =
+    typeof candidate["details"] === "object" && candidate["details"] !== null
+      ? (candidate["details"] as Record<string, unknown>)
+      : undefined;
+
+  const rawCode =
+    typeof candidate["code"] === "string"
+      ? candidate["code"]
+      : typeof details?.["code"] === "string"
+        ? (details["code"] as string)
+        : undefined;
+
+  const rawType =
+    typeof candidate["errorType"] === "string"
+      ? candidate["errorType"]
+      : typeof candidate["type"] === "string"
+        ? candidate["type"]
+        : typeof details?.["type"] === "string"
+          ? (details["type"] as string)
+          : undefined;
+
+  const rawMsg =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : typeof candidate["message"] === "string"
+          ? candidate["message"]
+          : "Ingestion failed.";
+
+  // 1. Quota / Credits exhausted (permanent, terminal failure state, NO exponential backoff)
+  if (isCreditsOrQuotaExhausted(status, rawCode, rawType, rawMsg)) {
+    const userMsg =
+      rawMsg && !/^(ingestion failed\.?|error|no credits)$/i.test(rawMsg)
+        ? rawMsg
+        : "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings.";
+    return permanent("CREDITS_EXHAUSTED", userMsg);
+  }
+
+  // 2. Invalid credentials (permanent, terminal failure state, NO exponential backoff)
+  if (isInvalidCredentialsError(status, rawCode, rawType, rawMsg)) {
+    const userMsg =
+      rawMsg && !/^(ingestion failed\.?|error)$/i.test(rawMsg)
+        ? rawMsg
+        : "The AI service rejected our credentials. An operator needs to check the configuration.";
+    return permanent("INVALID_CREDENTIALS", userMsg);
+  }
+
+  // 3. Genuine request/token rate limits (resource limit, retryable with exponential backoff)
+  if (
+    status === 429 ||
+    rawCode === "rate_limit_exceeded" ||
+    rawType === "requests" ||
+    rawType === "tokens" ||
+    rawType === "resource_exhausted" ||
+    rawCode === "resource_exhausted"
+  ) {
+    return resourceLimit("RATE_LIMITED", rawMsg);
+  }
+
+  // 4. Upstream HTTP status codes
   if (typeof status === "number") {
-    if (status === 429) return resourceLimit("RATE_LIMITED", message);
-    if (status === 402) return resourceLimit("CREDITS_EXHAUSTED", message);
-    if (status >= 500) return dependency("UPSTREAM_ERROR", message);
-    if (status >= 400) return permanent("UPSTREAM_REJECTED", message);
+    if (status >= 500) return dependency("UPSTREAM_ERROR", rawMsg);
+    if (status >= 400) return permanent("UPSTREAM_REJECTED", rawMsg);
   }
-  if (/timed? ?out|network|fetch failed|socket/i.test(message)) {
-    return dependency("UPSTREAM_TIMEOUT", message);
+
+  // 5. Network timeouts and socket dropouts
+  if (/timed? ?out|network|fetch failed|socket|econnreset|econnrefused/i.test(rawMsg)) {
+    return dependency("UPSTREAM_TIMEOUT", rawMsg);
   }
-  return transient("UNEXPECTED", message);
+
+  // 6. Permanent dimension or schema mismatches
+  if (/dimensions?, expected|width mismatch/i.test(rawMsg)) {
+    return permanent("UPSTREAM_REJECTED", rawMsg);
+  }
+
+  return transient("UNEXPECTED", rawMsg);
 }
 
 export const MAX_ATTEMPTS = 4;

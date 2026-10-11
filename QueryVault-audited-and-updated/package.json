@@ -17,9 +17,11 @@
     "eval": "bun evaluation/runner.ts",
     "eval:gate": "bun evaluation/runner.ts --gate",
     "worker": "bun scripts/worker.ts",
+    "reindex": "tsx scripts/reindex.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.93",
     "@ai-sdk/openai-compatible": "^3.0.30",
     "@ai-sdk/react": "^4.0.67",
     "@hookform/resolvers": "^5.2.2",

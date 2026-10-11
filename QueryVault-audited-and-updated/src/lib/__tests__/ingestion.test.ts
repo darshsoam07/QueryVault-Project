@@ -32,6 +32,7 @@ describe("failure taxonomy", () => {
       "RESOURCE_LIMIT",
     );
     expect(classifyError({ status: 402, message: "no credits" }).code).toBe("CREDITS_EXHAUSTED");
+    expect(classifyError({ status: 402, message: "no credits" }).failureClass).toBe("PERMANENT");
     expect(classifyError({ status: 503, message: "bad gateway" }).failureClass).toBe("DEPENDENCY");
     expect(classifyError({ status: 400, message: "bad input" }).failureClass).toBe("PERMANENT");
   });
@@ -44,6 +45,88 @@ describe("failure taxonomy", () => {
 
   it("classifies network timeouts as dependency failures", () => {
     expect(classifyError(new Error("fetch failed")).failureClass).toBe("DEPENDENCY");
+  });
+
+  it("classifies HTTP 429 with credit_balance_exhausted as permanent CREDITS_EXHAUSTED and never retries", () => {
+    const err = {
+      status: 429,
+      code: "credit_balance_exhausted",
+      type: "insufficient_quota",
+      message: "You exceeded your current quota, please check your plan and billing details.",
+    };
+    const failure = classifyError(err);
+    expect(failure.code).toBe("CREDITS_EXHAUSTED");
+    expect(failure.failureClass).toBe("PERMANENT");
+    expect(isRetryable(failure, 1)).toBe(false);
+    expect(isRetryable(failure, 2)).toBe(false);
+    expect(failure.message).toContain("quota");
+  });
+
+  it("classifies HTTP 429 with insufficient_quota (type or code) as permanent CREDITS_EXHAUSTED and never retries", () => {
+    const fromType = classifyError({ status: 429, type: "insufficient_quota" });
+    expect(fromType.code).toBe("CREDITS_EXHAUSTED");
+    expect(fromType.failureClass).toBe("PERMANENT");
+    expect(isRetryable(fromType, 1)).toBe(false);
+
+    const fromCode = classifyError({ status: 429, code: "insufficient_quota" });
+    expect(fromCode.code).toBe("CREDITS_EXHAUSTED");
+    expect(fromCode.failureClass).toBe("PERMANENT");
+    expect(isRetryable(fromCode, 1)).toBe(false);
+  });
+
+  it("preserves exponential backoff and retryability for genuine HTTP 429 rate limits", () => {
+    const genuineErr = {
+      status: 429,
+      code: "rate_limit_exceeded",
+      type: "requests",
+      message: "Rate limit reached for requests per minute.",
+    };
+    const failure = classifyError(genuineErr);
+    expect(failure.code).toBe("RATE_LIMITED");
+    expect(failure.failureClass).toBe("RESOURCE_LIMIT");
+    expect(isRetryable(failure, 1)).toBe(true);
+    expect(isRetryable(failure, MAX_ATTEMPTS - 1)).toBe(true);
+    expect(isRetryable(failure, MAX_ATTEMPTS)).toBe(false);
+
+    // Exponential backoff with harder backoff for resource limits
+    const backoffFirst = backoffSeconds(1, failure.failureClass);
+    const backoffSecond = backoffSeconds(2, failure.failureClass);
+    expect(backoffFirst).toBeGreaterThanOrEqual(30);
+    expect(backoffSecond).toBeGreaterThan(backoffFirst);
+  });
+
+  it("classifies HTTP 402 as permanent CREDITS_EXHAUSTED and never retries", () => {
+    const failure = classifyError({ status: 402, message: "Payment Required" });
+    expect(failure.code).toBe("CREDITS_EXHAUSTED");
+    expect(failure.failureClass).toBe("PERMANENT");
+    expect(isRetryable(failure, 1)).toBe(false);
+  });
+
+  it("classifies invalid credentials (HTTP 401/403 or invalid_api_key) as permanent INVALID_CREDENTIALS and never retries", () => {
+    const err401 = classifyError({ status: 401, message: "Incorrect API key provided" });
+    expect(err401.code).toBe("INVALID_CREDENTIALS");
+    expect(err401.failureClass).toBe("PERMANENT");
+    expect(isRetryable(err401, 1)).toBe(false);
+
+    const err403 = classifyError({ status: 403, code: "invalid_api_key" });
+    expect(err403.code).toBe("INVALID_CREDENTIALS");
+    expect(err403.failureClass).toBe("PERMANENT");
+    expect(isRetryable(err403, 1)).toBe(false);
+
+    const errAuthType = classifyError({ status: 400, type: "authentication_error" });
+    expect(errAuthType.code).toBe("INVALID_CREDENTIALS");
+    expect(errAuthType.failureClass).toBe("PERMANENT");
+    expect(isRetryable(errAuthType, 1)).toBe(false);
+  });
+
+  it("classifies transient 5xx failures as retryable DEPENDENCY with exponential backoff", () => {
+    for (const status of [500, 502, 503, 504]) {
+      const failure = classifyError({ status, message: "Upstream failure" });
+      expect(failure.code).toBe("UPSTREAM_ERROR");
+      expect(failure.failureClass).toBe("DEPENDENCY");
+      expect(isRetryable(failure, 1)).toBe(true);
+      expect(isRetryable(failure, MAX_ATTEMPTS)).toBe(false);
+    }
   });
 });
 

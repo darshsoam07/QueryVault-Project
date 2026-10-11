@@ -156,7 +156,12 @@ export async function pollIngestion(
 
     const { document, job } = snapshot;
     const phase: IngestionPhase = isPhase(document.phase) ? document.phase : "queued";
-    const reason = document.failure_message ?? job?.error_message ?? null;
+    const reason =
+      document.failure_message ??
+      job?.error_message ??
+      (document.failure_code === "CREDITS_EXHAUSTED"
+        ? "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings."
+        : null);
 
     if (document.status === "ready") {
       const status = toStatus(

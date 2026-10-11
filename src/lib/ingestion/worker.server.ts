@@ -252,12 +252,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
         provider,
       );
     } catch (error) {
-      if (error instanceof GatewayError) {
-        throw error.status === 429 || error.status === 402
-          ? classifyError(error)
-          : dependency("EMBEDDING_FAILED", error.message);
-      }
-      throw dependency("EMBEDDING_FAILED", "The embedding service did not respond.");
+      throw classifyError(error);
     }
     totalEmbedDurationMs += Date.now() - embedStart;
 

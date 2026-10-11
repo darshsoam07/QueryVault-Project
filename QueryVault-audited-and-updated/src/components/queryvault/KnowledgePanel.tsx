@@ -33,6 +33,7 @@ export type DocumentRow = {
   byte_size: number;
   error_message: string | null;
   failure_message: string | null;
+  failure_code?: string | null;
 };
 
 export function useDocuments(userId: string | undefined) {
@@ -43,7 +44,7 @@ export function useDocuments(userId: string | undefined) {
       const { data, error } = await supabase
         .from("documents")
         .select(
-          "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message",
+          "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message, failure_code",
         )
         .order("created_at", { ascending: false });
       if (error) throw fromQueryError(error, "Could not load your documents.");
@@ -340,8 +341,21 @@ export function KnowledgePanel({
                         </span>
                       )}
                       {isFailed && (
-                        <span className="truncate text-[10px] text-muted-foreground">
-                          {doc.failure_message ?? doc.error_message ?? "Unknown error"}
+                        <span
+                          className="truncate text-[10px] text-muted-foreground"
+                          title={
+                            doc.failure_message ??
+                            doc.error_message ??
+                            (doc.failure_code === "CREDITS_EXHAUSTED"
+                              ? "The AI provider rejected the request for billing reasons: API credit balance is exhausted or quota exceeded. Please check your billing settings."
+                              : undefined)
+                          }
+                        >
+                          {doc.failure_message ??
+                            doc.error_message ??
+                            (doc.failure_code === "CREDITS_EXHAUSTED"
+                              ? "API credits or quota exhausted. Check billing settings."
+                              : "Unknown error")}
                         </span>
                       )}
                     </span>
