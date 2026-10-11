@@ -72,7 +72,17 @@ export class GatewayError extends Error {
 
 function env(name: string): string | undefined {
   const value = process.env[name];
-  return value && value.trim().length > 0 ? value.trim() : undefined;
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return undefined;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    const unquoted = trimmed.slice(1, -1).trim();
+    return unquoted.length > 0 ? unquoted : undefined;
+  }
+  return trimmed;
 }
 
 function bearer(key: string): Record<string, string> {
@@ -174,13 +184,49 @@ export function requireAiProvider(): AiProvider {
 
   const baseUrl = (
     env("AI_BASE_URL") ??
-    env("GEMINI_BASE_URL") ??
-    env("OPENAI_BASE_URL") ??
+    (id === "gemini" ? env("GEMINI_BASE_URL") : undefined) ??
+    (id === "openai" ? env("OPENAI_BASE_URL") : undefined) ??
     def.defaultBaseUrl
   ).replace(/\/+$/, "");
-  const chatModel = env("AI_CHAT_MODEL") ?? def.defaultChatModel;
-  const utilityModel = env("AI_UTILITY_MODEL") ?? def.defaultUtilityModel ?? chatModel;
-  const embeddingModel = env("AI_EMBEDDING_MODEL") ?? def.defaultEmbeddingModel;
+
+  const chatModel =
+    (id === "gemini" ? env("GEMINI_CHAT_MODEL") : undefined) ??
+    (id === "openai" ? env("OPENAI_CHAT_MODEL") : undefined) ??
+    env("AI_CHAT_MODEL") ??
+    def.defaultChatModel;
+
+  const utilityModel =
+    (id === "gemini" ? env("GEMINI_UTILITY_MODEL") : undefined) ??
+    (id === "openai" ? env("OPENAI_UTILITY_MODEL") : undefined) ??
+    env("AI_UTILITY_MODEL") ??
+    def.defaultUtilityModel ??
+    chatModel;
+
+  const providerEmbeddingOverride =
+    id === "gemini"
+      ? env("GEMINI_EMBEDDING_MODEL")
+      : id === "openai"
+        ? env("OPENAI_EMBEDDING_MODEL")
+        : undefined;
+
+  let embeddingModel =
+    providerEmbeddingOverride ?? env("AI_EMBEDDING_MODEL") ?? def.defaultEmbeddingModel;
+
+  // Protect against cross-provider model leakage: if an OpenAI model was left in
+  // generic AI_EMBEDDING_MODEL while Gemini is selected, default back to Gemini's model.
+  if (
+    id === "gemini" &&
+    !providerEmbeddingOverride &&
+    embeddingModel.startsWith("text-embedding-3")
+  ) {
+    embeddingModel = def.defaultEmbeddingModel;
+  } else if (
+    id === "openai" &&
+    !providerEmbeddingOverride &&
+    embeddingModel.startsWith("gemini-")
+  ) {
+    embeddingModel = def.defaultEmbeddingModel;
+  }
 
   const declaredDimensions = Number(
     env("AI_EMBEDDING_DIMENSIONS") ?? def.defaultEmbeddingDimensions,
@@ -381,10 +427,17 @@ async function chatCompletionGemini(
     .join("\n\n");
 
   const nonSystemMessages = rawMessages.filter((m) => m.role !== "system");
-  const contents = nonSystemMessages.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content ?? "" }],
-  }));
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  for (const m of nonSystemMessages) {
+    const role = m.role === "assistant" ? "model" : "user";
+    const text = m.content ?? "";
+    const last = contents[contents.length - 1];
+    if (last && last.role === role) {
+      last.parts.push({ text });
+    } else {
+      contents.push({ role, parts: [{ text }] });
+    }
+  }
 
   const geminiBody: Record<string, unknown> = {
     contents: contents.length > 0 ? contents : [{ role: "user", parts: [{ text: "" }] }],

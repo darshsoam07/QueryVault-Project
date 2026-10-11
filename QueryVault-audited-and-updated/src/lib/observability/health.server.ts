@@ -201,6 +201,24 @@ async function checkGateway(
 
 export function checkEmbeddingProvider(deep: boolean): Promise<CheckResult> {
   return checkGateway("embedding_provider", true, deep, async (provider, signal) => {
+    if (provider.id === "gemini") {
+      const modelName = provider.embeddingModel.replace(/^models\//, "");
+      const response = await fetch(`${provider.baseUrl}/models/${modelName}:embedContent`, {
+        method: "POST",
+        signal,
+        headers: { "Content-Type": "application/json", ...provider.authHeaders() },
+        body: JSON.stringify({
+          content: { parts: [{ text: "health" }] },
+          ...(provider.supportsDimensionsParam
+            ? { outputDimensionality: provider.embeddingDimensions }
+            : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      await response.arrayBuffer();
+      return;
+    }
+
     const response = await fetch(`${provider.baseUrl}/embeddings`, {
       method: "POST",
       signal,

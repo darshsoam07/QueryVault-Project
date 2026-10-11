@@ -519,6 +519,17 @@ export const Route = createFileRoute("/api/chat")({
           const generationAbort = linkAbort(request.signal, RETRIEVAL_CONFIG.generation.timeoutMs);
           try {
             stage = "generation";
+
+            // Extract prior history turns (excluding current turn to ensure turns strictly alternate)
+            const priorUIMessages = originalMessages.slice(0, -1).slice(-10);
+            const priorModelMessages = await convertToModelMessages(priorUIMessages);
+            while (
+              priorModelMessages.length > 0 &&
+              priorModelMessages[priorModelMessages.length - 1]?.role === "user"
+            ) {
+              priorModelMessages.pop();
+            }
+
             const generated = await generateText({
               model: gateway(provider.chatModel),
               abortSignal: generationAbort.signal,
@@ -528,7 +539,7 @@ export const Route = createFileRoute("/api/chat")({
               maxOutputTokens: RETRIEVAL_CONFIG.generation.maxOutputTokens,
               system: SYSTEM_PROMPT,
               messages: [
-                ...(await convertToModelMessages(originalMessages.slice(-12))),
+                ...priorModelMessages,
                 {
                   role: "user" as const,
                   content:
@@ -540,6 +551,11 @@ export const Route = createFileRoute("/api/chat")({
             });
             candidate = generated.text;
           } catch (error) {
+            logEvent("error", "chat.generation_failed", requestId, {
+              user_id: userId,
+              model: provider.chatModel,
+              error: error instanceof Error ? error.message : "unknown",
+            });
             // The CALLER SIGNAL is the tiebreaker — NOT the error shape. The
             // linked controller aborts for the deadline too, and the provider
             // surfaces both as an AbortError. When the caller went away,

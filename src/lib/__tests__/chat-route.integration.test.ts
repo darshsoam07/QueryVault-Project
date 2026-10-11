@@ -924,3 +924,100 @@ describe("chat route: caller cancellation reason-independence", () => {
     },
   );
 });
+
+describe("chat route: message formatting for Gemini alternating turns", () => {
+  it("ensures generateText receives prior history without duplicate or trailing user turns", async () => {
+    let capturedMessages: Array<{ role: string; content: string }> = [];
+    mocks.generateText.mockImplementation(
+      async (opts: { messages: Array<{ role: string; content: string }> }) => {
+        capturedMessages = opts.messages;
+        return { text: "Answer [source_1]" };
+      },
+    );
+
+    const sources = evidence();
+    mocks.runRetrieval.mockResolvedValue(retrievalOutcome(sources, true));
+
+    const req = new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+        "x-request-id": "req-gemini-turn-test",
+      },
+      body: JSON.stringify({
+        threadId: THREAD_ID,
+        messages: [
+          { id: "m0", role: "user", parts: [{ type: "text", text: "Prior question" }] },
+          { id: "m1", role: "assistant", parts: [{ type: "text", text: "Prior answer" }] },
+          { id: "m2", role: "user", parts: [{ type: "text", text: "Current question" }] },
+        ],
+        documentIds: [],
+      }),
+    });
+
+    const response = await POST({ request: req });
+    expect(response.status).toBe(200);
+
+    // Should have: prior user, prior assistant, and then ONE final user prompt containing evidence + question
+    expect(capturedMessages).toHaveLength(3);
+    expect(capturedMessages[0]!.role).toBe("user");
+    expect(
+      typeof capturedMessages[0]!.content === "string"
+        ? capturedMessages[0]!.content
+        : (capturedMessages[0]!.content as Array<{ text: string }>)[0]?.text,
+    ).toBe("Prior question");
+
+    expect(capturedMessages[1]!.role).toBe("assistant");
+    expect(
+      typeof capturedMessages[1]!.content === "string"
+        ? capturedMessages[1]!.content
+        : (capturedMessages[1]!.content as Array<{ text: string }>)[0]?.text,
+    ).toBe("Prior answer");
+
+    expect(capturedMessages[2]!.role).toBe("user");
+    expect(capturedMessages[2]!.content).toContain("Question: Current question");
+
+    // No two consecutive user messages!
+    for (let i = 1; i < capturedMessages.length; i++) {
+      expect(capturedMessages[i]!.role).not.toBe(capturedMessages[i - 1]!.role);
+    }
+  });
+
+  it("handles single-turn question with only one user message", async () => {
+    let capturedMessages: Array<{ role: string; content: string }> = [];
+    mocks.generateText.mockImplementation(
+      async (opts: { messages: Array<{ role: string; content: string }> }) => {
+        capturedMessages = opts.messages;
+        return { text: "Answer [source_1]" };
+      },
+    );
+
+    const sources = evidence();
+    mocks.runRetrieval.mockResolvedValue(retrievalOutcome(sources, true));
+
+    const req = new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+        "x-request-id": "req-gemini-single-turn",
+      },
+      body: JSON.stringify({
+        threadId: THREAD_ID,
+        messages: [
+          { id: "m0", role: "user", parts: [{ type: "text", text: "Only question" }] },
+        ],
+        documentIds: [],
+      }),
+    });
+
+    const response = await POST({ request: req });
+    expect(response.status).toBe(200);
+
+    // Exactly 1 message passed to generateText: the enriched prompt
+    expect(capturedMessages).toHaveLength(1);
+    expect(capturedMessages[0]!.role).toBe("user");
+    expect(capturedMessages[0]!.content).toContain("Question: Only question");
+  });
+});

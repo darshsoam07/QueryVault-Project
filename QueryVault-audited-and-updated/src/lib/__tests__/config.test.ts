@@ -299,6 +299,16 @@ describe("collectBootFindings", () => {
     expect(findings[0]?.variables).toContain("OPENAI_API_KEY");
   });
 
+  it("is clean when GEMINI_API_KEY is configured instead of OPENAI_API_KEY", () => {
+    const findings = collectBootFindings({
+      ...serverEnv,
+      OPENAI_API_KEY: "",
+      GEMINI_API_KEY: "AIzaSyTestKeySecret",
+      AI_PROVIDER: "gemini",
+    });
+    expect(findings).toEqual([]);
+  });
+
   it("warns when the ingestion worker secret is absent", () => {
     const findings = collectBootFindings({ ...serverEnv, INGESTION_WORKER_SECRET: "" });
     expect(findings.map((f) => f.severity)).toEqual(["warning"]);

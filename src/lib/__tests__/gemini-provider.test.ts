@@ -117,6 +117,54 @@ describe("Gemini Provider Configuration Validation", () => {
     const provider = requireAiProvider();
     expect(provider.baseUrl).toBe("https://custom-gateway.example.com/v1beta");
   });
+
+  it("resolves Gemini provider even when AI_PROVIDER is wrapped in quotes", () => {
+    process.env["AI_PROVIDER"] = '"gemini"';
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestKey";
+
+    const provider = requireAiProvider();
+    expect(provider.id).toBe("gemini");
+    expect(provider.embeddingModel).toBe("gemini-embedding-001");
+    expect(provider.chatModel).toBe("gemini-1.5-flash");
+
+    // Single quotes test
+    process.env["AI_PROVIDER"] = "'gemini'";
+    const singleQuoteProvider = requireAiProvider();
+    expect(singleQuoteProvider.id).toBe("gemini");
+  });
+
+  it("prioritizes AI_PROVIDER=gemini over OPENAI_API_KEY when both are set", () => {
+    process.env["AI_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestKey";
+    process.env["OPENAI_API_KEY"] = "sk-proj-test-openai-key";
+
+    const provider = requireAiProvider();
+    expect(provider.id).toBe("gemini");
+    expect(provider.label).toBe("Google Gemini");
+    expect(provider.chatModel).toBe("gemini-1.5-flash");
+    expect(provider.embeddingModel).toBe("gemini-embedding-001");
+  });
+
+  it("safely falls back to gemini-embedding-001 if AI_EMBEDDING_MODEL holds an OpenAI model name", () => {
+    process.env["AI_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestKey";
+    process.env["AI_EMBEDDING_MODEL"] = "text-embedding-3-large";
+
+    const provider = requireAiProvider();
+    expect(provider.id).toBe("gemini");
+    expect(provider.embeddingModel).toBe("gemini-embedding-001");
+  });
+
+  it("supports provider-specific GEMINI_EMBEDDING_MODEL and GEMINI_CHAT_MODEL overrides", () => {
+    process.env["AI_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestKey";
+    process.env["GEMINI_EMBEDDING_MODEL"] = "gemini-embedding-experimental";
+    process.env["GEMINI_CHAT_MODEL"] = "gemini-2.0-flash-exp";
+
+    const provider = requireAiProvider();
+    expect(provider.embeddingModel).toBe("gemini-embedding-experimental");
+    expect(provider.chatModel).toBe("gemini-2.0-flash-exp");
+  });
 });
 
 describe("Gemini Chat Completion via Google REST API", () => {
@@ -522,6 +570,117 @@ describe("Provider Switching Without OpenAI Regression", () => {
     expect(capturedUrl).toBe("https://api.openai.com/v1/chat/completions");
     expect(capturedBody["messages"]).toEqual([{ role: "user", content: "test" }]);
     expect(answer).toBe("OpenAI response");
+  });
+
+  it("proves AI_PROVIDER=gemini selects Gemini for both embedding generation and chat", async () => {
+    process.env["AI_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestSecret123";
+    process.env["OPENAI_API_KEY"] = "sk-proj-test-key";
+
+    const provider = requireAiProvider();
+    expect(provider.id).toBe("gemini");
+    expect(provider.chatModel).toBe("gemini-1.5-flash");
+    expect(provider.embeddingModel).toBe("gemini-embedding-001");
+
+    let capturedUrl = "";
+    let capturedHeaders: Record<string, string> = {};
+
+    const mockFetch = vi.fn().mockImplementation(async (url, init) => {
+      capturedUrl = String(url);
+      capturedHeaders = (init?.headers ?? {}) as Record<string, string>;
+
+      if (capturedUrl.includes("batchEmbedContents")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            embeddings: [{ values: new Array(3072).fill(0.01) }],
+          }),
+        };
+      }
+
+      if (capturedUrl.includes("generateContent")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Gemini response" }] } }],
+          }),
+        };
+      }
+
+      return { ok: false, status: 404, text: async () => "Not Found" };
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    // 1. Embedding generation selects Gemini
+    const embeddings = await embedTexts(["Test text for Gemini"], provider);
+    expect(capturedUrl).toContain(
+      "generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents",
+    );
+    expect(capturedHeaders["x-goog-api-key"]).toBe("AIzaSyTestSecret123");
+    expect(embeddings).toHaveLength(1);
+    expect(embeddings[0]).toHaveLength(3072);
+
+    // 2. Chat completion selects Gemini
+    const chatResponse = await chatCompletion(provider, {
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    expect(capturedUrl).toContain(
+      "generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+    );
+    expect(capturedHeaders["x-goog-api-key"]).toBe("AIzaSyTestSecret123");
+    expect(chatResponse).toBe("Gemini response");
+  });
+
+  it("merges consecutive same-role messages into alternating turns for Gemini chat completion", async () => {
+    process.env["AI_PROVIDER"] = "gemini";
+    process.env["GEMINI_API_KEY"] = "AIzaSyTestSecret123";
+
+    const provider = requireAiProvider();
+    let capturedBody: Record<string, unknown> = {};
+
+    const mockFetch = vi.fn().mockImplementation(async (_url, init) => {
+      capturedBody = JSON.parse(init?.body as string) as Record<string, unknown>;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "merged response" }] } }],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    await chatCompletion(provider, {
+      messages: [
+        { role: "system", content: "system instructions" },
+        { role: "user", content: "first user part" },
+        { role: "user", content: "second user part" },
+        { role: "assistant", content: "first model part" },
+        { role: "assistant", content: "second model part" },
+        { role: "user", content: "third user part" },
+      ],
+    });
+
+    expect(capturedBody["systemInstruction"]).toEqual({
+      parts: [{ text: "system instructions" }],
+    });
+
+    expect(capturedBody["contents"]).toEqual([
+      {
+        role: "user",
+        parts: [{ text: "first user part" }, { text: "second user part" }],
+      },
+      {
+        role: "model",
+        parts: [{ text: "first model part" }, { text: "second model part" }],
+      },
+      {
+        role: "user",
+        parts: [{ text: "third user part" }],
+      },
+    ]);
   });
 });
 

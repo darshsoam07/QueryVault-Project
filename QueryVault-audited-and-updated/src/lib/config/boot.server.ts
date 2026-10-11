@@ -53,7 +53,9 @@ function readEnv(): Record<string, string | undefined> {
     "SUPABASE_PUBLISHABLE_KEY",
     "SUPABASE_PROJECT_ID",
     "SUPABASE_SERVICE_ROLE_KEY",
+    "AI_PROVIDER",
     "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
     "LOVABLE_API_KEY",
     "AI_API_KEY",
     "INGESTION_WORKER_SECRET",
@@ -97,16 +99,19 @@ export function collectBootFindings(
   // Not fatal by design: the AI boundary already fails closed with a structured
   // NOT_CONFIGURED, and the readiness probe reports it as a `config` fault. A
   // server that can still serve auth, uploads and the UI should boot.
-  const aiKeySet = ["OPENAI_API_KEY", "LOVABLE_API_KEY", "AI_API_KEY"].some(
-    (name) => (env[name] ?? "").trim().length > 0,
-  );
+  const aiKeySet = [
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "LOVABLE_API_KEY",
+    "AI_API_KEY",
+  ].some((name) => (env[name] ?? "").trim().length > 0);
   if (!aiKeySet) {
     findings.push({
       severity: "warning",
       code: "CONFIG_MISSING",
       variables: ["OPENAI_API_KEY"],
       message:
-        "No AI provider key is set (OPENAI_API_KEY / LOVABLE_API_KEY / AI_API_KEY). " +
+        "No AI provider key is set (OPENAI_API_KEY / GEMINI_API_KEY / LOVABLE_API_KEY / AI_API_KEY). " +
         "Ingestion will fail at the embedding step and /api/chat will return NOT_CONFIGURED.",
     });
   }
