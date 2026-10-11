@@ -50,8 +50,8 @@ describe("Gemini Provider Configuration Validation", () => {
     expect(provider.id).toBe("gemini");
     expect(provider.label).toBe("Google Gemini");
     expect(provider.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta");
-    expect(provider.chatModel).toBe("gemini-1.5-flash");
-    expect(provider.utilityModel).toBe("gemini-1.5-flash");
+    expect(provider.chatModel).toBe("gemini-3.8-flash");
+    expect(provider.utilityModel).toBe("gemini-3.8-flash");
     expect(provider.embeddingModel).toBe("gemini-embedding-001");
     expect(provider.embeddingDimensions).toBe(3072);
     expect(provider.supportsDimensionsParam).toBe(true);
@@ -125,7 +125,7 @@ describe("Gemini Provider Configuration Validation", () => {
     const provider = requireAiProvider();
     expect(provider.id).toBe("gemini");
     expect(provider.embeddingModel).toBe("gemini-embedding-001");
-    expect(provider.chatModel).toBe("gemini-1.5-flash");
+    expect(provider.chatModel).toBe("gemini-3.8-flash");
 
     // Single quotes test
     process.env["AI_PROVIDER"] = "'gemini'";
@@ -141,7 +141,7 @@ describe("Gemini Provider Configuration Validation", () => {
     const provider = requireAiProvider();
     expect(provider.id).toBe("gemini");
     expect(provider.label).toBe("Google Gemini");
-    expect(provider.chatModel).toBe("gemini-1.5-flash");
+    expect(provider.chatModel).toBe("gemini-3.8-flash");
     expect(provider.embeddingModel).toBe("gemini-embedding-001");
   });
 
@@ -172,8 +172,8 @@ describe("Gemini Chat Completion via Google REST API", () => {
     id: "gemini",
     label: "Google Gemini",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    chatModel: "gemini-1.5-flash",
-    utilityModel: "gemini-1.5-flash",
+    chatModel: "gemini-3.8-flash",
+    utilityModel: "gemini-3.8-flash",
     embeddingModel: "gemini-embedding-001",
     embeddingDimensions: 3072,
     supportsDimensionsParam: true,
@@ -212,7 +212,7 @@ describe("Gemini Chat Completion via Google REST API", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const result = await chatCompletion(fakeGeminiProvider, {
-      model: "gemini-1.5-flash",
+      model: "gemini-3.8-flash",
       temperature: 0.2,
       max_tokens: 500,
       messages: [
@@ -222,7 +222,7 @@ describe("Gemini Chat Completion via Google REST API", () => {
     });
 
     expect(capturedUrl).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
     );
     expect(capturedMethod).toBe("POST");
     expect(capturedHeaders["x-goog-api-key"]).toBe("fake-gemini-key");
@@ -284,8 +284,8 @@ describe("Gemini Embeddings via Google REST API", () => {
     id: "gemini",
     label: "Google Gemini",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    chatModel: "gemini-1.5-flash",
-    utilityModel: "gemini-1.5-flash",
+    chatModel: "gemini-3.8-flash",
+    utilityModel: "gemini-3.8-flash",
     embeddingModel: "gemini-embedding-001",
     embeddingDimensions: 3072,
     supportsDimensionsParam: true,
@@ -528,6 +528,9 @@ describe("Provider Switching Without OpenAI Regression", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    delete process.env["AI_CHAT_MODEL"];
+    delete process.env["AI_UTILITY_MODEL"];
+    delete process.env["AI_EMBEDDING_MODEL"];
   });
 
   afterEach(() => {
@@ -579,7 +582,7 @@ describe("Provider Switching Without OpenAI Regression", () => {
 
     const provider = requireAiProvider();
     expect(provider.id).toBe("gemini");
-    expect(provider.chatModel).toBe("gemini-1.5-flash");
+    expect(provider.chatModel).toBe("gemini-3.8-flash");
     expect(provider.embeddingModel).toBe("gemini-embedding-001");
 
     let capturedUrl = "";
@@ -627,7 +630,7 @@ describe("Provider Switching Without OpenAI Regression", () => {
       messages: [{ role: "user", content: "Hello" }],
     });
     expect(capturedUrl).toContain(
-      "generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+      "generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
     );
     expect(capturedHeaders["x-goog-api-key"]).toBe("AIzaSyTestSecret123");
     expect(chatResponse).toBe("Gemini response");
@@ -695,8 +698,8 @@ describe("Live Integration Tests (Optional)", () => {
         id: "gemini",
         label: "Google Gemini",
         baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-        chatModel: "gemini-1.5-flash",
-        utilityModel: "gemini-1.5-flash",
+        chatModel: "gemini-3.8-flash",
+        utilityModel: "gemini-3.8-flash",
         embeddingModel: "gemini-embedding-001",
         embeddingDimensions: EMBEDDING_DIMENSIONS,
         supportsDimensionsParam: true,

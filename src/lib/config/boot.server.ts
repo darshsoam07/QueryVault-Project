@@ -99,12 +99,9 @@ export function collectBootFindings(
   // Not fatal by design: the AI boundary already fails closed with a structured
   // NOT_CONFIGURED, and the readiness probe reports it as a `config` fault. A
   // server that can still serve auth, uploads and the UI should boot.
-  const aiKeySet = [
-    "OPENAI_API_KEY",
-    "GEMINI_API_KEY",
-    "LOVABLE_API_KEY",
-    "AI_API_KEY",
-  ].some((name) => (env[name] ?? "").trim().length > 0);
+  const aiKeySet = ["OPENAI_API_KEY", "GEMINI_API_KEY", "LOVABLE_API_KEY", "AI_API_KEY"].some(
+    (name) => (env[name] ?? "").trim().length > 0,
+  );
   if (!aiKeySet) {
     findings.push({
       severity: "warning",

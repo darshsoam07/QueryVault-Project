@@ -27,6 +27,7 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  APICallError,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -551,10 +552,20 @@ export const Route = createFileRoute("/api/chat")({
             });
             candidate = generated.text;
           } catch (error) {
+            const apiCallError = APICallError.isInstance(error) ? error : undefined;
+            const providerStatus =
+              apiCallError?.statusCode ?? (error as { statusCode?: number })?.statusCode;
+            const rawResponseBody =
+              apiCallError?.responseBody ?? (error as { responseBody?: string })?.responseBody;
+            const truncatedBody =
+              typeof rawResponseBody === "string" ? rawResponseBody.slice(0, 300) : undefined;
+
             logEvent("error", "chat.generation_failed", requestId, {
               user_id: userId,
               model: provider.chatModel,
               error: error instanceof Error ? error.message : "unknown",
+              ...(providerStatus !== undefined ? { status: providerStatus } : {}),
+              ...(truncatedBody ? { response_body: truncatedBody } : {}),
             });
             // The CALLER SIGNAL is the tiebreaker — NOT the error shape. The
             // linked controller aborts for the deadline too, and the provider

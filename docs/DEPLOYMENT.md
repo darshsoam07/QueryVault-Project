@@ -298,7 +298,7 @@ selects a provider from the environment. Four are supported:
 | Provider                       | Key variable      | Base URL                                           | Default models / dimensions                        |
 | ------------------------------ | ----------------- | -------------------------------------------------- | -------------------------------------------------- |
 | OpenAI (default)               | `OPENAI_API_KEY`  | `https://api.openai.com/v1`                        | `gpt-4o` / `text-embedding-3-large` (3072)         |
-| Google Gemini                  | `GEMINI_API_KEY`  | `https://generativelanguage.googleapis.com/v1beta` | `gemini-1.5-flash` / `gemini-embedding-001` (3072) |
+| Google Gemini                  | `GEMINI_API_KEY`  | `https://generativelanguage.googleapis.com/v1beta` | `gemini-3.8-flash` / `gemini-embedding-001` (3072) |
 | Lovable AI Gateway             | `LOVABLE_API_KEY` | `https://ai.gateway.lovable.dev/v1`                | `gemini-3.6-flash` / `gemini-embedding-2` (3072)   |
 | Any OpenAI-compatible endpoint | `AI_API_KEY`      | `AI_BASE_URL` (required)                           | Configured via env (must output 3072 dims)         |
 

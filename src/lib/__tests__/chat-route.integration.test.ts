@@ -1005,9 +1005,7 @@ describe("chat route: message formatting for Gemini alternating turns", () => {
       },
       body: JSON.stringify({
         threadId: THREAD_ID,
-        messages: [
-          { id: "m0", role: "user", parts: [{ type: "text", text: "Only question" }] },
-        ],
+        messages: [{ id: "m0", role: "user", parts: [{ type: "text", text: "Only question" }] }],
         documentIds: [],
       }),
     });

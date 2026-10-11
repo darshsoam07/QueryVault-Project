@@ -119,10 +119,10 @@ const PROVIDERS: Record<AiProviderId, ProviderDefinition> = {
   gemini: {
     label: "Google Gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    // gemini-1.5-flash is official, stable, and cost-efficient for chat completions.
+    // gemini-3.8-flash is official, current, and cost-efficient for chat completions.
     // gemini-embedding-001 natively outputs 3072 dimensions, matching halfvec(3072).
-    defaultChatModel: "gemini-1.5-flash",
-    defaultUtilityModel: "gemini-1.5-flash",
+    defaultChatModel: "gemini-3.8-flash",
+    defaultUtilityModel: "gemini-3.8-flash",
     defaultEmbeddingModel: "gemini-embedding-001",
     defaultEmbeddingDimensions: 3072,
     supportsDimensionsParam: true,

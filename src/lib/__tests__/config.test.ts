@@ -428,6 +428,19 @@ describe("assertBootConfig", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("does not warn about missing AI provider key when GEMINI_API_KEY is set", () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() =>
+      assertBootConfig({
+        ...ok,
+        OPENAI_API_KEY: "",
+        GEMINI_API_KEY: "AIzaSyTestGeminiKey",
+      }),
+    ).not.toThrow();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("does not log a secret value when it throws", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const badKey = legacyKey({ ref: OTHER_REF, role: "anon" });
