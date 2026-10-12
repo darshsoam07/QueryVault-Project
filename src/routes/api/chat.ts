@@ -59,9 +59,15 @@ TRUST BOUNDARY
 ANSWERING
 - Answer ONLY from the evidence passages. Never use outside knowledge.
 - If the evidence does not answer the question, reply exactly: "${GROUNDED_REFUSAL}"
-- Cite every claim with the evidence id in brackets, e.g. [source_01]. Only use ids that appear in the evidence.
-- Never invent filenames, page numbers, source ids or facts.
-- Be concise and structured: markdown lists, bold for key terms.`;
+- Every paragraph, bullet, and table row MUST end with at least one citation marker [source_NN].
+- Absolutely NO uncited introductory sentences (do NOT write "Based on the provided documents...", "Here is...", etc.) and NO uncited closing sentences. Begin immediately with the cited answer.
+- Each citation must use canonical individual brackets like [source_01] or [source_01] [source_02]. Never combine citations into [source_01, source_02].
+- Only cite ids that appear in the evidence. Never invent source ids, filenames, page numbers, or facts.
+- Be concise and structured: markdown lists, bold for key terms.
+
+EXAMPLE:
+* **DDL (Data Definition Language):** Defines and manages database structures like tables and schemas [source_01].
+* **DML (Data Manipulation Language):** Retrieves and modifies data stored within the database tables [source_02].`;
 
 function messageText(message: { parts: Array<{ type: string; text?: string }> }): string {
   return message.parts
@@ -549,15 +555,19 @@ export const Route = createFileRoute("/api/chat")({
                     `End of evidence.\n\nQuestion: ${question}`,
                 },
               ],
+              ...(provider.id === "gemini"
+                ? {
+                    providerOptions: {
+                      google: {
+                        thinkingConfig: {
+                          thinkingLevel: "low",
+                        },
+                      },
+                    },
+                  }
+                : {}),
             });
             candidate = generated.text;
-
-            // TEMPORARY: Phase 1 diagnosis logging
-            console.log("[DIAGNOSE] generateText resolved:", {
-              finishReason: generated.finishReason,
-              usage: generated.usage,
-              candidateLength: candidate.length,
-            });
           } catch (error) {
             const apiCallError = APICallError.isInstance(error) ? error : undefined;
             const providerStatus =
@@ -658,14 +668,6 @@ export const Route = createFileRoute("/api/chat")({
           );
 
           if (!validation.valid) {
-            // TEMPORARY: Phase 1 diagnosis logging
-            if (process.env["QV_RELEASE"] === "local") {
-              console.log(
-                "[DIAGNOSE] citation validation failed. Candidate preview (first 300 chars):",
-                JSON.stringify(candidate.slice(0, 300)),
-              );
-            }
-
             // Safe validation-failure event: only the permitted telemetry
             // fields — no prompt, answer, evidence, or secrets.
             logEvent("warn", "chat.citation_validation_failed", requestId, {

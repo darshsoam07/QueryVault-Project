@@ -51,24 +51,26 @@ export const RETRIEVAL_CONFIG = {
      *
      * Basis: the evidence context budget is 3200 tokens and the system prompt
      * requires CONCISE, structured answers (markdown lists, every claim
-     * cited) over at most `finalEvidence` (6) passages — a typical cited
-     * answer is a few hundred tokens. 1024 tokens (~4k chars / ~750 words) is
-     * several times that, so legitimate answers never truncate, while
-     * runaway or looping outputs are cut off instead of stalling the
-     * buffered call. A bounded output is also what makes the deadline below
+     * cited) over at most `finalEvidence` (6) passages. When reasoning models
+     * (e.g. Gemini 3 / thinking models) are active, reasoning tokens count
+     * against the output token budget before visible text is produced.
+     * 2048 tokens accommodates reasoning tokens (typically 200–600 tokens)
+     * while leaving 1400+ tokens for rich, cited answers without risk of
+     * truncation. A bounded output is also what makes the deadline below
      * meaningful: worst-case generation work is capped.
      */
-    maxOutputTokens: 1024,
+    maxOutputTokens: 2048,
     /**
      * Wall-clock deadline for the whole `generateText` call, in milliseconds.
      *
-     * Basis: even at a pessimistic 20 tokens/s the full 1024-token cap
-     * completes in ~51s, so 60s bounds provider queueing stalls and hung
-     * connections without cutting healthy generations short. Combined with
-     * the caller's signal through `linkAbort`, so a gone client aborts the
-     * provider call immediately instead of waiting out the deadline.
-     * Classification on expiry: caller abort wins (silent 499 termination);
-     * a pure deadline expiry is a provider-side failure (AI_UNAVAILABLE 503).
+     * Basis: at ~35 tokens/s the full 2048-token cap completes in ~58s, so 60s
+     * bounds provider queueing stalls and hung connections without cutting
+     * healthy generations short (with thinkingLevel constrained to 'low' on
+     * Gemini, output token generation is fast). Combined with the caller's
+     * signal through `linkAbort`, so a gone client aborts the provider call
+     * immediately instead of waiting out the deadline. Classification on expiry:
+     * caller abort wins (silent 499 termination); a pure deadline expiry is a
+     * provider-side failure (AI_UNAVAILABLE 503).
      */
     timeoutMs: 60_000,
   },
