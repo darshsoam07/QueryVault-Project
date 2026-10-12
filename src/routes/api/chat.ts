@@ -551,6 +551,13 @@ export const Route = createFileRoute("/api/chat")({
               ],
             });
             candidate = generated.text;
+
+            // TEMPORARY: Phase 1 diagnosis logging
+            console.log("[DIAGNOSE] generateText resolved:", {
+              finishReason: generated.finishReason,
+              usage: generated.usage,
+              candidateLength: candidate.length,
+            });
           } catch (error) {
             const apiCallError = APICallError.isInstance(error) ? error : undefined;
             const providerStatus =
@@ -651,6 +658,14 @@ export const Route = createFileRoute("/api/chat")({
           );
 
           if (!validation.valid) {
+            // TEMPORARY: Phase 1 diagnosis logging
+            if (process.env["QV_RELEASE"] === "local") {
+              console.log(
+                "[DIAGNOSE] citation validation failed. Candidate preview (first 300 chars):",
+                JSON.stringify(candidate.slice(0, 300)),
+              );
+            }
+
             // Safe validation-failure event: only the permitted telemetry
             // fields — no prompt, answer, evidence, or secrets.
             logEvent("warn", "chat.citation_validation_failed", requestId, {

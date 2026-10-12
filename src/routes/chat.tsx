@@ -2,12 +2,8 @@ import { AppSidebar } from "@/components/queryvault/AppSidebar";
 import { VaultMark } from "@/components/queryvault/brand";
 import { useAuth } from "@/hooks/useAuth";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { createContext, useContext, useEffect, useState } from "react";
-
-type ChatShellContext = { userId: string; selectedDocs: string[] };
-
-const ShellContext = createContext<ChatShellContext>({ userId: "", selectedDocs: [] });
-export const useChatShell = () => useContext(ShellContext);
+import { ChatShellContext } from "@/lib/chat-shell-context";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/chat")({
   head: () => ({
@@ -48,7 +44,7 @@ function ChatShell() {
   }
 
   return (
-    <ShellContext.Provider value={{ userId: user.id, selectedDocs }}>
+    <ChatShellContext.Provider value={{ userId: user.id, selectedDocs }}>
       <div className="workspace-shell flex h-screen overflow-hidden bg-background">
         <AppSidebar
           userId={user.id}
@@ -66,6 +62,6 @@ function ChatShell() {
           <Outlet />
         </div>
       </div>
-    </ShellContext.Provider>
+    </ChatShellContext.Provider>
   );
 }

@@ -27,7 +27,7 @@ import { gsap } from "@/lib/motion/gsap";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
 import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
 import type { SourceNode } from "@/routes/api/chat";
-import { useChatShell } from "@/routes/chat";
+import { useChatShell } from "@/lib/chat-shell-context";
 import { cn } from "@/lib/utils";
 import { useChat } from "@ai-sdk/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
-import { useChatShell } from "@/routes/chat";
+import { useChatShell } from "@/lib/chat-shell-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Layers, Loader2, RotateCcw, Search, Sparkle } from "lucide-react";
