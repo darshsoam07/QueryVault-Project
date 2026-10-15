@@ -560,7 +560,7 @@ export const Route = createFileRoute("/api/chat")({
                     providerOptions: {
                       google: {
                         thinkingConfig: {
-                          thinkingLevel: "low",
+                          thinkingBudget: 0,
                         },
                       },
                     },
