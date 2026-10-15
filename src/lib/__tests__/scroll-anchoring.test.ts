@@ -63,6 +63,31 @@ describe("scroll-anchoring utility", () => {
     expect(container.scrollTop).toBe(520);
   });
 
+  it("preserves a visible message even when later content changes total height", () => {
+    const container = makeMockContainer(100, 1000);
+    let absoluteY = 120;
+    const anchor = {
+      isConnected: true,
+      getBoundingClientRect: () => ({
+        top: absoluteY - container.scrollTop,
+        bottom: absoluteY - container.scrollTop + 40,
+      }),
+    } as HTMLElement;
+    Object.assign(container, {
+      querySelectorAll: () => [anchor],
+      getBoundingClientRect: () => ({ top: 0 }),
+    });
+    const snapshot = captureScrollSnapshot(container);
+    absoluteY += 300;
+    (container as unknown as { scrollHeight: number }).scrollHeight = 1454;
+    restoreScrollSnapshot(container, snapshot);
+    expect(container.scrollTop).toBe(400);
+    expect(anchor.getBoundingClientRect().top).toBe(20);
+    absoluteY += 50;
+    restoreScrollSnapshot(container, snapshot);
+    expect(anchor.getBoundingClientRect().top).toBe(20);
+  });
+
   it("safely handles null container or null snapshot", () => {
     expect(captureScrollSnapshot(null)).toBeNull();
     const container = makeMockContainer(100, 500);

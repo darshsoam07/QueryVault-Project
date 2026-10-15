@@ -1,0 +1,78 @@
+{
+  "database": "audit_1792083598059",
+  "postgres": "local Docker pgvector pg17",
+  "serverVersion": "17.11 (Debian 17.11-1.pgdg12+2)",
+  "vectorVersion": "0.8.7",
+  "imageId": "sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+  "sqlOperations": 92,
+  "image": "pgvector/pgvector:pg17",
+  "schedulerVerified": false,
+  "authStorageHttpVerified": false,
+  "reports": [
+    {
+      "name": "atomic simultaneous upload admission",
+      "passed": true,
+      "durationMs": 2178
+    },
+    {
+      "name": "20 reservations and owner scoped duplicate constraint",
+      "passed": true,
+      "durationMs": 2053
+    },
+    {
+      "name": "overlapping workers share global capacity and do not duplicate live claims",
+      "passed": true,
+      "durationMs": 822
+    },
+    {
+      "name": "expired lease recovery fences stale finalization",
+      "passed": true,
+      "durationMs": 3997
+    },
+    {
+      "name": "fenced idempotent version replacement and complete READY publication",
+      "passed": true,
+      "durationMs": 2742
+    },
+    {
+      "name": "dense/lexical queries enforce model, published version, ownership and empty scope before ranking",
+      "passed": true,
+      "durationMs": 3343
+    },
+    {
+      "name": "reindex admission is atomic and READY becomes non-searchable",
+      "passed": true,
+      "durationMs": 2307
+    },
+    {
+      "name": "RLS and service-role retrieval do not broaden scope",
+      "passed": true,
+      "durationMs": 2369
+    },
+    {
+      "name": "direct browser storage writes require an admitted reservation",
+      "passed": true,
+      "durationMs": 909
+    },
+    {
+      "name": "missing limits and null leases fail closed",
+      "passed": true,
+      "durationMs": 3033
+    },
+    {
+      "name": "lease expiry while waiting for a document lock cannot publish",
+      "passed": true,
+      "durationMs": 4370
+    },
+    {
+      "name": "crash recovery stops after the configured attempt budget",
+      "passed": true,
+      "durationMs": 2073
+    },
+    {
+      "name": "deleting a claimed document prevents any new chunks",
+      "passed": true,
+      "durationMs": 1913
+    }
+  ]
+}

@@ -156,6 +156,7 @@ describe("row level security", () => {
       "document_chunks",
       "documents",
       "ingestion_jobs",
+      "ingestion_limits",
       "messages",
       "profiles",
       "query_traces",

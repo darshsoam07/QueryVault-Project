@@ -1,3 +1,4 @@
+import { isQueryableDocument } from "@/lib/documents.policy";
 import { VaultMark } from "@/components/queryvault/brand";
 import { useDocuments } from "@/components/queryvault/KnowledgePanel";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +36,7 @@ function ChatIndex() {
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
-  const readyDocs = documents.filter((d) => d.status === "ready");
+  const readyDocs = documents.filter(isQueryableDocument);
 
   const handleSubmit = async (queryText: string) => {
     const trimmed = queryText.trim();

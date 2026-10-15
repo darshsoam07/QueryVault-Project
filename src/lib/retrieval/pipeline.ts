@@ -137,7 +137,8 @@ export function createLiveDeps(options: {
 
   return {
     config,
-    expand: (question) => expandQuery({ question, provider, strategy: config.queryRewrite }),
+    expand: (question) =>
+      expandQuery({ question, provider, strategy: config.queryRewrite, signal: options.signal }),
     dense: (queries) =>
       denseRetrieve({
         client: options.client,
@@ -146,6 +147,7 @@ export function createLiveDeps(options: {
         documentIds: options.documentIds,
         limit: config.denseCandidates,
         minSimilarity: config.minSimilarity,
+        signal: options.signal,
         provider,
       }),
     lexical: (queries) =>

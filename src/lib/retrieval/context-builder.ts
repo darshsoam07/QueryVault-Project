@@ -1,3 +1,4 @@
+import { evidenceLocator } from "./locator";
 import { RETRIEVAL_CONFIG } from "./config";
 import type { EvidenceSource, RankedCandidate } from "./types";
 
@@ -210,7 +211,15 @@ export function buildContext(
   let mergedPassages = 0;
   let usedTokens = 0;
 
-  for (const candidate of candidates) {
+  const seenDocuments = new Set<string>();
+  const diverse = candidates.filter((candidate) => {
+    const relevant = (candidate.rerankScore ?? candidate.similarity ?? 0) >= 0.3;
+    if (!relevant || seenDocuments.has(candidate.documentId)) return false;
+    seenDocuments.add(candidate.documentId);
+    return true;
+  });
+  const ordered = [...diverse, ...candidates.filter((candidate) => !diverse.includes(candidate))];
+  for (const candidate of ordered) {
     if (kept.length >= maxSources) break;
 
     const chunkIdx = typeof candidate.chunkIndex === "number" ? candidate.chunkIndex : 0;
@@ -221,6 +230,7 @@ export function buildContext(
       const adjoiningEntry = kept.find(
         (entry) =>
           entry.documentId === candidate.documentId &&
+          entry.page === candidate.page &&
           (chunkIdx === entry.minChunkIndex - 1 || chunkIdx === entry.maxChunkIndex + 1),
       );
 
@@ -330,10 +340,16 @@ export function buildContext(
     snippet: entry.snippet,
   }));
 
+  const escapeEvidence = (value: string) =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   const contextBlock = kept
     .map(
       (entry, index) =>
-        `<evidence id="${formatSourceId(index)}" document="${entry.candidate.filename}" page="${entry.candidate.page}">\n${entry.snippet}\n</evidence>`,
+        `<evidence id="${formatSourceId(index)}" document="${escapeEvidence(entry.candidate.filename)}" ${entry.candidate.filename.toLowerCase().endsWith(".pdf") ? `page="${entry.candidate.page}"` : `location="${escapeEvidence(evidenceLocator(entry.candidate.filename, entry.candidate.page, entry.snippet))}"`}>\n${escapeEvidence(entry.snippet)}\n</evidence>`,
     )
     .join("\n\n");
 

@@ -1,0 +1,21 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "dataset": "synthetic notice-period availability fixture",
+  "supported": false,
+  "fabricated": null,
+  "acceptanceStopped": true,
+  "durationMs": 8233,
+  "metadata": [
+    {
+      "httpStatus": 503,
+      "providerClassification": "UNAVAILABLE",
+      "finishReason": "AI_APICallError",
+      "supported": false,
+      "outcome": "provider_unavailable",
+      "attempts": 3,
+      "durationMs": 8232
+    }
+  ],
+  "limitations": "remaining live cases not run because supported verification failed"
+}

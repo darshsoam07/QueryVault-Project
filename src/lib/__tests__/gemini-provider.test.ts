@@ -689,7 +689,11 @@ describe("Provider Switching Without OpenAI Regression", () => {
 
 describe("Live Integration Tests (Optional)", () => {
   const liveKey = process.env["GEMINI_API_KEY"];
-  const shouldRun = Boolean(process.env["RUN_LIVE_GEMINI_TESTS"] && liveKey);
+  const shouldRun =
+    process.env["RUN_LIVE_GEMINI_TESTS"] === "1" &&
+    process.env["QV_CONFIRMED_FREE_TIER"] === "1" &&
+    process.env["QV_LOCAL_ONLY"] !== "1" &&
+    !!liveKey;
 
   it.skipIf(!shouldRun)(
     "executes real embedding request with Google Gemini API when live key is provided",

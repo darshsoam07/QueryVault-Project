@@ -105,11 +105,15 @@ export function isSupportedDocument(name: string, contentType: string | null | u
   // Browsers frequently leave File.type blank for Markdown, CSV, and Office
   // files. The server still routes by the sanitized extension and re-validates
   // bytes in the parser, so do not reject a legitimate file just for that.
-  return (
-    ALLOWED_EXTENSIONS.includes(extension as never) &&
-    (!contentType ||
-      contentType === "application/octet-stream" ||
-      isAllowedContentType(contentType))
+  const format = Object.values(DOCUMENT_FORMATS).find((entry) =>
+    (entry.extensions as readonly string[]).includes(extension),
+  );
+  const mime = contentType?.split(";")[0]?.trim().toLowerCase();
+  return Boolean(
+    format &&
+    (!mime ||
+      mime === "application/octet-stream" ||
+      (format.mimeTypes as readonly string[]).includes(mime)),
   );
 }
 
@@ -146,4 +150,22 @@ export async function sha256Hex(bytes: ArrayBuffer | Uint8Array): Promise<string
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/** Old presentation indexes used filename order, not the presentation order. */
+export function requiresLocatorReindex(
+  filename: string | undefined,
+  parserVersion: number | undefined,
+): boolean {
+  return Boolean(filename?.toLowerCase().endsWith(".pptx") && (parserVersion ?? 0) < 2);
+}
+export function isQueryableDocument(document: {
+  status: string;
+  filename: string;
+  parser_version?: number | undefined;
+}): boolean {
+  return (
+    document.status === "ready" &&
+    !requiresLocatorReindex(document.filename, document.parser_version)
+  );
 }

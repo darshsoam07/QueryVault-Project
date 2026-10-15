@@ -6,7 +6,6 @@
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ApiError, logEvent, newRequestId } from "@/lib/api-errors";
 import {
-  ACTIVE_STATES,
   MAX_UPLOAD_BYTES,
   MIN_UPLOAD_BYTES,
   isSupportedDocument,
@@ -15,7 +14,6 @@ import {
   safeFilename,
 } from "@/lib/documents.policy";
 import { PARSER_VERSION } from "@/lib/ingestion/contract";
-import { MAX_CONCURRENT_INGESTIONS } from "@/lib/rate-limits";
 import { EVENTS } from "@/lib/observability/events";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -69,27 +67,6 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
         });
       }
       throw error;
-    }
-
-    const { count: activeCount } = await supabase
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .in("status", [...ACTIVE_STATES]);
-
-    if ((activeCount ?? 0) >= MAX_CONCURRENT_INGESTIONS) {
-      emitAsync({
-        event: EVENTS.QUOTA_EXCEEDED,
-        requestId,
-        status: "error",
-        errorCode: "RATE_LIMITED",
-        userId,
-        attributes: { bucket: "concurrent_ingestions", active: activeCount ?? 0 },
-      });
-      throw new ApiError(
-        "RATE_LIMITED",
-        `You already have ${MAX_CONCURRENT_INGESTIONS} documents indexing. Wait for those to finish.`,
-      );
     }
 
     const { data: duplicate } = await supabase
@@ -169,6 +146,11 @@ export const createDocumentUpload = createServerFn({ method: "POST" })
       error = fallback.error;
     }
 
+    if (error?.code === "P0001")
+      throw new ApiError(
+        "RATE_LIMITED",
+        "Your pending uploads exceed the vault limit. Wait for indexing or remove incomplete uploads.",
+      );
     if (error || !doc) {
       if (error?.code === "23505") {
         throw new ApiError("DOCUMENT_DUPLICATE", "This file is already in your vault.");
@@ -256,6 +238,21 @@ export const enqueueIngestion = createServerFn({ method: "POST" })
       .insert({ document_id: data.documentId, user_id: userId, status: "queued", kind: "ingest" })
       .select("id")
       .single();
+    if (error?.code === "23505") {
+      const { data: existing } = await supabase
+        .from("ingestion_jobs")
+        .select("id")
+        .eq("document_id", data.documentId)
+        .in("status", ["queued", "running", "retrying"])
+        .single();
+      if (existing)
+        return {
+          documentId: data.documentId,
+          jobId: existing.id,
+          status: "queued" as const,
+          requestId,
+        };
+    }
     if (error || !job) {
       logEvent("error", "ingest.enqueue_failed", requestId, { user_id: userId });
       throw new ApiError("INTERNAL", "Could not queue this document for indexing.");
@@ -371,6 +368,21 @@ export const reindexDocument = createServerFn({ method: "POST" })
       .insert({ document_id: data.documentId, user_id: userId, status: "queued", kind: "reindex" })
       .select("id")
       .single();
+    if (error?.code === "23505") {
+      const { data: existing } = await supabase
+        .from("ingestion_jobs")
+        .select("id")
+        .eq("document_id", data.documentId)
+        .in("status", ["queued", "running", "retrying"])
+        .single();
+      if (existing)
+        return {
+          documentId: data.documentId,
+          jobId: existing.id,
+          status: "queued" as const,
+          requestId,
+        };
+    }
     if (error || !job) throw new ApiError("INTERNAL", "Could not queue a reindex.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -416,7 +428,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
     // 1. Authorize
     const { data: doc } = await supabase
       .from("documents")
-      .select("id, status, storage_path")
+      .select("id, status, storage_path, filename")
       .eq("id", data.documentId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -462,7 +474,7 @@ export const deleteDocument = createServerFn({ method: "POST" })
     }
 
     // 5. Storage object (never orphaned: the row stays in `deleting` on failure)
-    const path = doc.storage_path ?? ownerScopedPath(userId, data.documentId);
+    const path = doc.storage_path ?? ownerScopedPath(userId, data.documentId, doc.filename);
     const { error: storageError } = await supabase.storage.from("documents").remove([path]);
     if (storageError) {
       logEvent("error", "delete.storage_failed", requestId, {

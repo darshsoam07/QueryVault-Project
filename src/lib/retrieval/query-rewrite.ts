@@ -1,5 +1,5 @@
 import { chatCompletion, type AiProvider } from "@/lib/ai-gateway.server";
-import { isCancellationError } from "./cancellation";
+import { isCancellationError, throwIfCallerCancelled } from "./cancellation";
 import { RETRIEVAL_CONFIG, type QueryRewriteStrategy } from "./config";
 import { contentTerms } from "./reranker";
 
@@ -55,21 +55,28 @@ export async function expandQuery(options: {
   provider: AiProvider;
   strategy?: QueryRewriteStrategy;
   model?: string;
+  signal?: AbortSignal | undefined;
 }): Promise<{ queries: string[]; rewritten: boolean }> {
+  if (options.signal) throwIfCallerCancelled(options.signal);
   const strategy = options.strategy ?? RETRIEVAL_CONFIG.queryRewrite;
   if (!shouldRewrite(options.question, strategy)) {
     return { queries: [options.question], rewritten: false };
   }
 
   try {
-    const raw = await chatCompletion(options.provider, {
-      model: options.model ?? options.provider.utilityModel,
-      temperature: 0,
-      messages: [
-        { role: "system", content: REWRITE_SYSTEM },
-        { role: "user", content: options.question.slice(0, 1000) },
-      ],
-    });
+    const raw = await chatCompletion(
+      options.provider,
+      {
+        model: options.model ?? options.provider.utilityModel,
+        temperature: 0,
+        max_tokens: 512,
+        messages: [
+          { role: "system", content: REWRITE_SYSTEM },
+          { role: "user", content: options.question.slice(0, 1000) },
+        ],
+      },
+      options.signal,
+    );
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("rewrite_unparsable");
     const parsed = JSON.parse(match[0]) as { queries?: unknown };
@@ -77,6 +84,7 @@ export async function expandQuery(options: {
     const queries = sanitizeVariants(options.question, list);
     return { queries, rewritten: queries.length > 1 };
   } catch (error) {
+    if (options.signal) throwIfCallerCancelled(options.signal);
     // Audit: expansion failures degrade silently, but caller cancellation
     // must never be swallowed or converted into a degraded query — let it
     // propagate so the request terminates.

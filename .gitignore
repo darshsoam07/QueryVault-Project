@@ -38,3 +38,6 @@ dist-ssr
 .env.*
 !.env.example
 !.env.docker.example
+
+# Local verification logs and intermediate audit reports
+.verification/

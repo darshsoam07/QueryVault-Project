@@ -41,7 +41,10 @@ async function runWorkerLoop() {
         currentInterval = Math.min(currentInterval + 500, MAX_IDLE_INTERVAL_MS);
       }
     } catch (err) {
-      console.error("[QueryVault Worker] Error during drain cycle:", err);
+      console.error(
+        "[QueryVault Worker] Error during drain cycle:",
+        err instanceof Error ? err.name : "unknown",
+      );
       currentInterval = MAX_IDLE_INTERVAL_MS;
     }
 
@@ -64,6 +67,6 @@ process.on("SIGTERM", () => {
 });
 
 runWorkerLoop().catch((err) => {
-  console.error("[QueryVault Worker] Fatal error:", err);
+  console.error("[QueryVault Worker] Fatal error:", err instanceof Error ? err.name : "unknown");
   process.exit(1);
 });

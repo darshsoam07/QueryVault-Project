@@ -98,13 +98,14 @@ cp .env.example .env
 
 ### Tuning knobs (all optional, sensible defaults)
 
-| Variable                        | Default | Meaning                                                                                      |
-| ------------------------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `QV_RATE_CHAT_PER_MIN`          | 30      | Chat requests per user per minute.                                                           |
-| `QV_RATE_EMBED_PER_MIN`         | 120     | Embedding calls per user per minute.                                                         |
-| `QV_RATE_UPLOAD_PER_5MIN`       | 12      | Uploads per user per 5 minutes.                                                              |
-| `QV_RATE_CLIENT_ERROR_PER_5MIN` | 20      | Browser error reports per user per 5 minutes.                                                |
-| `QV_MAX_CONCURRENT_INGESTIONS`  | 3       | Jobs drained at once **per replica**. Raise for throughput, lower to protect provider quota. |
+| Variable                        | Default | Meaning                                                                                                    |
+| ------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
+| `QV_RATE_CHAT_PER_MIN`          | 30      | Chat requests per user per minute.                                                                         |
+| `QV_RATE_EMBED_PER_MIN`         | 120     | Embedding calls per user per minute.                                                                       |
+| `QV_RATE_UPLOAD_PER_5MIN`       | 20      | Uploads per user per 5 minutes.                                                                            |
+| `QV_RATE_CLIENT_ERROR_PER_5MIN` | 20      | Browser error reports per user per 5 minutes.                                                              |
+| `INGESTION_WORKER_CONCURRENCY`  | 3       | Per-process active job ceiling; `maxJobs` cannot raise it.                                                 |
+| `QV_EMBED_CONCURRENCY`          | 2       | Per-process embedding HTTP ceiling. Global jobs and pending-user limits live in `public.ingestion_limits`. |
 
 Rate limiting is **fail-closed**: if the limiter cannot reach its table, the request is
 rejected rather than allowed through unmetered.
@@ -631,3 +632,7 @@ after the commit is deleted.
 [ ] grep .output/public for secret material: clean
 [ ] QV_RELEASE is set to this deploy's SHA or tag
 ```
+
+See [concurrent ingestion](CONCURRENT_INGESTION.md) for the required 20261015 migration, atomic admission, global worker capacity, leases, retrieval scope and grounding verification.
+
+Read [the Phase 2 audit and release blockers](PHASE2_AUDIT.md) before deploying. Both 20261015 migrations are required. The live verifier returned HTTP 503 during the audit; do not treat successful embeddings as proof of answer-provider availability.

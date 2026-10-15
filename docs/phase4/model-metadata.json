@@ -1,0 +1,14 @@
+{
+  "model": "gemini-3.8-flash",
+  "operation": "model metadata GET",
+  "httpStatus": 200,
+  "supportedGenerationMethods": [
+    "generateContent",
+    "countTokens",
+    "createCachedContent",
+    "batchGenerateContent"
+  ],
+  "inputTokenLimit": 1048576,
+  "outputTokenLimit": 65536,
+  "durationMs": 485
+}

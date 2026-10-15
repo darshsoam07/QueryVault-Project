@@ -110,7 +110,13 @@ function fileInput(container: HTMLElement) {
 beforeEach(() => {
   vi.clearAllMocks();
   uploadAndEnqueue.mockResolvedValue({ documentId: "doc-new", jobId: "job-1" });
-  pollIngestion.mockResolvedValue({ failed: false, label: "Indexed", step: 6, totalSteps: 6 });
+  pollIngestion.mockResolvedValue({
+    failed: false,
+    phase: "ready",
+    label: "Indexed",
+    step: 6,
+    totalSteps: 6,
+  });
   deleteDocument.mockResolvedValue({ ok: true });
 });
 
@@ -370,5 +376,30 @@ describe("retry flow", () => {
 
     await waitFor(() => expect(reindexDocument).toHaveBeenCalledOnce());
     expect(reindexDocument).toHaveBeenCalledWith({ data: { documentId: "doc-bad" } });
+  });
+});
+
+describe("multi-document selection", () => {
+  it("queues ten same-name files independently and keeps selection available", async () => {
+    const { container } = renderPanel([]);
+    await screen.findByText(/No documents yet/i);
+    const input = fileInput(container);
+    expect(input.multiple).toBe(true);
+    const files = Array.from({ length: 10 }, () => pdf("repeated.pdf"));
+    fireEvent.change(input, { target: { files } });
+    await waitFor(() => expect(uploadAndEnqueue).toHaveBeenCalledTimes(10));
+    expect(screen.getAllByText("repeated.pdf")).toHaveLength(10);
+    fireEvent.change(input, { target: { files: [pdf("added.pdf")] } });
+    await waitFor(() => expect(uploadAndEnqueue).toHaveBeenCalledTimes(11));
+  });
+  it("an invalid file does not block a valid sibling", async () => {
+    const { container } = renderPanel([]);
+    await screen.findByText(/No documents yet/i);
+    fireEvent.change(fileInput(container), {
+      target: { files: [pdf("song.mp3", 1024, "audio/mpeg"), pdf("valid.pdf")] },
+    });
+    await waitFor(() => expect(uploadAndEnqueue).toHaveBeenCalledOnce());
+    expect(screen.getByText("song.mp3")).toBeTruthy();
+    expect(screen.getByText("valid.pdf")).toBeTruthy();
   });
 });

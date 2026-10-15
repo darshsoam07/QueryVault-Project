@@ -1,6 +1,8 @@
 export interface ScrollSnapshot {
   scrollTop: number;
   scrollHeight: number;
+  anchor?: HTMLElement;
+  anchorY?: number;
 }
 
 /**
@@ -9,7 +11,15 @@ export interface ScrollSnapshot {
  */
 export function captureScrollSnapshot(container: HTMLElement | null): ScrollSnapshot | null {
   if (!container) return null;
+  const top = container.getBoundingClientRect?.().top ?? 0;
+  const anchor =
+    typeof container.querySelectorAll === "function"
+      ? Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]")).find(
+          (element) => element.getBoundingClientRect().bottom > top,
+        )
+      : undefined;
   return {
+    ...(anchor ? { anchor, anchorY: anchor.getBoundingClientRect().top } : {}),
     scrollTop: container.scrollTop,
     scrollHeight: container.scrollHeight,
   };
@@ -25,6 +35,11 @@ export function restoreScrollSnapshot(
   snapshot: ScrollSnapshot | null,
 ): number {
   if (!container || !snapshot) return 0;
+  if (snapshot.anchor?.isConnected && snapshot.anchorY !== undefined) {
+    const delta = snapshot.anchor.getBoundingClientRect().top - snapshot.anchorY;
+    container.scrollTop += delta;
+    return delta;
+  }
   const newScrollHeight = container.scrollHeight;
   const heightDelta = newScrollHeight - snapshot.scrollHeight;
   container.scrollTop = snapshot.scrollTop + heightDelta;

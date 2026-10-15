@@ -1,10 +1,10 @@
+import { validateOfficeArchive } from "./archive-policy.server";
+import { hasPdfMagicBytes } from "@/lib/documents.policy";
 /** Server-only local document extraction. OCR is deliberately not hidden here:
  * image-only files need an explicitly configured OCR provider. */
-import { permanent } from "./contract";
+import { permanent, IngestionFailure } from "./contract";
 import { extensionOf } from "@/lib/documents.policy";
 import type { PageText } from "@/lib/chunking";
-
-const decoder = new TextDecoder("utf-8", { fatal: false });
 
 export const PARSER_LIMITS = {
   maxPdfPages: 200,
@@ -36,17 +36,28 @@ function stripHtml(source: string): string {
 
 async function parsePdf(bytes: Uint8Array): Promise<PageText[]> {
   const { extractText, getDocumentProxy } = await import("unpdf");
+  let pdf: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
   try {
-    const pdf = await getDocumentProxy(bytes);
+    pdf = await getDocumentProxy(bytes);
+    if (pdf.numPages > PARSER_LIMITS.maxPdfPages)
+      throw permanent(
+        "PARSER_LIMIT",
+        "PDFs must contain at most 200 pages. Split this file before uploading.",
+      );
     const { text } = await extractText(pdf, { mergePages: false });
     const rawPages = Array.isArray(text) ? text : [String(text)];
     const boundedPages = rawPages.slice(0, PARSER_LIMITS.maxPdfPages);
-    return boundedPages.map((value, index) => ({
-      page: index + 1,
-      text: (value ?? "").slice(0, PARSER_LIMITS.maxPageChars),
-    }));
-  } catch {
+    let remaining = PARSER_LIMITS.maxTotalChars;
+    return boundedPages.map((value, index) => {
+      const text = (value ?? "").slice(0, Math.min(PARSER_LIMITS.maxPageChars, remaining));
+      remaining -= text.length;
+      return { page: index + 1, text };
+    });
+  } catch (error) {
+    if (error instanceof IngestionFailure) throw error;
     throw permanent("PARSE_FAILED", "That PDF could not be read. It may be corrupt or encrypted.");
+  } finally {
+    if (pdf) await pdf.loadingTask.destroy().catch(() => undefined);
   }
 }
 
@@ -84,9 +95,26 @@ async function parseWorkbook(bytes: Uint8Array): Promise<PageText[]> {
 async function parsePptx(bytes: Uint8Array): Promise<PageText[]> {
   const JSZip = (await import("jszip")).default;
   const zip = await JSZip.loadAsync(bytes);
-  const slideKeys = Object.keys(zip.files)
-    .filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))
-    .sort((a, b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0]))
+  const presentation = await zip.file("ppt/presentation.xml")?.async("text");
+  const relationships = await zip.file("ppt/_rels/presentation.xml.rels")?.async("text");
+  const targets = new Map<string, string>();
+  for (const relation of (relationships ?? "").matchAll(/<Relationship\b([^>]*)>/g)) {
+    const id = /\bId=["']([^"']+)["']/.exec(relation[1]!)?.[1];
+    const target = /\bTarget=["']([^"']+)["']/.exec(relation[1]!)?.[1];
+    const type = /\bType=["']([^"']+)["']/.exec(relation[1]!)?.[1];
+    if (id && target && type?.endsWith("/slide") && !/TargetMode=["']External/.test(relation[1]!)) {
+      const match = /^(?:\/?ppt\/)?(?:slides\/)(slide\d+\.xml)$/.exec(target);
+      if (match) targets.set(id, `ppt/slides/${match[1]}`);
+    }
+  }
+  const order = Array.from(
+    (presentation ?? "").matchAll(/<(?:[\w.-]+:)?sldId\b[^>]*\br:id=["']([^"']+)["'][^>]*>/g),
+    (match) => targets.get(match[1]!),
+  );
+  if (!order.length || order.some((path) => !path || !zip.file(path)))
+    throw permanent("PARSE_FAILED", "The presentation slide order could not be verified.");
+  const slideKeys = order
+    .filter((path): path is string => Boolean(path))
     .slice(0, PARSER_LIMITS.maxPptxSlides);
 
   if (slideKeys.length === 0) {
@@ -101,6 +129,11 @@ async function parsePptx(bytes: Uint8Array): Promise<PageText[]> {
         .replace(/<\/a:t>/g, " ")
         .replace(/<[^>]+>/g, " ")
         .replace(/\s{2,}/g, " ")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&")
         .trim()
         .slice(0, PARSER_LIMITS.maxSlideChars);
       return { page: index + 1, text };
@@ -113,18 +146,45 @@ export async function extractDocumentPages(
   filename: string,
 ): Promise<PageText[]> {
   const extension = extensionOf(filename);
-  if (extension === "pdf") return parsePdf(bytes);
+  if (extension === "pdf") {
+    if (!hasPdfMagicBytes(bytes))
+      throw permanent("PARSE_FAILED", "That file does not have a valid PDF signature.");
+    return parsePdf(bytes);
+  }
+  if (["docx", "xlsx", "pptx"].includes(extension)) {
+    validateOfficeArchive(
+      bytes,
+      extension === "docx"
+        ? "word/document.xml"
+        : extension === "xlsx"
+          ? "xl/workbook.xml"
+          : "ppt/presentation.xml",
+    );
+  }
   if (extension === "docx") return parseDocx(bytes);
   if (extension === "xlsx") return parseWorkbook(bytes);
   if (extension === "pptx") return parsePptx(bytes);
-  const text = decoder.decode(bytes);
-  if (["txt", "md", "markdown", "csv", "json"].includes(extension)) return single(text);
-  if (["html", "htm"].includes(extension)) return single(stripHtml(text));
   if (["png", "jpg", "jpeg", "webp"].includes(extension)) {
     throw permanent(
       "OCR_REQUIRED",
       "Images need an OCR provider. Configure one before uploading image-only files.",
     );
   }
+  if (bytes.includes(0))
+    throw permanent(
+      "BAD_TEXT_ENCODING",
+      "Text files must use UTF-8 without binary data. Convert this file before uploading.",
+    );
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw permanent(
+      "BAD_TEXT_ENCODING",
+      "Text files must use UTF-8. Convert this file before uploading.",
+    );
+  }
+  if (["txt", "md", "markdown", "csv", "json"].includes(extension)) return single(text);
+  if (["html", "htm"].includes(extension)) return single(stripHtml(text));
   throw permanent("UNSUPPORTED_FORMAT", "This file type is not supported.");
 }

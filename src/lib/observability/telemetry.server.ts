@@ -1,3 +1,4 @@
+import { redactTraceContent } from "./trace-privacy";
 /**
  * Telemetry sink. Every event is (1) written to stdout as a structured line so
  * it lands in platform logs, and (2) persisted to `telemetry_events` for the
@@ -92,17 +93,21 @@ export type QueryTraceInput = {
 export async function recordQueryTrace(trace: QueryTraceInput): Promise<void> {
   try {
     const db = await admin();
+    const includeContent = process.env["QV_TRACE_CONTENT"] === "1";
     await db.from("query_traces").insert({
       request_id: trace.requestId,
       user_id: trace.userId,
       thread_id: trace.threadId,
-      question: trace.question.slice(0, 4000),
-      answer_preview: trace.answerPreview ? trace.answerPreview.slice(0, 2000) : null,
+      question: includeContent ? trace.question.slice(0, 4000) : "[redacted]",
+      answer_preview:
+        includeContent && trace.answerPreview ? trace.answerPreview.slice(0, 2000) : null,
       grounded: trace.grounded,
       refused: trace.refused,
       gate_reason: trace.gateReason,
       reranker: trace.reranker,
-      stages: JSON.parse(JSON.stringify(trace.stages)),
+      stages: JSON.parse(
+        JSON.stringify(includeContent ? trace.stages : redactTraceContent(trace.stages)),
+      ),
       citations: trace.citations,
       retrieval_latency_ms: trace.retrievalLatencyMs,
       generation_latency_ms: trace.generationLatencyMs,

@@ -1,0 +1,26 @@
+{
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "dataset": "two synthetic notice-period fixtures",
+  "method": "binary entailment with deterministic syntax/quote preflight",
+  "supported": false,
+  "fabricated": false,
+  "durationMs": 30039,
+  "metadata": [
+    {
+      "finishReason": "verifier-timeout",
+      "supported": false,
+      "outcome": "timeout",
+      "attempts": 1,
+      "durationMs": 15024
+    },
+    {
+      "finishReason": "verifier-timeout",
+      "supported": false,
+      "outcome": "timeout",
+      "attempts": 1,
+      "durationMs": 15015
+    }
+  ],
+  "limitations": "two cases, stochastic provider, not a private-corpus quality benchmark"
+}

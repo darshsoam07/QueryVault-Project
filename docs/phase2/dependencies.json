@@ -1,0 +1,86 @@
+{
+  "source": "registry-backed npm audit after compatible fixes",
+  "counts": {
+    "info": 0,
+    "low": 7,
+    "moderate": 6,
+    "high": 0,
+    "critical": 0,
+    "total": 13
+  },
+  "remaining": [
+    {
+      "package": "@streamdown/math",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "@streamdown/mermaid",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "@vitest/coverage-v8",
+      "severity": "moderate",
+      "advisories": []
+    },
+    {
+      "package": "@vitest/mocker",
+      "severity": "moderate",
+      "advisories": [
+        "https://github.com/advisories/GHSA-82fw-gwwq-j7x9"
+      ]
+    },
+    {
+      "package": "argparse",
+      "severity": "moderate",
+      "advisories": []
+    },
+    {
+      "package": "katex",
+      "severity": "low",
+      "advisories": [
+        "https://github.com/advisories/GHSA-238p-pmpm-9mq7"
+      ]
+    },
+    {
+      "package": "mammoth",
+      "severity": "moderate",
+      "advisories": []
+    },
+    {
+      "package": "mermaid",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "micromark-extension-math",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "rehype-katex",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "remark-math",
+      "severity": "low",
+      "advisories": []
+    },
+    {
+      "package": "sprintf-js",
+      "severity": "moderate",
+      "advisories": [
+        "https://github.com/advisories/GHSA-hp3w-g68c-fv3c"
+      ]
+    },
+    {
+      "package": "vitest",
+      "severity": "moderate",
+      "advisories": [
+        "https://github.com/advisories/GHSA-82fw-gwwq-j7x9"
+      ]
+    }
+  ]
+}

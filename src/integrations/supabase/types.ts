@@ -8,6 +8,27 @@ export type Database = {
   };
   public: {
     Tables: {
+      ingestion_limits: {
+        Row: {
+          id: boolean;
+          queued_per_user: number;
+          pending_bytes: number;
+          global_workers: number;
+        };
+        Insert: {
+          id?: boolean;
+          queued_per_user?: number;
+          pending_bytes?: number;
+          global_workers?: number;
+        };
+        Update: {
+          id?: boolean;
+          queued_per_user?: number;
+          pending_bytes?: number;
+          global_workers?: number;
+        };
+        Relationships: [];
+      };
       document_chunks: {
         Row: {
           chunk_index: number;
@@ -469,6 +490,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      mutate_ingestion_claim: {
+        Args: {
+          job_id: string;
+          claim_worker: string;
+          claim_attempt: number;
+          document_patch?: Json;
+          chunk_rows?: Json;
+          job_patch?: Json;
+          prune_max_index?: number;
+        };
+        Returns: boolean;
+      };
       claim_ingestion_jobs: {
         Args: {
           lock_seconds?: number;
@@ -527,6 +560,17 @@ export type Database = {
           lexical_rank: number;
           page_number: number;
         }[];
+      };
+      match_document_chunks_v2: {
+        Args: {
+          document_ids?: string[];
+          match_count?: number;
+          min_similarity?: number;
+          query_embedding: unknown;
+          requesting_user_id: string;
+          required_embedding_model: string;
+        };
+        Returns: Database["public"]["Functions"]["match_document_chunks"]["Returns"];
       };
       match_document_chunks: {
         Args: {

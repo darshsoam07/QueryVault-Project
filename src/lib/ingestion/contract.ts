@@ -6,12 +6,12 @@
  * without a database, storage or a model.
  */
 
-/** Bump when PDF text extraction changes in a way that alters output. */
-export const PARSER_VERSION = 1;
+/** Bump when document extraction or authentic locator ordering changes in a way that alters output. */
+export const PARSER_VERSION = 2;
 /** Bump when chunk boundaries change. Vectors from other versions are pruned. */
 export const CHUNKER_VERSION = 3;
 /** Identifies the code that ran a job; recorded on every attempt. */
-export const WORKER_VERSION = "ingest-worker@3";
+export const WORKER_VERSION = "ingest-worker@4";
 
 export type ChunkMetadata = {
   section?: string | undefined;

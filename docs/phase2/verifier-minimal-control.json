@@ -1,0 +1,11 @@
+{
+  "dataset": "synthetic constant only",
+  "model": "gemini-3.8-flash",
+  "variant": "minimal REST without optional thinking configuration",
+  "httpStatus": 503,
+  "classification": "UNAVAILABLE",
+  "capacitySignal": true,
+  "retryAfter": null,
+  "detailTypes": [],
+  "durationMs": 1629
+}

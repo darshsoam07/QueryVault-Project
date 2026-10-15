@@ -59,6 +59,7 @@ export const CITATION_CONTRACT_RELEASE = CITATION_CONTRACT_VERSION;
 export const EMISSION_CHUNK_SIZE = 240;
 
 export type CitationFailureReason =
+  | "unsupported_claim"
   | "no_citations"
   | "uncited_substantive_block"
   | "unknown_citation"

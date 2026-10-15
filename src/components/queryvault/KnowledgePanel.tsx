@@ -1,3 +1,12 @@
+import { MAX_BATCH_FILES, MAX_BATCH_BYTES } from "@/lib/upload-batch-policy";
+import {
+  isSupportedDocument,
+  isQueryableDocument,
+  requiresLocatorReindex,
+  MAX_UPLOAD_BYTES,
+} from "@/lib/documents.policy";
+import { MAX_DOCUMENT_IDS } from "@/lib/chat.schema";
+import { UploadQueue } from "@/lib/upload-queue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -5,20 +14,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
 import { deleteDocument, reindexDocument } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
-import { pollIngestion, uploadAndEnqueue, type IngestStatus } from "@/lib/ingest";
-import { isSupportedDocument, MAX_UPLOAD_BYTES } from "@/lib/documents.policy";
+import { pollIngestion, uploadAndEnqueue } from "@/lib/ingest";
 
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  FileText,
-  Loader2,
-  RotateCcw,
-  Trash2,
-  UploadCloud,
-} from "lucide-react";
+import { AlertTriangle, FileText, Loader2, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +34,7 @@ export type DocumentRow = {
   error_message: string | null;
   failure_message: string | null;
   failure_code?: string | null;
+  parser_version?: number;
 };
 
 export function useDocuments(userId: string | undefined) {
@@ -44,7 +45,7 @@ export function useDocuments(userId: string | undefined) {
       const { data, error } = await supabase
         .from("documents")
         .select(
-          "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message, failure_code",
+          "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message, failure_code, parser_version",
         )
         .order("created_at", { ascending: false });
       if (error) throw fromQueryError(error, "Could not load your documents.");
@@ -125,7 +126,22 @@ export function KnowledgePanel({
   const queryClient = useQueryClient();
   const { data: documents = [], isLoading } = useDocuments(userId);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState<IngestStatus | null>(null);
+  const scheduler = useRef(new UploadQueue(3));
+  const fileIds = useRef(new WeakMap<File, string>());
+  const [outcomes, setOutcomes] = useState<
+    Record<
+      string,
+      {
+        file: File;
+        detail: string;
+        failed: boolean;
+        controller: AbortController;
+        percent?: number | undefined;
+        phase?: IngestionPhase | undefined;
+        documentId?: string | undefined;
+      }
+    >
+  >({});
   const [filter, setFilter] = useState("");
   const [pageLimit, setPageLimit] = useState(50);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -142,20 +158,80 @@ export function KnowledgePanel({
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
-      const handle = await uploadAndEnqueue(file, setProgress);
-      queryClient.invalidateQueries({ queryKey: ["documents", userId] });
-      return pollIngestion(handle, setProgress);
+      const id = fileIds.current.get(file) ?? crypto.randomUUID();
+      fileIds.current.set(file, id);
+      const controller = new AbortController();
+      setOutcomes((items) => ({
+        ...items,
+        [id]: { file, detail: "Queued for upload", failed: false, controller },
+      }));
+      try {
+        const handle = await scheduler.current.run(
+          () =>
+            uploadAndEnqueue(
+              file,
+              (status) => {
+                setOutcomes((items) => ({
+                  ...items,
+                  [id]: {
+                    file,
+                    detail: status.detail,
+                    failed: status.failed,
+                    controller,
+                    percent: status.uploadPercent ?? (status.step / status.totalSteps) * 100,
+                    phase: status.phase,
+                    documentId: status.documentId,
+                  },
+                }));
+              },
+              { signal: controller.signal },
+            ),
+          controller.signal,
+        );
+        queryClient.invalidateQueries({ queryKey: ["documents", userId] });
+        const result = await pollIngestion(handle, (status) => {
+          setOutcomes((items) => ({
+            ...items,
+            [id]: {
+              file,
+              detail: status.detail,
+              failed: status.failed,
+              controller,
+              percent: status.uploadPercent ?? (status.step / status.totalSteps) * 100,
+              phase: status.phase,
+              documentId: status.documentId,
+            },
+          }));
+        });
+        return result;
+      } catch (error) {
+        setOutcomes((items) =>
+          items[id]?.controller !== controller
+            ? items
+            : {
+                ...items,
+                [id]: {
+                  file,
+                  detail: controller.signal.aborted
+                    ? "Upload cancelled."
+                    : userMessage(error, "Upload failed. Retry this file."),
+                  failed: true,
+                  controller,
+                },
+              },
+        );
+        throw error;
+      }
     },
     onSuccess: (status) => {
       if (status.failed) toast.error(status.reason ?? status.detail);
-      else toast.success("Document indexed and ready to query");
+      else if (status.phase === "ready") toast.success("Document indexed and ready to query");
+      else toast.info(status.detail);
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
-      setTimeout(() => setProgress(null), 1500);
     },
     onError: (error) => {
       toast.error(userMessage(error, "That upload could not be indexed."));
       queryClient.invalidateQueries({ queryKey: ["documents", userId] });
-      setTimeout(() => setProgress(null), 2500);
     },
   });
 
@@ -186,17 +262,37 @@ export function KnowledgePanel({
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
-      const file = files?.[0];
-      if (!file) return;
-      if (!isSupportedDocument(file.name, file.type)) {
-        toast.error("Supported: PDF, DOCX, TXT, Markdown, CSV, HTML, XLSX, and PPTX.");
+      if (!files?.length) return;
+      if (
+        files.length > MAX_BATCH_FILES ||
+        Array.from(files).reduce((total, file) => total + file.size, 0) > MAX_BATCH_BYTES
+      ) {
+        toast.error(
+          `Choose at most ${MAX_BATCH_FILES} files and ${Math.round(MAX_BATCH_BYTES / 1048576)} MiB per batch.`,
+        );
         return;
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        toast.error("Files must be under 25 MB.");
-        return;
+      for (const file of Array.from(files)) {
+        const invalid = !isSupportedDocument(file.name, file.type)
+          ? "Supported: PDF, DOCX, TXT, Markdown, CSV, HTML, XLSX, and PPTX."
+          : file.size > MAX_UPLOAD_BYTES
+            ? "Files must be under 25 MB."
+            : null;
+        if (invalid) {
+          toast.error(invalid);
+          setOutcomes((items) => ({
+            ...items,
+            [crypto.randomUUID()]: {
+              file,
+              detail: invalid,
+              failed: true,
+              controller: new AbortController(),
+            },
+          }));
+          continue;
+        }
+        upload.mutate(file);
       }
-      upload.mutate(file);
     },
     [upload],
   );
@@ -205,6 +301,15 @@ export function KnowledgePanel({
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* ── Upload zone ── */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload documents"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(event) => {
           event.preventDefault();
           setDragging(true);
@@ -218,13 +323,14 @@ export function KnowledgePanel({
         className={cn(
           "group relative cursor-pointer rounded-lg border border-dashed border-border bg-background px-3 py-4 text-center transition-all",
           dragging && "border-amethyst/60 bg-amethyst/5",
-          upload.isPending && "pointer-events-none opacity-70",
         )}
         onClick={() => inputRef.current?.click()}
       >
         <input
           ref={inputRef}
           type="file"
+          aria-label="Choose documents to upload"
+          multiple
           accept=".pdf,.docx,.txt,.md,.markdown,.csv,.html,.htm,.xlsx,.pptx,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,text/html,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg,image/webp"
           className="hidden"
           onChange={(event) => {
@@ -237,39 +343,73 @@ export function KnowledgePanel({
         ) : (
           <UploadCloud className="mx-auto h-5 w-5 text-muted-foreground transition-colors group-hover:text-amethyst" />
         )}
-        <p className="mt-1.5 text-xs font-medium text-foreground">Drop a document to index</p>
+        <p className="mt-1.5 text-xs font-medium text-foreground">Drop documents to index</p>
         <p className="text-[11px] text-muted-foreground">
           PDF, Word, text, sheets, slides · max 25 MB
         </p>
       </div>
 
       {/* ── Upload progress ── */}
-      {progress && (
-        <div className="rounded-lg border border-border bg-background px-3 py-2">
-          <div className="flex items-center justify-between gap-2 text-[11px]">
-            <span
-              className={cn(
-                "truncate font-medium",
-                progress.failed ? "text-destructive" : "text-foreground",
-              )}
-            >
-              {progress.label}
-            </span>
-            <span className="font-mono tabular-nums text-muted-foreground">
-              {progress.failed ? "failed" : `step ${progress.step}/${progress.totalSteps}`}
-            </span>
-          </div>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-            {progress.reason ?? progress.detail}
+      {/* ── Section header ── */}
+      {Object.keys(outcomes).length > 0 && (
+        <div className="max-h-48 space-y-2 overflow-auto text-xs" aria-live="polite">
+          <p>
+            {Object.keys(outcomes).length} files /{" "}
+            {Object.values(outcomes).filter((entry) => entry.phase === "ready").length} ready /{" "}
+            {Object.values(outcomes).filter((entry) => entry.failed).length} failed
           </p>
-          <Progress
-            value={progress.failed ? 100 : (progress.step / progress.totalSteps) * 100}
-            className="mt-2 h-1"
-          />
+          {Object.entries(outcomes).map(([id, entry]) => (
+            <div key={id} className="rounded-lg border border-border bg-background p-2">
+              <p className="truncate font-medium">{entry.file.name}</p>
+              <p>{entry.detail}</p>
+              {entry.percent !== undefined && (
+                <Progress value={entry.percent} className="mt-1 h-1" />
+              )}
+              {!entry.failed &&
+                (entry.detail === "Queued for upload" || entry.detail.startsWith("Uploading")) && (
+                  <Button size="sm" variant="ghost" onClick={() => entry.controller.abort()}>
+                    Cancel upload
+                  </Button>
+                )}
+              {entry.failed && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (entry.documentId && entry.phase === "failed") {
+                      const documentId = entry.documentId;
+                      void reindexDocument({ data: { documentId } })
+                        .then(async ({ jobId }) => {
+                          await pollIngestion({ documentId, jobId }, (status) =>
+                            setOutcomes((items) => ({
+                              ...items,
+                              [id]: {
+                                ...entry,
+                                detail: status.detail,
+                                failed: status.failed,
+                                phase: status.phase,
+                                percent: (status.step / status.totalSteps) * 100,
+                              },
+                            })),
+                          );
+                          await queryClient.invalidateQueries({ queryKey: ["documents", userId] });
+                        })
+                        .catch((error) =>
+                          toast.error(userMessage(error, "Could not retry indexing.")),
+                        );
+                      return;
+                    }
+                    upload.mutate(entry.file);
+                  }}
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── Section header ── */}
       <div className="flex items-center justify-between px-0.5">
         <span className="technical-label text-muted-foreground">Knowledge base</span>
         <span className="font-mono text-[11px] text-muted-foreground">{documents.length}</span>
@@ -298,8 +438,10 @@ export function KnowledgePanel({
         )}
         {visibleDocs.map((doc) => {
           const isSelected = selected.includes(doc.id);
-          const isReady = doc.status === "ready";
-          const isFailed = doc.status === "failed";
+          const needsReindex =
+            doc.status === "ready" && requiresLocatorReindex(doc.filename, doc.parser_version);
+          const isReady = isQueryableDocument(doc);
+          const isFailed = doc.status === "failed" || needsReindex;
           const isProcessing = !isReady && !isFailed;
           return (
             <div
@@ -313,7 +455,16 @@ export function KnowledgePanel({
                 {/* Document button — min 40px effective tap area via py-2 on parent */}
                 <button
                   type="button"
-                  onClick={() => isReady && onToggleSelected(doc.id)}
+                  aria-pressed={isSelected}
+                  disabled={!isReady}
+                  onClick={() => {
+                    if (!isReady) return;
+                    if (!isSelected && selected.length >= MAX_DOCUMENT_IDS) {
+                      toast.error(`Select at most ${MAX_DOCUMENT_IDS} documents.`);
+                      return;
+                    }
+                    onToggleSelected(doc.id);
+                  }}
                   className="flex min-w-0 flex-1 items-start gap-2 text-left"
                 >
                   <FileText
@@ -328,7 +479,11 @@ export function KnowledgePanel({
                     </span>
                     {/* Real metadata only — verified against Supabase query fields */}
                     <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <StatusBadge status={doc.status} phase={doc.phase} />
+                      {needsReindex ? (
+                        <Badge variant="outline">Reindex required</Badge>
+                      ) : (
+                        <StatusBadge status={doc.status} phase={doc.phase} />
+                      )}
                       {isReady && (
                         <span className="font-mono text-[10px] text-muted-foreground">
                           {doc.chunk_count} chunks · {doc.page_count}p ·{" "}
@@ -351,23 +506,25 @@ export function KnowledgePanel({
                               : undefined)
                           }
                         >
-                          {doc.failure_message ??
-                            doc.error_message ??
-                            (doc.failure_code === "CREDITS_EXHAUSTED"
-                              ? "API credits or quota exhausted. Check billing settings."
-                              : "Unknown error")}
+                          {needsReindex
+                            ? "Reindex to verify slide order."
+                            : (doc.failure_message ??
+                              doc.error_message ??
+                              (doc.failure_code === "CREDITS_EXHAUSTED"
+                                ? "API credits or quota exhausted. Check billing settings."
+                                : "Unknown error"))}
                         </span>
                       )}
                     </span>
                   </span>
                 </button>
                 {/* Retry — only shown on failed documents; min 32px icon-xs */}
-                {isFailed && (
+                {(isFailed || doc.status === "uploaded") && (
                   <Button
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => retry.mutate(doc.id)}
-                    aria-label={`Retry ${doc.filename}`}
+                    aria-label={`${isFailed ? "Retry" : "Resume indexing"} ${doc.filename}`}
                     className="shrink-0 text-muted-foreground hover:text-amethyst"
                   >
                     <RotateCcw />
@@ -377,7 +534,7 @@ export function KnowledgePanel({
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="shrink-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
                   onClick={() => remove.mutate(doc.id)}
                   aria-label={`Delete ${doc.filename}`}
                 >

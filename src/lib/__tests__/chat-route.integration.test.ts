@@ -47,6 +47,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const harness = vi.hoisted(() => {
+  const documents: Array<{ id: string; status: string }> = [];
   const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
   const threadRow = { id: "11111111-1111-1111-8111-111111111111", title: "New chat" };
   type MockBuilder = {
@@ -74,14 +75,17 @@ const harness = vi.hoisted(() => {
       return { data: null, error: null };
     };
     // Thenable so `await builder` (update paths) resolves harmlessly.
-    builder.then = (resolve: (v: unknown) => void) => resolve({ data: null, error: null });
+    builder.then = (resolve: (v: unknown) => void) =>
+      resolve({ data: table === "documents" ? documents : null, error: null });
     return builder;
   };
   return {
     inserts,
+    documents,
     db: { from: (table: string) => makeBuilder(table) },
     reset() {
       inserts.length = 0;
+      documents.length = 0;
     },
     assistantInserts() {
       return inserts.filter((i) => i.table === "messages" && i.row["role"] === "assistant");
@@ -94,6 +98,7 @@ const harness = vi.hoisted(() => {
 
 const mocks = vi.hoisted(() => ({
   generateText: vi.fn(),
+  verifyAnswerSupport: vi.fn(),
   runRetrieval: vi.fn(),
   emitAsync: vi.fn(),
   recordQueryTrace: vi.fn(),
@@ -101,6 +106,10 @@ const mocks = vi.hoisted(() => ({
   enforceRateLimit: vi.fn(),
   requireAiProvider: vi.fn(),
   verifyAccessToken: vi.fn(),
+}));
+
+vi.mock("@/lib/retrieval/support-verifier.server", () => ({
+  verifyAnswerSupport: mocks.verifyAnswerSupport,
 }));
 
 vi.mock("ai", async (importOriginal) => {
@@ -243,7 +252,7 @@ function makeRequest(signal?: AbortSignal): Request {
           parts: [{ type: "text", text: "What is the notice period?" }],
         },
       ],
-      documentIds: [],
+      documentIds: null,
     }),
   };
   if (signal) init.signal = signal;
@@ -299,6 +308,7 @@ const fakeProvider = {
 beforeEach(() => {
   vi.clearAllMocks();
   harness.reset();
+  mocks.verifyAnswerSupport.mockResolvedValue(true);
   // clearAllMocks preserves implementations; reset emitAsync so a
   // per-test implementation never leaks into a later test.
   mocks.emitAsync.mockReset();
@@ -321,6 +331,89 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("chat route: pre-render delivery", () => {
+  it.each([
+    { ids: [], documents: [], code: "DOCUMENT_NOT_READY" },
+    { ids: ["44444444-4444-4444-8444-444444444444"], documents: [], code: "FORBIDDEN" },
+    {
+      ids: ["44444444-4444-4444-8444-444444444444"],
+      documents: [{ id: "44444444-4444-4444-8444-444444444444", status: "processing" }],
+      code: "DOCUMENT_NOT_READY",
+    },
+  ])("rejects invalid explicit scope before retrieval: $code", async ({ ids, documents, code }) => {
+    harness.documents.push(...documents);
+    const body = await makeRequest().json();
+    body.documentIds = ids;
+    const response = await POST({
+      request: new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(await response.text()).toContain(code);
+    expect(mocks.runRetrieval).not.toHaveBeenCalled();
+    expect(harness.assistantInserts()).toHaveLength(0);
+  });
+
+  it("reports deterministic conflicts with both sources and makes no external generation/verifier call", async () => {
+    const sources = evidence();
+    sources[0]!.snippet = "Notice period: 30 days.";
+    sources[1]!.snippet = "Notice period: 60 days.";
+    mocks.runRetrieval.mockResolvedValue(retrievalOutcome(sources));
+    const response = await POST({ request: makeRequest() });
+    const delivered = emittedText(parseStreamParts(await response.text()));
+    expect(delivered).toContain("differing statements");
+    expect(delivered).toContain("[source_01]");
+    expect(delivered).toContain("[source_02]");
+    expect(mocks.generateText).not.toHaveBeenCalled();
+    expect(mocks.verifyAnswerSupport).not.toHaveBeenCalled();
+    expect(harness.assistantInserts()[0]!.row["content"]).toBe(delivered);
+  });
+  it("labels document-wide summaries as retrieved excerpts and persists the identical notice", async () => {
+    mocks.generateText.mockResolvedValue({ text: "The notice period is thirty days [source_01]." });
+    const body = await makeRequest().json();
+    body.messages[0].parts[0].text = "Summarize my documents";
+    const response = await POST({
+      request: new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    });
+    const delivered = emittedText(parseStreamParts(await response.text()));
+    expect(delivered).toContain("coverage may be incomplete");
+    expect(harness.assistantInserts()[0]!.row["content"]).toBe(delivered);
+  });
+  it("returns unavailable instead of an evidence refusal when verification is down", async () => {
+    mocks.generateText.mockResolvedValue({ text: "The notice period is thirty days [source_01]." });
+    mocks.verifyAnswerSupport.mockImplementation(async (options) => {
+      options.onResult({
+        supported: false,
+        outcome: "provider_unavailable",
+        attempts: 3,
+        durationMs: 900,
+        httpStatus: 503,
+      });
+      return false;
+    });
+    const response = await POST({ request: makeRequest() });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: { code: "AI_UNAVAILABLE" } });
+    expect(harness.assistantInserts()).toHaveLength(0);
+  });
+
+  it("fails closed when a fabricated claim has a valid citation but fails support verification", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "The notice period is one million days [source_01].",
+    });
+    mocks.verifyAnswerSupport.mockResolvedValue(false);
+    const response = await POST({ request: makeRequest() });
+    const text = emittedText(parseStreamParts(await response.text()));
+    expect(text).toBe(GROUNDED_REFUSAL);
+    expect(JSON.stringify(harness.assistantInserts())).not.toContain("million");
+  });
+
   it("emits only the validated (normalized) text; emitted byte-equals persisted; sources are cited-only in first-appearance order", async () => {
     // [source_1] is normalizable: the emitted text must carry the canonical
     // [source_01], proving the VALIDATED text — not the raw candidate — is
@@ -952,36 +1045,18 @@ describe("chat route: message formatting for Gemini alternating turns", () => {
           { id: "m1", role: "assistant", parts: [{ type: "text", text: "Prior answer" }] },
           { id: "m2", role: "user", parts: [{ type: "text", text: "Current question" }] },
         ],
-        documentIds: [],
+        documentIds: null,
       }),
     });
 
     const response = await POST({ request: req });
     expect(response.status).toBe(200);
 
-    // Should have: prior user, prior assistant, and then ONE final user prompt containing evidence + question
-    expect(capturedMessages).toHaveLength(3);
+    expect(capturedMessages).toHaveLength(1);
     expect(capturedMessages[0]!.role).toBe("user");
-    expect(
-      typeof capturedMessages[0]!.content === "string"
-        ? capturedMessages[0]!.content
-        : (capturedMessages[0]!.content as Array<{ text: string }>)[0]?.text,
-    ).toBe("Prior question");
-
-    expect(capturedMessages[1]!.role).toBe("assistant");
-    expect(
-      typeof capturedMessages[1]!.content === "string"
-        ? capturedMessages[1]!.content
-        : (capturedMessages[1]!.content as Array<{ text: string }>)[0]?.text,
-    ).toBe("Prior answer");
-
-    expect(capturedMessages[2]!.role).toBe("user");
-    expect(capturedMessages[2]!.content).toContain("Question: Current question");
-
-    // No two consecutive user messages!
-    for (let i = 1; i < capturedMessages.length; i++) {
-      expect(capturedMessages[i]!.role).not.toBe(capturedMessages[i - 1]!.role);
-    }
+    expect(capturedMessages[0]!.content).toContain("Prior question");
+    expect(capturedMessages[0]!.content).not.toContain("Prior answer");
+    expect(capturedMessages[0]!.content).toContain("Question: Current question");
   });
 
   it("handles single-turn question with only one user message", async () => {
@@ -1006,7 +1081,7 @@ describe("chat route: message formatting for Gemini alternating turns", () => {
       body: JSON.stringify({
         threadId: THREAD_ID,
         messages: [{ id: "m0", role: "user", parts: [{ type: "text", text: "Only question" }] }],
-        documentIds: [],
+        documentIds: null,
       }),
     });
 

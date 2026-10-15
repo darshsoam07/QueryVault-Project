@@ -8,12 +8,12 @@ export type RerankerStrategy = "heuristic" | "llm";
 
 export const RETRIEVAL_CONFIG = {
   /** Candidate pool: intentionally much larger than the final evidence set. */
-  denseCandidates: 20,
-  lexicalCandidates: 20,
+  denseCandidates: 60,
+  lexicalCandidates: 60,
   /** Chunks kept after fusion and handed to the reranker. */
-  rerankCandidates: 12,
+  rerankCandidates: 32,
   /** Final evidence passages sent to the model. */
-  finalEvidence: 6,
+  finalEvidence: 12,
 
   /** Dense floor applied inside the SQL function; candidates below never surface. */
   minSimilarity: 0.25,
@@ -85,7 +85,7 @@ export const RETRIEVAL_CONFIG = {
   },
 
   /** Context budget, in estimated tokens (~4 chars per token). */
-  maxContextTokens: 3200,
+  maxContextTokens: 6400,
   maxSnippetChars: 1800,
   /** Jaccard similarity above which two passages count as near-duplicates. */
   duplicateThreshold: 0.82,

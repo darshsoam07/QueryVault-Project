@@ -21,19 +21,25 @@ export async function denseRetrieve(options: {
   limit: number;
   minSimilarity: number;
   provider: AiProvider;
+  signal?: AbortSignal | undefined;
 }): Promise<DenseResult> {
   const { client, queries, userId, documentIds, limit, minSimilarity, provider } = options;
 
   const embedStart = Date.now();
-  const embeddings = await embedTexts(queries, provider);
+  const embeddings = await embedTexts(
+    queries,
+    provider,
+    options.signal ? { signal: options.signal } : {},
+  );
   const embeddingLatencyMs = Date.now() - embedStart;
 
   const queryStart = Date.now();
   const responses = await Promise.all(
     embeddings.map((embedding) =>
-      client.rpc("match_document_chunks", {
+      client.rpc("match_document_chunks_v2", {
         query_embedding: toVectorLiteral(embedding),
         requesting_user_id: userId,
+        required_embedding_model: provider.embeddingModel,
         match_count: limit,
         min_similarity: minSimilarity,
         ...(documentIds ? { document_ids: documentIds } : {}),

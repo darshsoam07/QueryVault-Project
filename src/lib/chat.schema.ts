@@ -4,7 +4,10 @@ import { z } from "zod";
 export const MAX_MESSAGES = 60;
 export const MAX_MESSAGE_CHARS = 8000;
 export const MAX_QUESTION_CHARS = 4000;
-export const MAX_DOCUMENT_IDS = 25;
+export const MAX_DOCUMENT_IDS = (() => {
+  const raw = Number(import.meta.env?.["VITE_MAX_DOCUMENT_SELECTION"] ?? 100);
+  return Number.isInteger(raw) && raw > 0 && raw <= 100 ? raw : 100;
+})();
 export const MIN_SIMILARITY = 0.25;
 export const RETRIEVAL_K = 6;
 
@@ -22,7 +25,7 @@ const otherPart = z
 
 const uiMessage = z.object({
   id: z.string().min(1).max(128).optional(),
-  role: z.enum(["user", "assistant", "system"]),
+  role: z.enum(["user", "assistant"]),
   parts: z
     .array(z.union([textPart, otherPart]))
     .min(1)

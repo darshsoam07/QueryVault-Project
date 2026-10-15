@@ -14,6 +14,13 @@ test.describe("Chat cursor pagination and scroll anchoring", () => {
   let createdUser = false;
 
   test.beforeAll(async () => {
+    if (process.env.QV_E2E_ISOLATED !== "1") {
+      test.skip(
+        true,
+        "Database-writing E2E requires QV_E2E_ISOLATED=1 and an explicitly isolated Supabase project.",
+      );
+      return;
+    }
     if (!supabaseUrl || !serviceRoleKey) {
       test.skip(true, "Supabase service role credentials not configured in environment.");
       return;

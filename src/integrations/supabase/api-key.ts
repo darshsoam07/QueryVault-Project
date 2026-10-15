@@ -12,6 +12,7 @@
  * environment, so this module is safe to import from browser code.
  */
 import type { Database } from "./types";
+import { localOnlyFetch } from "@/lib/cost-policy";
 
 /**
  * True for the current-generation Supabase key format (`sb_publishable_…`,
@@ -48,7 +49,10 @@ export function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set("apikey", supabaseKey);
-    return fetch(input, { ...init, headers });
+    const localOnly =
+      import.meta.env["VITE_QV_LOCAL_ONLY"] === "1" ||
+      (typeof process !== "undefined" && process.env["QV_LOCAL_ONLY"] === "1");
+    return (localOnly ? localOnlyFetch(fetch) : fetch)(input, { ...init, headers });
   };
 }
 

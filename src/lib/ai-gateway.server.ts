@@ -1,3 +1,4 @@
+import { UploadQueue } from "@/lib/upload-queue";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
@@ -83,6 +84,16 @@ function env(name: string): string | undefined {
     return unquoted.length > 0 ? unquoted : undefined;
   }
   return trimmed;
+}
+
+function assertAiCostPermission(): void {
+  if (process.env["QV_LOCAL_ONLY"] === "1") {
+    throw new GatewayError(
+      "AI requests are disabled in the zero-cost local profile until a local model is explicitly approved and validated.",
+      503,
+      { code: "ZERO_COST_AI_BLOCKED" },
+    );
+  }
 }
 
 function bearer(key: string): Record<string, string> {
@@ -176,6 +187,7 @@ function resolveProviderId(): AiProviderId {
  * failing closed is preferable to embedding with the wrong model width.
  */
 export function requireAiProvider(): AiProvider {
+  assertAiCostPermission();
   const id = resolveProviderId();
   const def = PROVIDERS[id];
 
@@ -297,6 +309,7 @@ export function describeAiProvider():
 
 /** Vercel AI SDK provider for streaming chat, bound to the resolved config. */
 export function createAiSdkProvider(provider: AiProvider): (modelId: string) => LanguageModel {
+  assertAiCostPermission();
   if (provider.id === "gemini") {
     const key = provider.authHeaders()["x-goog-api-key"] ?? "";
     const google = createGoogleGenerativeAI({
@@ -462,7 +475,7 @@ async function chatCompletionGemini(
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     const parsed = parseProviderErrorBody(detail);
-    console.error("[ai:chat] failed", provider.id, response.status, detail.slice(0, 400));
+    console.error("[ai:chat] failed", provider.id, response.status, "upstream_request_failed");
     throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
       code: parsed.code,
       errorType: parsed.type,
@@ -487,6 +500,22 @@ export async function chatCompletion(
   body: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<string> {
+  assertAiCostPermission();
+  const deadline = AbortSignal.timeout(30_000);
+  const bounded = signal ? AbortSignal.any([signal, deadline]) : deadline;
+  try {
+    return await chatCompletionUnbounded(provider, body, bounded);
+  } catch (error) {
+    signal?.throwIfAborted();
+    if (deadline.aborted) throw new GatewayError("Utility model request timed out.", 504);
+    throw error;
+  }
+}
+async function chatCompletionUnbounded(
+  provider: AiProvider,
+  body: Record<string, unknown>,
+  signal: AbortSignal,
+): Promise<string> {
   if (provider.id === "gemini") {
     return chatCompletionGemini(provider, body, signal);
   }
@@ -499,7 +528,7 @@ export async function chatCompletion(
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     const parsed = parseProviderErrorBody(detail);
-    console.error("[ai:chat] failed", provider.id, response.status, detail.slice(0, 400));
+    console.error("[ai:chat] failed", provider.id, response.status, "upstream_request_failed");
     throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
       code: parsed.code,
       errorType: parsed.type,
@@ -513,7 +542,11 @@ export async function chatCompletion(
 }
 
 /** Gemini batch embedding via Google Generative Language REST API. */
-async function embedTextsGemini(texts: string[], provider: AiProvider): Promise<number[][]> {
+async function embedTextsGemini(
+  texts: string[],
+  provider: AiProvider,
+  signal: AbortSignal,
+): Promise<number[][]> {
   if (texts.length === 0) return [];
 
   const modelName = provider.embeddingModel.replace(/^models\//, "");
@@ -546,12 +579,18 @@ async function embedTextsGemini(texts: string[], provider: AiProvider): Promise<
       method: "POST",
       headers: { "Content-Type": "application/json", ...provider.authHeaders() },
       body: JSON.stringify({ requests }),
+      signal,
     });
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
       const parsed = parseProviderErrorBody(detail);
-      console.error("[ai:embeddings] failed", provider.id, response.status, detail.slice(0, 400));
+      console.error(
+        "[ai:embeddings] failed",
+        provider.id,
+        response.status,
+        "upstream_request_failed",
+      );
       throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
         code: parsed.code,
         errorType: parsed.type,
@@ -594,14 +633,42 @@ async function embedTextsGemini(texts: string[], provider: AiProvider): Promise<
 }
 
 /** Embeds a batch of texts through the configured provider. */
-export async function embedTexts(texts: string[], provider: AiProvider): Promise<number[][]> {
+const embeddingConcurrency = Number(process.env["QV_EMBED_CONCURRENCY"]);
+const embeddingSlots = new UploadQueue(
+  Number.isInteger(embeddingConcurrency) && embeddingConcurrency > 0
+    ? Math.min(16, embeddingConcurrency)
+    : 2,
+);
+export async function embedTexts(
+  texts: string[],
+  provider: AiProvider,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<number[][]> {
+  assertAiCostPermission();
+  const deadline = AbortSignal.timeout(options.timeoutMs ?? 60_000);
+  const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+  try {
+    return await embeddingSlots.run(() => embedTextsUnbounded(texts, provider, signal), signal);
+  } catch (error) {
+    options.signal?.throwIfAborted();
+    if (deadline.aborted)
+      throw new GatewayError("Embedding request timed out. Retry shortly.", 504);
+    throw error;
+  }
+}
+async function embedTextsUnbounded(
+  texts: string[],
+  provider: AiProvider,
+  signal: AbortSignal,
+): Promise<number[][]> {
   if (texts.length === 0) return [];
   if (provider.id === "gemini") {
-    return embedTextsGemini(texts, provider);
+    return embedTextsGemini(texts, provider, signal);
   }
 
   const response = await fetch(`${provider.baseUrl}/embeddings`, {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json", ...provider.authHeaders() },
     body: JSON.stringify({
       model: provider.embeddingModel,
@@ -615,7 +682,12 @@ export async function embedTexts(texts: string[], provider: AiProvider): Promise
     const parsed = parseProviderErrorBody(detail);
     // Provider error bodies do not echo the credential, but they are truncated
     // anyway and never forwarded to the client.
-    console.error("[ai:embeddings] failed", provider.id, response.status, detail.slice(0, 400));
+    console.error(
+      "[ai:embeddings] failed",
+      provider.id,
+      response.status,
+      "upstream_request_failed",
+    );
     throw new GatewayError(gatewayMessageForStatus(response.status, parsed), response.status, {
       code: parsed.code,
       errorType: parsed.type,

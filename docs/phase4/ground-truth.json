@@ -1,0 +1,249 @@
+{
+  "synthetic": true,
+  "uploaded": false,
+  "batches": [
+    {
+      "count": 1,
+      "filenames": [
+        "aster-01.txt"
+      ]
+    },
+    {
+      "count": 5,
+      "filenames": [
+        "aster-01.txt",
+        "aster-02.txt",
+        "aster-03.txt",
+        "aster-04.txt",
+        "aster-05.txt"
+      ]
+    },
+    {
+      "count": 10,
+      "filenames": [
+        "aster-01.txt",
+        "aster-02.txt",
+        "aster-03.txt",
+        "aster-04.txt",
+        "aster-05.txt",
+        "aster-06.txt",
+        "aster-07.txt",
+        "aster-08.txt",
+        "aster-09.txt",
+        "aster-10.txt"
+      ]
+    },
+    {
+      "count": 20,
+      "filenames": [
+        "aster-01.txt",
+        "aster-02.txt",
+        "aster-03.txt",
+        "aster-04.txt",
+        "aster-05.txt",
+        "aster-06.txt",
+        "aster-07.txt",
+        "aster-08.txt",
+        "aster-09.txt",
+        "aster-10.txt",
+        "aster-11.txt",
+        "aster-12.txt",
+        "aster-13.txt",
+        "aster-14.txt",
+        "aster-15.txt",
+        "aster-16.txt",
+        "aster-17.txt",
+        "aster-18.txt",
+        "aster-19.txt",
+        "aster-20.txt"
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "filename": "aster-01.txt",
+      "bytes": 141,
+      "sha256": "e38114ee6a57340d41df5c20da1d12f11603a9ebe1ad0cedba1b2765176c01b9",
+      "facts": "Aster policy A: The notice period is thirty days. Exact policy wording: Notice must be delivered in writing."
+    },
+    {
+      "filename": "aster-02.txt",
+      "bytes": 150,
+      "sha256": "2a9770905ebe15346e9c006248d53ca27f36bc91559d73703adea3f52398dc58",
+      "facts": "Aster policy B: The notice period is sixty days. Policy B conflicts with policy A; neither is declared authoritative."
+    },
+    {
+      "filename": "aster-03.txt",
+      "bytes": 115,
+      "sha256": "c3c48e4f74c083eac0136e94fc3822cac6497eb53ab5979a4c94084e6bd17de3",
+      "facts": "Aster budget: The approved budget is 12000 credits. The budget owner is Mira Vale."
+    },
+    {
+      "filename": "aster-04.txt",
+      "bytes": 114,
+      "sha256": "d47d42be99496563fa16bdb050ea9c29202c15395bef7ccd09cc071d1bb7854b",
+      "facts": "Aster launch: The launch date is 2027-02-18. The launch coordinator is Leon Hart."
+    },
+    {
+      "filename": "aster-05.txt",
+      "bytes": 122,
+      "sha256": "8af40722c65847563474271cc78dc2b1563b196142bbf5f42c597ce05b025e3c",
+      "facts": "Aster support: Support operates Monday through Friday. The response target is four hours."
+    },
+    {
+      "filename": "aster-06.txt",
+      "bytes": 171,
+      "sha256": "48e037ae45ac87c0522c644ad38abe6315febb05f939fd33563518203f1bdc18",
+      "facts": "Archive 6: The synthetic archive code is ASTER-06. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-07.txt",
+      "bytes": 171,
+      "sha256": "af2b0fc92a3e78fb0ac93476dccb2432ec8684b4b946e0e42ab3e7ba7591a7ed",
+      "facts": "Archive 7: The synthetic archive code is ASTER-07. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-08.txt",
+      "bytes": 171,
+      "sha256": "8a9c0f4e71da0b4a24a77ec64c4bfcf138a5ff55067982ba88ce2417154f4475",
+      "facts": "Archive 8: The synthetic archive code is ASTER-08. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-09.txt",
+      "bytes": 171,
+      "sha256": "128a383ac800ef165fb583fcf8dee70ee46448462ef51c79042d4f8aa07fd448",
+      "facts": "Archive 9: The synthetic archive code is ASTER-09. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-10.txt",
+      "bytes": 173,
+      "sha256": "2d64d6c21356f18db60119f6bde28ffd4b26717746fd6d0b147239ea2b7566e6",
+      "facts": "Archive 10: The synthetic archive code is ASTER-10. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-11.txt",
+      "bytes": 173,
+      "sha256": "52ab84e6e9ab7d0bdacb27ea550ea91e284b0c34de79beab366242af57a9db81",
+      "facts": "Archive 11: The synthetic archive code is ASTER-11. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-12.txt",
+      "bytes": 173,
+      "sha256": "77c3c0c415f1a56396ca238821b9220ea2788d891f18e91163e4c512788ac78f",
+      "facts": "Archive 12: The synthetic archive code is ASTER-12. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-13.txt",
+      "bytes": 173,
+      "sha256": "db7d5a16dc9a97c00138499112a53fa2888f3632bd4c33ecf97fa75223fb14ef",
+      "facts": "Archive 13: The synthetic archive code is ASTER-13. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-14.txt",
+      "bytes": 173,
+      "sha256": "988451ce6ed1e6b9e7a6bfc3476bfeaec9a0e250fd695db80f2b3e5d9bea25e8",
+      "facts": "Archive 14: The synthetic archive code is ASTER-14. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-15.txt",
+      "bytes": 173,
+      "sha256": "0087fe5f07e50895c4a69d8dc9be3207b4df0a2c5615f7e5bd32927239ef5837",
+      "facts": "Archive 15: The synthetic archive code is ASTER-15. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-16.txt",
+      "bytes": 173,
+      "sha256": "b4a4e9131c4b6c9525f18d0adfbb683bd2be5eb250360b8086e9b3278c3bc6c1",
+      "facts": "Archive 16: The synthetic archive code is ASTER-16. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-17.txt",
+      "bytes": 173,
+      "sha256": "aabe06902c7a034bca476e88458fe71a0cd11bd24b06657ae87c374ab26f9c68",
+      "facts": "Archive 17: The synthetic archive code is ASTER-17. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-18.txt",
+      "bytes": 173,
+      "sha256": "4d0bef1b16c32a8102179d4bc48060c2a690d570466538e070a2e58f1ac5bdb6",
+      "facts": "Archive 18: The synthetic archive code is ASTER-18. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-19.txt",
+      "bytes": 173,
+      "sha256": "c72a449e0025f7dfcf523cf7e1a21eb8fcb97d87f37eb44de4484ef916173fee",
+      "facts": "Archive 19: The synthetic archive code is ASTER-19. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    },
+    {
+      "filename": "aster-20.txt",
+      "bytes": 173,
+      "sha256": "039a016d0b1bf8e85d851fc74304009c14cb5eba7428e45521a2cc53ebac78a9",
+      "facts": "Archive 20: The synthetic archive code is ASTER-20. This archive makes no statement about Aster notice periods, budgets, launch or support."
+    }
+  ],
+  "questions": [
+    {
+      "id": "single",
+      "question": "What is the notice period in policy A?",
+      "selected": [
+        "aster-01.txt"
+      ],
+      "expected": "thirty days",
+      "sources": [
+        "aster-01.txt"
+      ]
+    },
+    {
+      "id": "multi",
+      "minimumBatch": 5,
+      "question": "Who owns the budget and who coordinates launch?",
+      "expected": [
+        "Mira Vale",
+        "Leon Hart"
+      ],
+      "sources": [
+        "aster-03.txt",
+        "aster-04.txt"
+      ]
+    },
+    {
+      "id": "conflict",
+      "minimumBatch": 5,
+      "question": "Compare the notice periods in policies A and B.",
+      "expected": [
+        "thirty days",
+        "sixty days",
+        "disagreement; do not choose authority"
+      ],
+      "sources": [
+        "aster-01.txt",
+        "aster-02.txt"
+      ]
+    },
+    {
+      "id": "absent",
+      "question": "What is the Aster insurance provider?",
+      "expected": "grounded refusal",
+      "sources": []
+    },
+    {
+      "id": "selected",
+      "minimumBatch": 5,
+      "question": "What is the launch date?",
+      "selected": [
+        "aster-03.txt"
+      ],
+      "expected": "grounded refusal; launch document outside selection",
+      "sources": []
+    },
+    {
+      "id": "quote",
+      "question": "Quote the exact written-notice requirement in policy A.",
+      "expected": "Notice must be delivered in writing.",
+      "sources": [
+        "aster-01.txt"
+      ]
+    }
+  ],
+  "measurements": null
+}

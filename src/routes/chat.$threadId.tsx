@@ -1,3 +1,5 @@
+import { isQueryableDocument } from "@/lib/documents.policy";
+import { evidenceLocator } from "@/lib/retrieval/locator";
 import {
   Conversation,
   ConversationContent,
@@ -86,7 +88,7 @@ function retrievalMetrics(source: SourceNode): string {
   return parts.join(" · ");
 }
 
-function SourceRail({ sources }: { sources: SourceNode[] }) {
+function SourceRail({ sources, messageId }: { sources: SourceNode[]; messageId: string }) {
   const railRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
 
@@ -132,6 +134,7 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
           <PopoverTrigger asChild>
             <button
               type="button"
+              id={`evidence-${messageId}-${source.sourceId}`}
               data-source-pill
               className="group inline-flex items-center gap-1 rounded border border-amethyst/40 bg-amethyst/8 px-1.5 py-0.5 font-mono text-[10px] text-foreground transition-colors hover:border-amethyst hover:bg-amethyst/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
             >
@@ -141,7 +144,9 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
               <span className="max-w-[130px] truncate text-muted-foreground">
                 {source.filename}
               </span>
-              <span className="text-muted-foreground">p{source.page}</span>
+              <span className="text-muted-foreground">
+                {evidenceLocator(source.filename, source.page, source.snippet)}
+              </span>
             </button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-96 border-border bg-popover shadow-md">
@@ -154,8 +159,10 @@ function SourceRail({ sources }: { sources: SourceNode[] }) {
             </div>
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Page</span>
-                <span className="font-mono font-medium text-foreground">{source.page}</span>
+                <span className="text-muted-foreground">Location</span>
+                <span className="font-mono font-medium text-foreground">
+                  {evidenceLocator(source.filename, source.page, source.snippet)}
+                </span>
               </div>
               {typeof source.score === "number" && (
                 <div className="flex items-center justify-between">
@@ -211,8 +218,31 @@ const ChatMessageItem = memo(function ChatMessageItem({ message }: { message: UI
       >
         {message.role === "assistant" ? (
           <>
-            <MessageResponse>{text}</MessageResponse>
-            <SourceRail sources={sources} />
+            <MessageResponse
+              components={{
+                a: ({ href, children, ...props }) => (
+                  <a
+                    {...props}
+                    href={href}
+                    onClick={(event) => {
+                      if (href?.startsWith(`#evidence-${message.id}-`)) {
+                        event.preventDefault();
+                        document.getElementById(href.slice(1))?.click();
+                      }
+                    }}
+                  >
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {text.replace(/\[(source_\d{2})\]/g, (marker, id: string) =>
+                sources.some((source) => source.sourceId === id)
+                  ? `[${id}](#evidence-${message.id}-${id})`
+                  : marker,
+              )}
+            </MessageResponse>
+            <SourceRail sources={sources} messageId={message.id} />
           </>
         ) : (
           <span className="whitespace-pre-wrap text-sm">{text}</span>
@@ -232,7 +262,7 @@ function ThreadPage() {
   docsRef.current = selectedDocs;
 
   const { data: documents = [] } = useDocuments(userId);
-  const readyDocs = documents.filter((doc) => doc.status === "ready");
+  const readyDocs = documents.filter(isQueryableDocument);
 
   const PAGE_SIZE = 50;
   const [olderCursor, setOlderCursor] = useState<{ createdAt: string; id: string } | null>(null);
@@ -265,7 +295,11 @@ function ThreadPage() {
           const { data } = await supabase.auth.getSession();
           return {
             headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
-            body: { messages, threadId, documentIds: docsRef.current },
+            body: {
+              messages,
+              threadId,
+              documentIds: docsRef.current.length ? docsRef.current : null,
+            },
           };
         },
       }),
@@ -373,15 +407,29 @@ function ThreadPage() {
   };
 
   useLayoutEffect(() => {
-    if (pendingSnapshotRef.current) {
-      const container =
-        stickRef.current?.scrollRef.current ??
-        (document.querySelector('[role="log"] > div') as HTMLElement | null);
-      if (container) {
-        restoreScrollSnapshot(container, pendingSnapshotRef.current);
-      }
-      pendingSnapshotRef.current = null;
-    }
+    const snapshot = pendingSnapshotRef.current;
+    if (!snapshot) return;
+    pendingSnapshotRef.current = null;
+    const container =
+      stickRef.current?.scrollRef.current ??
+      (document.querySelector('[role="log"] > div') as HTMLElement | null);
+    if (!container) return;
+    const restore = () => restoreScrollSnapshot(container, snapshot);
+    restore();
+    // Markdown and fonts may settle after the prepend layout effect. Retain
+    // the actual visible message anchor across those subsequent size changes.
+    const observer = new ResizeObserver(restore);
+    if (container.firstElementChild) observer.observe(container.firstElementChild);
+    const stop = () => observer.disconnect();
+    container.addEventListener("wheel", stop, { once: true });
+    container.addEventListener("touchstart", stop, { once: true });
+    const timer = setTimeout(stop, 1000);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      container.removeEventListener("wheel", stop);
+      container.removeEventListener("touchstart", stop);
+    };
   }, [messages]);
 
   const busy = status === "submitted" || status === "streaming";
@@ -433,8 +481,7 @@ function ThreadPage() {
                 Ask your <span className="text-gradient-brand">knowledge base</span>
               </h1>
               <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-                Every answer is retrieved from your indexed PDFs and cited back to the exact page.
-                Nothing is fabricated.
+                Answers use evidence from your indexed documents, with citations you can inspect.
               </p>
               {/* Suggestion chips — SOURCE visual pattern applied to real actions only */}
               <div className="mt-7 grid w-full max-w-lg gap-2">

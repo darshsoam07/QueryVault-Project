@@ -1,0 +1,336 @@
+{
+  "runtime": "v24.3.0",
+  "bunVersion": "1.3.14",
+  "platform": "win32",
+  "kind": "local mixed UTF-8 fixtures; real hash/parse/chunk; embedding/index mocked; not production throughput",
+  "results": [
+    {
+      "documents": 1,
+      "fixtureRetrievalMs": 1.62,
+      "bytes": 2200,
+      "wallMs": 13.91,
+      "peakActive": 1,
+      "sampledPeakRssMiB": 87.7,
+      "chunks": 3,
+      "stages": [
+        {
+          "hashMs": 2.1340999999999894,
+          "extractionMs": 2.5549000000000035,
+          "chunkingMs": 0.8629999999999995,
+          "mockEmbeddingMs": 6.122900000000001,
+          "mockIndexMs": 0.006500000000002615
+        }
+      ],
+      "uploadNetworkMs": null,
+      "liveEmbeddingMs": null,
+      "databaseIndexingMs": null,
+      "retrievalLatencyMs": null,
+      "firstTokenMs": null,
+      "fullAnswerMs": null,
+      "externalRequests": 0,
+      "externalCost": null
+    },
+    {
+      "documents": 5,
+      "fixtureRetrievalMs": 1.37,
+      "bytes": 103400,
+      "wallMs": 53.57,
+      "peakActive": 3,
+      "sampledPeakRssMiB": 90.45,
+      "chunks": 119,
+      "stages": [
+        {
+          "hashMs": 0.21810000000000684,
+          "extractionMs": 0.028599999999997294,
+          "chunkingMs": 0.1162000000000063,
+          "mockEmbeddingMs": 14.43889999999999,
+          "mockIndexMs": 0.01120000000000232
+        },
+        {
+          "hashMs": 0.38049999999999784,
+          "extractionMs": 0.014799999999993929,
+          "chunkingMs": 0.5869999999999891,
+          "mockEmbeddingMs": 13.848399999999998,
+          "mockIndexMs": 0.009800000000012687
+        },
+        {
+          "hashMs": 1.0241999999999933,
+          "extractionMs": 0.02549999999999386,
+          "chunkingMs": 1.6696000000000026,
+          "mockEmbeddingMs": 28.291300000000007,
+          "mockIndexMs": 0.04959999999999809
+        },
+        {
+          "hashMs": 2.1105999999999767,
+          "extractionMs": 0.07039999999997804,
+          "chunkingMs": 0.447400000000016,
+          "mockEmbeddingMs": 13.682000000000016,
+          "mockIndexMs": 0.0013999999999896318
+        },
+        {
+          "hashMs": 2.670000000000016,
+          "extractionMs": 0.028499999999979764,
+          "chunkingMs": 0.8695999999999913,
+          "mockEmbeddingMs": 29.942000000000007,
+          "mockIndexMs": 0.03310000000001878
+        }
+      ],
+      "uploadNetworkMs": null,
+      "liveEmbeddingMs": null,
+      "databaseIndexingMs": null,
+      "retrievalLatencyMs": null,
+      "firstTokenMs": null,
+      "fullAnswerMs": null,
+      "externalRequests": 0,
+      "externalCost": null
+    },
+    {
+      "documents": 10,
+      "fixtureRetrievalMs": 2.8,
+      "bytes": 256300,
+      "wallMs": 81.35,
+      "peakActive": 3,
+      "sampledPeakRssMiB": 92.58,
+      "chunks": 294,
+      "stages": [
+        {
+          "hashMs": 1.397500000000008,
+          "extractionMs": 0.04019999999999868,
+          "chunkingMs": 0.10450000000000159,
+          "mockEmbeddingMs": 10.160599999999988,
+          "mockIndexMs": 0.04970000000000141
+        },
+        {
+          "hashMs": 1.526200000000017,
+          "extractionMs": 0.015999999999991132,
+          "chunkingMs": 1.567700000000002,
+          "mockEmbeddingMs": 8.714700000000022,
+          "mockIndexMs": 0.050299999999992906
+        },
+        {
+          "hashMs": 3.163800000000009,
+          "extractionMs": 0.011699999999990496,
+          "chunkingMs": 0.36830000000000496,
+          "mockEmbeddingMs": 25.61070000000001,
+          "mockIndexMs": 0.039600000000007185
+        },
+        {
+          "hashMs": 0.27009999999998513,
+          "extractionMs": 0.05879999999999086,
+          "chunkingMs": 0.32389999999998054,
+          "mockEmbeddingMs": 17.870299999999986,
+          "mockIndexMs": 0.012399999999985312
+        },
+        {
+          "hashMs": 0.6668999999999983,
+          "extractionMs": 0.05550000000002342,
+          "chunkingMs": 0.6015000000000157,
+          "mockEmbeddingMs": 31.880200000000002,
+          "mockIndexMs": 0.035799999999994725
+        },
+        {
+          "hashMs": 3.6160999999999888,
+          "extractionMs": 0.13809999999998013,
+          "chunkingMs": 2.3819000000000017,
+          "mockEmbeddingMs": 10.111199999999997,
+          "mockIndexMs": 0.09470000000001733
+        },
+        {
+          "hashMs": 5.11699999999999,
+          "extractionMs": 0.01310000000000855,
+          "chunkingMs": 0.08389999999999986,
+          "mockEmbeddingMs": 26.5899,
+          "mockIndexMs": 0.023099999999999454
+        },
+        {
+          "hashMs": 0.6119999999999948,
+          "extractionMs": 0.1174000000000035,
+          "chunkingMs": 1.184500000000014,
+          "mockEmbeddingMs": 18.893299999999982,
+          "mockIndexMs": 0.026600000000001955
+        },
+        {
+          "hashMs": 1.5579000000000178,
+          "extractionMs": 0.08719999999999573,
+          "chunkingMs": 2.070699999999988,
+          "mockEmbeddingMs": 28.065799999999967,
+          "mockIndexMs": 0.10899999999998045
+        },
+        {
+          "hashMs": 1.3068999999999846,
+          "extractionMs": 0.06290000000001328,
+          "chunkingMs": 0.15209999999999013,
+          "mockEmbeddingMs": 10.192099999999982,
+          "mockIndexMs": 0.0024999999999977263
+        }
+      ],
+      "uploadNetworkMs": null,
+      "liveEmbeddingMs": null,
+      "databaseIndexingMs": null,
+      "retrievalLatencyMs": null,
+      "firstTokenMs": null,
+      "fullAnswerMs": null,
+      "externalRequests": 0,
+      "externalCost": null
+    },
+    {
+      "documents": 20,
+      "fixtureRetrievalMs": 3.62,
+      "bytes": 531820,
+      "wallMs": 152.01,
+      "peakActive": 3,
+      "sampledPeakRssMiB": 95.68,
+      "chunks": 623,
+      "stages": [
+        {
+          "hashMs": 1.5416999999999916,
+          "extractionMs": 0.03750000000002274,
+          "chunkingMs": 0.13759999999996353,
+          "mockEmbeddingMs": 11.39670000000001,
+          "mockIndexMs": 0.019099999999980355
+        },
+        {
+          "hashMs": 1.654799999999966,
+          "extractionMs": 0.01089999999999236,
+          "chunkingMs": 0.4404999999999859,
+          "mockEmbeddingMs": 11.091599999999971,
+          "mockIndexMs": 0.01670000000001437
+        },
+        {
+          "hashMs": 2.107400000000041,
+          "extractionMs": 0.014799999999979718,
+          "chunkingMs": 1.383700000000033,
+          "mockEmbeddingMs": 25.04820000000001,
+          "mockIndexMs": 0.06749999999999545
+        },
+        {
+          "hashMs": 0.2755000000000223,
+          "extractionMs": 0.04550000000000409,
+          "chunkingMs": 0.2862999999999829,
+          "mockEmbeddingMs": 15.105700000000013,
+          "mockIndexMs": 0.005400000000008731
+        },
+        {
+          "hashMs": 0.5609000000000037,
+          "extractionMs": 0.04470000000003438,
+          "chunkingMs": 0.8942000000000121,
+          "mockEmbeddingMs": 20.494000000000028,
+          "mockIndexMs": 0.022899999999992815
+        },
+        {
+          "hashMs": 1.335300000000018,
+          "extractionMs": 0.066599999999994,
+          "chunkingMs": 0.14030000000002474,
+          "mockEmbeddingMs": 5.975500000000011,
+          "mockIndexMs": 0.004099999999993997
+        },
+        {
+          "hashMs": 1.70210000000003,
+          "extractionMs": 0.033999999999991815,
+          "chunkingMs": 1.9784999999999968,
+          "mockEmbeddingMs": 15.996099999999956,
+          "mockIndexMs": 0.03120000000001255
+        },
+        {
+          "hashMs": 0.27549999999996544,
+          "extractionMs": 0.039600000000007185,
+          "chunkingMs": 0.6400999999999613,
+          "mockEmbeddingMs": 12.2534,
+          "mockIndexMs": 0.0049999999999954525
+        },
+        {
+          "hashMs": 0.14510000000001355,
+          "extractionMs": 0.039499999999975444,
+          "chunkingMs": 1.6293000000000006,
+          "mockEmbeddingMs": 25.299800000000005,
+          "mockIndexMs": 0.06550000000004275
+        },
+        {
+          "hashMs": 2.027300000000025,
+          "extractionMs": 0.04410000000001446,
+          "chunkingMs": 0.12950000000000728,
+          "mockEmbeddingMs": 13.062600000000032,
+          "mockIndexMs": 0.0036000000000058208
+        },
+        {
+          "hashMs": 2.1691000000000145,
+          "extractionMs": 0.010499999999979082,
+          "chunkingMs": 0.4076000000000022,
+          "mockEmbeddingMs": 28.763500000000022,
+          "mockIndexMs": 0.03500000000002501
+        },
+        {
+          "hashMs": 0.37259999999997717,
+          "extractionMs": 0.05629999999996471,
+          "chunkingMs": 1.9337999999999624,
+          "mockEmbeddingMs": 15.82650000000001,
+          "mockIndexMs": 0.026600000000030377
+        },
+        {
+          "hashMs": 2.258800000000008,
+          "extractionMs": 0.04349999999999454,
+          "chunkingMs": 0.07580000000001519,
+          "mockEmbeddingMs": 30.668000000000006,
+          "mockIndexMs": 0.016400000000032833
+        },
+        {
+          "hashMs": 2.776999999999987,
+          "extractionMs": 0.03870000000000573,
+          "chunkingMs": 0.40699999999998226,
+          "mockEmbeddingMs": 13.837199999999996,
+          "mockIndexMs": 0.01659999999998263
+        },
+        {
+          "hashMs": 1.425200000000018,
+          "extractionMs": 0.018600000000049022,
+          "chunkingMs": 1.3625999999999863,
+          "mockEmbeddingMs": 28.531900000000007,
+          "mockIndexMs": 0.04079999999999018
+        },
+        {
+          "hashMs": 0.23610000000002174,
+          "extractionMs": 0.04259999999999309,
+          "chunkingMs": 0.20310000000000628,
+          "mockEmbeddingMs": 18.27510000000001,
+          "mockIndexMs": 0.016099999999994452
+        },
+        {
+          "hashMs": 0.339300000000037,
+          "extractionMs": 0.015500000000031378,
+          "chunkingMs": 0.8826000000000249,
+          "mockEmbeddingMs": 30.951900000000023,
+          "mockIndexMs": 0.0332000000000221
+        },
+        {
+          "hashMs": 0.11200000000002319,
+          "extractionMs": 0.061900000000036925,
+          "chunkingMs": 0.26660000000003947,
+          "mockEmbeddingMs": 15.677500000000009,
+          "mockIndexMs": 0.019400000000018736
+        },
+        {
+          "hashMs": 0.6432999999999538,
+          "extractionMs": 0.02580000000000382,
+          "chunkingMs": 1.2338000000000306,
+          "mockEmbeddingMs": 29.394000000000005,
+          "mockIndexMs": 0.06079999999997199
+        },
+        {
+          "hashMs": 0.39629999999999654,
+          "extractionMs": 0.11639999999999873,
+          "chunkingMs": 0.6999000000000137,
+          "mockEmbeddingMs": 14.221900000000005,
+          "mockIndexMs": 0.009000000000014552
+        }
+      ],
+      "uploadNetworkMs": null,
+      "liveEmbeddingMs": null,
+      "databaseIndexingMs": null,
+      "retrievalLatencyMs": null,
+      "firstTokenMs": null,
+      "fullAnswerMs": null,
+      "externalRequests": 0,
+      "externalCost": null
+    }
+  ]
+}
