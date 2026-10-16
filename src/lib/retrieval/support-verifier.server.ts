@@ -129,6 +129,8 @@ export async function verifyAnswerSupport(options: {
     report("cancelled");
     options.signal.throwIfAborted();
   }
+  if (process.env["QV_LOCAL_ONLY"] === "1")
+    return report("provider_unavailable", { finishReason: "zero-cost-ai-blocked" });
   const claims = checkEvidenceClaims(options.answer, options.sources);
   if (!claims) return report("evidence_insufficient");
   if (active >= 2) return report("provider_unavailable", { finishReason: "verifier-busy" });

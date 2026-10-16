@@ -1,5 +1,7 @@
 # Isolated Supabase release acceptance
 
+**Phase 5 override:** use [PHASE5_ZERO_COST_ACCEPTANCE.md](PHASE5_ZERO_COST_ACCEPTANCE.md). Hosted provisioning and paid resources are not authorized; local CLI/container downloads were declined. The prepared local workspace is the next acceptance target once explicitly approved. Hosted commands below are historical checklist options, not permission to execute them.
+
 Status: **not executed against a full Supabase environment**. The real disposable PostgreSQL tests verify SQL invariants, not hosted Auth, Storage, Vault, cron/net, signed-URL HTTP or scheduler behavior. No hosted project has been designated for this run. Complete every applicable item and retain sanitized evidence before requesting production approval.
 
 ## 1. Establish the boundary

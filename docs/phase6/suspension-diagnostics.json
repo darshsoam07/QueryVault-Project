@@ -1,0 +1,39 @@
+[
+  {
+    "event": "requestfailed",
+    "path": "/node_modules/@tanstack/react-start-client/dist/esm/index.js",
+    "error": "net::ERR_NETWORK_IO_SUSPENDED"
+  },
+  {
+    "event": "console",
+    "type": "error",
+    "message": "Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED"
+  },
+  {
+    "event": "pageerror",
+    "name": "TypeError",
+    "message": "Failed to fetch dynamically imported module: [url]"
+  },
+  {
+    "event": "requestfailed",
+    "path": "/node_modules/.vite/deps/react-dom_client.js",
+    "error": "net::ERR_NETWORK_IO_SUSPENDED"
+  },
+  {
+    "event": "console",
+    "type": "error",
+    "message": "Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED"
+  },
+  {
+    "event": "pending-requests",
+    "paths": [
+      "/node_modules/.vite/deps/@tanstack_router-core.js",
+      "/node_modules/.vite/deps/@tanstack_router-core_isServer.js",
+      "/node_modules/.vite/deps/@tanstack_history.js",
+      "/node_modules/.vite/deps/@tanstack_router-core_ssr_client.js",
+      "/node_modules/.vite/deps/seroval.js",
+      "/node_modules/.vite/deps/react-dom_client.js",
+      "/node_modules/@tanstack/react-start-client/dist/esm/index.js"
+    ]
+  }
+]

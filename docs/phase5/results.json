@@ -1,0 +1,30 @@
+{
+  "phase": 5,
+  "externalInferenceRequests": 0,
+  "externalEmbeddingRequests": 0,
+  "downloadsPerformed": false,
+  "unit": {
+    "passed": 550,
+    "skipped": 2
+  },
+  "typecheck": "passed",
+  "lint": {
+    "errors": 0,
+    "warnings": 14
+  },
+  "build": "passed",
+  "retrievalGate": "passed",
+  "deterministicSafetyChecks": 12,
+  "localSql": {
+    "passed": 13,
+    "authStorageHttpVerified": false
+  },
+  "playwright": {
+    "passed": 1,
+    "failed": 1,
+    "skipped": 1,
+    "failure": "saved-history hydration timeout before citation/scroll assertions"
+  },
+  "freeTierEligibility": "unverified",
+  "fullLocalSupabase": "blocked; downloads declined"
+}

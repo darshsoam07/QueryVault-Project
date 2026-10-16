@@ -1,0 +1,27 @@
+{
+  "unit": {
+    "passed": 559,
+    "skipped": 2
+  },
+  "typecheck": "passed",
+  "lint": {
+    "errors": 0,
+    "warnings": 14
+  },
+  "build": "passed",
+  "retrievalGate": "passed",
+  "safetyChecks": 12,
+  "clientSecretScan": "passed",
+  "playwright": {
+    "passed": 2,
+    "skipped": 1,
+    "durationSeconds": 27.8,
+    "scope": "local app with mocked Supabase HTTP; refresh/citations/2px anchor preserved"
+  },
+  "externalInferenceRequests": 0,
+  "externalEmbeddingRequests": 0,
+  "installations": 0,
+  "hostedWrites": 0,
+  "fullLocalSupabase": "blocked; no download approval",
+  "readiness": "BLOCKED for full live acceptance"
+}

@@ -46,6 +46,8 @@ function dedupKey(finding: ConfigFinding): string {
 
 function readEnv(): Record<string, string | undefined> {
   const names = [
+    "QV_LOCAL_ONLY",
+    "VITE_QV_LOCAL_ONLY",
     "VITE_SUPABASE_URL",
     "VITE_SUPABASE_PUBLISHABLE_KEY",
     "VITE_SUPABASE_PROJECT_ID",

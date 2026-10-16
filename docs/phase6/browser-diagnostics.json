@@ -1,0 +1,51 @@
+[
+  {
+    "event": "console",
+    "type": "info",
+    "message": "[perf] hydration complete in 9607ms {domContentLoadedMs: 4601}"
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/documents",
+    "status": 200
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/threads",
+    "status": 200
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/messages",
+    "status": 200
+  },
+  {
+    "event": "console",
+    "type": "info",
+    "message": "[perf] hydration complete in 1308ms {domContentLoadedMs: 209}"
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/documents",
+    "status": 200
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/threads",
+    "status": 200
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/messages",
+    "status": 200
+  },
+  {
+    "event": "response",
+    "path": "/rest/v1/messages",
+    "status": 200
+  },
+  {
+    "event": "pending-requests",
+    "paths": []
+  }
+]

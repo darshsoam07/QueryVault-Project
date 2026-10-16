@@ -50,7 +50,7 @@ export function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
     headers.set("apikey", supabaseKey);
     const localOnly =
-      import.meta.env["VITE_QV_LOCAL_ONLY"] === "1" ||
+      import.meta.env?.["VITE_QV_LOCAL_ONLY"] === "1" ||
       (typeof process !== "undefined" && process.env["QV_LOCAL_ONLY"] === "1");
     return (localOnly ? localOnlyFetch(fetch) : fetch)(input, { ...init, headers });
   };

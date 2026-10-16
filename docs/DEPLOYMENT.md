@@ -1,5 +1,7 @@
 # Deploying QueryVault
 
+**Current constraint: strict zero-cost only.** Paid plans, billing enablement, paid inference/fallback and cloud provisioning are prohibited. Use [PHASE5_ZERO_COST_ACCEPTANCE.md](PHASE5_ZERO_COST_ACCEPTANCE.md) as the current decision record; platform descriptions below are not authorization to purchase or deploy.
+
 This document is the operational contract for running QueryVault outside a developer
 laptop. It is written to be followed top to bottom on a fresh environment.
 

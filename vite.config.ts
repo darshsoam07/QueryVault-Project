@@ -35,6 +35,7 @@ function publicConfigGuard(): Plugin {
       const declared = (process.env["QV_ALLOW_PLACEHOLDER_CONFIG"] ?? "").trim().length > 0;
       const findings = validateSupabaseConfig(
         {
+          VITE_QV_LOCAL_ONLY: config.env["VITE_QV_LOCAL_ONLY"] as string | undefined,
           VITE_SUPABASE_URL: config.env["VITE_SUPABASE_URL"] as string | undefined,
           VITE_SUPABASE_PUBLISHABLE_KEY: config.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as
             string | undefined,

@@ -1,5 +1,7 @@
 # Phase 4 provider recovery and live acceptance
 
+Superseded for cost decisions by [PHASE5_ZERO_COST_ACCEPTANCE.md](PHASE5_ZERO_COST_ACCEPTANCE.md): strict zero-cost, no unverified inference, no hosted provisioning or downloads without approval. Historical live results below remain evidence, not current free-tier authorization.
+
 Verdict: **BLOCKED**. The configured model exists, but the live support-verification availability prerequisite failed. The owner confirmed that no isolated Supabase project or alternative Gemini model is designated/approved. Production and development Supabase resources were not modified. No push or deployment occurred.
 
 ## Confirmed configuration and compatibility

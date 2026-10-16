@@ -127,6 +127,8 @@ function roleOfKey(value: string | undefined): string | null {
 }
 
 export type SupabaseConfigInput = {
+  QV_LOCAL_ONLY?: string | undefined;
+  VITE_QV_LOCAL_ONLY?: string | undefined;
   VITE_SUPABASE_URL?: string | undefined;
   VITE_SUPABASE_PUBLISHABLE_KEY?: string | undefined;
   VITE_SUPABASE_PROJECT_ID?: string | undefined;
@@ -164,6 +166,21 @@ export function validateSupabaseConfig(
   tiers: ConfigTier[] = ["public", "server"],
 ): ConfigFinding[] {
   const findings: ConfigFinding[] = [];
+  const localOnly = input.QV_LOCAL_ONLY === "1" || input.VITE_QV_LOCAL_ONLY === "1";
+  const validUrl = (value: string) => {
+    if (!localOnly) return projectRefFromUrl(value) !== null;
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === "http:" &&
+        ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) &&
+        !url.username &&
+        !url.password
+      );
+    } catch {
+      return false;
+    }
+  };
   const checkPublic = tiers.includes("public");
   const checkServer = tiers.includes("server");
 
@@ -242,33 +259,42 @@ export function validateSupabaseConfig(
 
   if (checkPublic) {
     const url = usable("VITE_SUPABASE_URL");
-    if (url && projectRefFromUrl(url) === null) {
+    if (url && !validUrl(url)) {
       findings.push({
         severity: "error",
         code: "CONFIG_URL_INVALID",
         variables: ["VITE_SUPABASE_URL"],
-        message: "VITE_SUPABASE_URL is not a parseable https Supabase URL.",
+        message: localOnly
+          ? "VITE_SUPABASE_URL must be a credential-free loopback HTTP URL in local-only mode."
+          : "VITE_SUPABASE_URL is not a parseable https Supabase URL.",
       });
     }
-    addRef("VITE_SUPABASE_URL", projectRefFromUrl(url));
+    if (!localOnly) addRef("VITE_SUPABASE_URL", projectRefFromUrl(url));
     addRef("VITE_SUPABASE_PROJECT_ID", usable("VITE_SUPABASE_PROJECT_ID") ?? null);
-    addRef("VITE_SUPABASE_PUBLISHABLE_KEY", refOfKey(usable("VITE_SUPABASE_PUBLISHABLE_KEY")));
+    if (!localOnly)
+      addRef("VITE_SUPABASE_PUBLISHABLE_KEY", refOfKey(usable("VITE_SUPABASE_PUBLISHABLE_KEY")));
   }
 
   if (checkServer) {
     const url = usable("SUPABASE_URL");
-    if (url && projectRefFromUrl(url) === null) {
+    if (url && !validUrl(url)) {
       findings.push({
         severity: "error",
         code: "CONFIG_URL_INVALID",
         variables: ["SUPABASE_URL"],
-        message: "SUPABASE_URL is not a parseable https Supabase URL.",
+        message: localOnly
+          ? "SUPABASE_URL must be a credential-free loopback HTTP URL in local-only mode."
+          : "SUPABASE_URL is not a parseable https Supabase URL.",
       });
     }
-    addRef("SUPABASE_URL", projectRefFromUrl(url));
+    if (!localOnly) addRef("SUPABASE_URL", projectRefFromUrl(url));
     addRef("SUPABASE_PROJECT_ID", usable("SUPABASE_PROJECT_ID") ?? null);
-    addRef("SUPABASE_PUBLISHABLE_KEY", refOfKey(usable("SUPABASE_PUBLISHABLE_KEY")));
-    addRef("SUPABASE_SERVICE_ROLE_KEY", refOfKey(usable("SUPABASE_SERVICE_ROLE_KEY")));
+    // Local JWT refs name the local installation, not a hosted project. Keep
+    // role/secret and mirrored configuration checks above/below unchanged.
+    if (!localOnly) {
+      addRef("SUPABASE_PUBLISHABLE_KEY", refOfKey(usable("SUPABASE_PUBLISHABLE_KEY")));
+      addRef("SUPABASE_SERVICE_ROLE_KEY", refOfKey(usable("SUPABASE_SERVICE_ROLE_KEY")));
+    }
   }
 
   const distinct = [...new Set(refs.values())];

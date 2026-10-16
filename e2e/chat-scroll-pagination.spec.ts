@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { assertLoopbackHttpUrl } from "../src/lib/cost-policy";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -25,6 +26,9 @@ test.describe("Chat cursor pagination and scroll anchoring", () => {
       test.skip(true, "Supabase service role credentials not configured in environment.");
       return;
     }
+    // A flag or accidentally inherited hosted credential cannot authorize
+    // writes to production/development Supabase under the zero-cost workflow.
+    assertLoopbackHttpUrl(supabaseUrl);
 
     supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },

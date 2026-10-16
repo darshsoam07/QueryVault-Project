@@ -19,7 +19,7 @@ const database = `audit_${Date.now()}`;
 let ready = false;
 for (let attempt = 0; attempt < 20; attempt++) {
   try {
-    execFileSync("docker", ["exec", container, "pg_isready", "-U", "postgres"], {
+    execFileSync("docker", ["exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"], {
       stdio: "ignore",
       timeout: 2000,
     });
