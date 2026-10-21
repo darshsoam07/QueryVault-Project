@@ -95,7 +95,7 @@ async function mutateClaim(
       signal,
     ),
   );
-  if (error && ["PGRST202", "42883", "42703"].includes(error.code))
+  if (error && ["PGRST202", "PGRST203", "42883", "42703"].includes(error.code))
     throw permanent(
       "RPC_SCHEMA_MISMATCH",
       "Ingestion database schema is incompatible. An operator must verify the migrations before retrying.",

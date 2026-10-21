@@ -1,0 +1,35 @@
+{
+  "verdict": "PARTIAL",
+  "hostedSchemaInspected": false,
+  "productionRecoveryVerified": false,
+  "hostedWrites": 0,
+  "externalAIRequests": 0,
+  "downloads": 0,
+  "candidateAutomaticallyScheduled": false,
+  "unit": {
+    "passed": 592,
+    "skipped": 2,
+    "failed": 0
+  },
+  "targeted": {
+    "passed": 25
+  },
+  "database": {
+    "passed": 17,
+    "postgrestCacheVerified": false,
+    "authStorageHttpVerified": false
+  },
+  "typecheck": "passed",
+  "lint": {
+    "errors": 0,
+    "warnings": 14
+  },
+  "build": "passed",
+  "clientSecretViolations": 0,
+  "notRun": [
+    "Playwright",
+    "standalone RAG evaluation",
+    "hosted PostgREST/cache acceptance",
+    "live ingestion"
+  ]
+}

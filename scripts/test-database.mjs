@@ -100,6 +100,120 @@ try {
   console.log(
     "Applied core migrations to real local Postgres/pgvector; Supabase Auth/Storage schemas are test scaffolding; cron/net/Vault migration not tested.",
   );
+  const rpcCandidate = readFileSync(
+    "supabase/migrations/20261022000000_restore_ingestion_claim_rpc.sql",
+    "utf8",
+  );
+  const mutateIdentity =
+    "public.mutate_ingestion_claim(uuid,text,integer,jsonb,jsonb,jsonb,integer)";
+  await check(
+    "repair migration is a verified no-op for matching functions and restores a missing function",
+    async () => {
+      const before = await sql(
+        "SELECT md5(prosrc) FROM pg_proc WHERE oid='public.claim_ingestion_jobs(text,text,integer,integer,uuid)'::regprocedure;",
+      );
+      const existing = await sql(
+        `SELECT oid::text||':'||md5(prosrc)||':'||proacl::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+      );
+      await sql(rpcCandidate);
+      assert.equal(
+        await sql(
+          `SELECT oid::text||':'||md5(prosrc)||':'||proacl::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+        ),
+        existing,
+      );
+      await assert.rejects(
+        sql(
+          `BEGIN; DROP FUNCTION ${mutateIdentity}; ALTER TABLE public.documents RENAME COLUMN parser_version TO fixture_missing_parser; ${rpcCandidate}`,
+        ),
+        /incompatible columns/,
+      );
+      await assert.rejects(
+        sql(
+          `BEGIN; DROP FUNCTION ${mutateIdentity}; CREATE FUNCTION public.mutate_ingestion_claim(uuid) RETURNS boolean LANGUAGE sql AS 'SELECT false'; ${rpcCandidate}`,
+        ),
+        /differs or has overloads/,
+      );
+      await sql(`DROP FUNCTION ${mutateIdentity};`);
+      await assert.rejects(
+        sql(`BEGIN; GRANT CREATE ON SCHEMA public TO authenticated; ${rpcCandidate}`),
+        /untrusted CREATE/,
+      );
+      await sql(rpcCandidate);
+      assert.equal(
+        await sql(
+          `SELECT proargnames::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+        ),
+        "{job_id,claim_worker,claim_attempt,document_patch,chunk_rows,job_patch,prune_max_index}",
+      );
+      assert.equal(
+        await sql(
+          `SELECT proconfig::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+        ),
+        '{"search_path=pg_catalog, public, pg_temp"}',
+      );
+      const restoredIdentity = await sql(
+        `SELECT oid::text||':'||proacl::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+      );
+      await sql(rpcCandidate);
+      assert.equal(
+        await sql(
+          `SELECT oid::text||':'||proacl::text FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+        ),
+        restoredIdentity,
+      );
+      assert.equal(
+        await sql(
+          "SELECT md5(prosrc) FROM pg_proc WHERE oid='public.claim_ingestion_jobs(text,text,integer,integer,uuid)'::regprocedure;",
+        ),
+        before,
+      );
+      assert.equal(
+        await sql(
+          `SELECT pronargdefaults FROM pg_proc WHERE oid='${mutateIdentity}'::regprocedure;`,
+        ),
+        "4",
+      );
+      assert.equal(
+        await sql(
+          `SET ROLE service_role; SELECT public.mutate_ingestion_claim('${doc(999)}', 'fixture', 1);`,
+        ),
+        "f",
+      );
+      await assert.rejects(
+        sql(`SET ROLE anon; SELECT public.mutate_ingestion_claim('${doc(999)}', 'fixture', 1);`),
+        /permission denied/,
+      );
+      await assert.rejects(
+        sql(
+          `SET ROLE authenticated; SELECT public.mutate_ingestion_claim('${doc(999)}', 'fixture', 1);`,
+        ),
+        /permission denied/,
+      );
+      assert.equal(
+        await sql(
+          "SELECT count(*) FROM pg_class WHERE oid IN ('public.documents'::regclass,'public.ingestion_jobs'::regclass,'public.document_chunks'::regclass) AND relrowsecurity;",
+        ),
+        "3",
+      );
+    },
+  );
+  await check(
+    "read-only hosted catalog diagnostics execute without invoking ingestion RPCs",
+    async () => {
+      await sql(
+        readFileSync("docs/sql/ingestion_rpc_read_only_diagnostics.sql", "utf8").split(
+          "-- Run this separate block",
+        )[0],
+      );
+    },
+  );
+  await check(
+    "restoration verification SQL is read-only and runs against the restored interface",
+    async () => {
+      await sql(readFileSync("docs/sql/verify_restored_ingestion_claim_rpc.sql", "utf8"));
+    },
+  );
   await sql(
     `INSERT INTO auth.users(id,email) VALUES('${user}','owner@example.test'),('${foreign}','other@example.test');`,
   );
@@ -147,6 +261,56 @@ try {
   );
   const mutate = (worker, attempt, patch = {}, rows = [], jobPatch = {}, prune = null) =>
     `SELECT public.mutate_ingestion_claim('${claim.id}','${worker}',${attempt},'${JSON.stringify(patch)}'::jsonb,'${JSON.stringify(rows)}'::jsonb,'${JSON.stringify(jobPatch)}'::jsonb,${prune ?? "NULL"});`;
+  await check(
+    "restoration preserves every existing fixture document, job and chunk row",
+    async () => {
+      const snapshot = ["documents", "ingestion_jobs", "document_chunks"]
+        .map(
+          (table) =>
+            `SELECT md5(coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id)::text,'')) FROM public.${table} r`,
+        )
+        .join(" UNION ALL ");
+      const before = await sql(snapshot);
+      await sql(`DROP FUNCTION ${mutateIdentity};`);
+      await sql(rpcCandidate);
+      assert.equal(await sql(snapshot), before);
+    },
+  );
+  await check("restored RPC persists first validation and atomic failure recording", async () => {
+    assert.equal(
+      await sql(
+        `BEGIN; ${mutate(claim.locked_by, claim.attempt_count, { status: "validating", phase: "validating", progress: 10 })} SELECT status||':'||progress FROM public.documents WHERE id='${claim.document_id}'; ROLLBACK;`,
+      ),
+      "t\nvalidating:10",
+    );
+    assert.equal(
+      await sql(
+        `BEGIN; ${mutate(claim.locked_by, claim.attempt_count, { status: "failed", phase: "failed", failure_code: "FIXTURE_FAILURE" }, [], { status: "failed", error_code: "FIXTURE_FAILURE", locked_at: null, locked_by: null })} SELECT j.status||':'||d.status||':'||j.error_code FROM public.ingestion_jobs j JOIN public.documents d ON d.id=j.document_id WHERE j.id='${claim.id}'; ROLLBACK;`,
+      ),
+      "t\nfailed:failed:FIXTURE_FAILURE",
+    );
+  });
+  await check(
+    "PostgreSQL distinguishes missing function from missing column in a live RPC body",
+    async () => {
+      await assert.rejects(
+        sql(
+          `\\set VERBOSITY verbose\nBEGIN; DROP FUNCTION ${mutateIdentity}; ${mutate(claim.locked_by, claim.attempt_count, { phase: "validating" })} ROLLBACK;`,
+        ),
+        /42883/,
+      );
+      await assert.rejects(
+        sql(
+          `\\set VERBOSITY verbose\nBEGIN; ALTER TABLE public.documents RENAME COLUMN parser_version TO fixture_removed_parser_version; ${mutate(claim.locked_by, claim.attempt_count, { phase: "validating" })} ROLLBACK;`,
+        ),
+        /42703/,
+      );
+      assert.equal(
+        await sql(`SELECT status FROM public.documents WHERE id='${claim.document_id}';`),
+        "uploaded",
+      );
+    },
+  );
   await check("expired lease recovery fences stale finalization", async () => {
     // Model termination immediately after claiming, before the first phase write.
     assert.equal(

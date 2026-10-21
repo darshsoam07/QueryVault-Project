@@ -81,6 +81,15 @@ const fixture = vi.hoisted(() => {
       if (faults.mode === "vector_rejected" && ((args["chunk_rows"] ?? []) as unknown[]).length > 0)
         return { data: false, error: null };
       if (faults.mode === "schema_mismatch") return { data: null, error: { code: "PGRST202" } };
+      if (faults.mode.startsWith("schema_code_"))
+        return {
+          data: null,
+          error: {
+            code: faults.mode.slice("schema_code_".length),
+            message: "private synthetic error must not be logged",
+            details: "private details",
+          },
+        };
       if (faults.mode === "phase_write_hang" && patch?.["phase"] === "validating")
         return new Promise<never>(() => {});
       if (faults.mode === "persist_error") return { data: null, error: { code: "08006" } };
@@ -271,21 +280,45 @@ describe("concurrent durable worker orchestration (mocked storage, database and 
     });
     expect(fixture.chunks.size).toBe(0);
   });
-  it("identifies a missing RPC without pretending the failure was persisted", async () => {
-    seed(1);
-    fixture.faults.mode = "schema_mismatch";
-    const result = await drainIngestionJobs({ maxJobs: 1 });
-    expect(result.unconfirmed).toBe(1);
-    expect(result.failed).toBe(0);
-    expect(fixture.faults.logs).toEqual(
-      expect.arrayContaining([
-        {
-          event: "worker.failure_recording_deferred",
-          fields: expect.objectContaining({ original_error_code: "RPC_SCHEMA_MISMATCH" }),
-        },
-      ]),
-    );
-  });
+  it.each(["PGRST202", "PGRST203", "42883", "42703"])(
+    "identifies %s without pretending the failure was persisted",
+    async (code) => {
+      seed(1);
+      fixture.faults.mode = `schema_code_${code}`;
+      const result = await drainIngestionJobs({ maxJobs: 1 });
+      expect(result.unconfirmed).toBe(1);
+      expect(result.failed).toBe(0);
+      expect(result.succeeded).toBe(0);
+      for (const stage of ["phase_write.validating", "record_failure"]) {
+        expect(fixture.faults.logs).toEqual(
+          expect.arrayContaining([
+            {
+              event: "worker.stage",
+              fields: expect.objectContaining({ stage, outcome: "failed", error_code: code }),
+            },
+          ]),
+        );
+        expect(
+          fixture.faults.logs.some(
+            (log) =>
+              log.event === "worker.stage" &&
+              log.fields["stage"] === stage &&
+              log.fields["outcome"] === "completed",
+          ),
+        ).toBe(false);
+      }
+      expect(JSON.stringify(fixture.faults.logs)).not.toContain("private");
+      expect(fixture.chunks.size).toBe(0);
+      expect(fixture.faults.logs).toEqual(
+        expect.arrayContaining([
+          {
+            event: "worker.failure_recording_deferred",
+            fields: expect.objectContaining({ original_error_code: "RPC_SCHEMA_MISMATCH" }),
+          },
+        ]),
+      );
+    },
+  );
   it.each([
     ["phase_write_hang", 15001, "phase_write.validating"],
     ["storage_hang", 30001, "storage_download"],

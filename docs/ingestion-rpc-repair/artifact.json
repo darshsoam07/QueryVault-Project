@@ -1,0 +1,15 @@
+{
+  "migration": "supabase/migrations/20261022000000_restore_ingestion_claim_rpc.sql",
+  "sha256": "f9aef2d1d6e64d08a87243b5f29d96d0f60f64a153fb760996537e3b09131dd5",
+  "date": "2026-10-22",
+  "productionApplied": false,
+  "ownerApprovalRequired": true,
+  "changes": [
+    "Create missing mutate_ingestion_claim",
+    "Revoke PUBLIC/anon/authenticated execution",
+    "Grant service_role execution",
+    "Transactional PostgREST cache notification"
+  ],
+  "existingMatchingFunction": "verified no-op",
+  "dataMutations": 0
+}

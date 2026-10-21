@@ -1,0 +1,47 @@
+{
+  "documents": {
+    "id": "uuid",
+    "user_id": "uuid",
+    "status": "text",
+    "phase": "text",
+    "progress": "integer",
+    "chunk_count": "integer",
+    "page_count": "integer",
+    "storage_path": "text",
+    "byte_size": "bigint",
+    "parser_version": "integer",
+    "chunking_version": "integer",
+    "embedding_model": "text",
+    "embedding_dimension": "integer",
+    "completed_at": "timestamp with time zone",
+    "failure_code": "text",
+    "failure_message": "text",
+    "error_message": "text"
+  },
+  "ingestion_jobs": {
+    "id": "uuid",
+    "document_id": "uuid",
+    "user_id": "uuid",
+    "status": "text",
+    "attempt_count": "integer",
+    "max_attempts": "integer",
+    "locked_at": "timestamp with time zone",
+    "locked_by": "text",
+    "available_at": "timestamp with time zone",
+    "completed_at": "timestamp with time zone",
+    "error_code": "text",
+    "error_message": "text"
+  },
+  "document_chunks": {
+    "id": "uuid",
+    "document_id": "uuid",
+    "user_id": "uuid",
+    "content": "text",
+    "page_number": "integer",
+    "chunk_index": "integer",
+    "token_estimate": "integer",
+    "embedding": "halfvec(3072)",
+    "chunking_version": "integer",
+    "embedding_model": "text"
+  }
+}

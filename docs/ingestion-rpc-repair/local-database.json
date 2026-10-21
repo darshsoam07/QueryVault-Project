@@ -1,0 +1,113 @@
+{
+  "database": "audit_1792608139468",
+  "postgres": "local Docker pgvector pg17",
+  "serverVersion": "17.11 (Debian 17.11-1.pgdg12+2)",
+  "vectorVersion": "0.8.7",
+  "imageId": "sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d",
+  "sqlOperations": 130,
+  "image": "pgvector/pgvector:pg17",
+  "schedulerVerified": false,
+  "authStorageHttpVerified": false,
+  "reports": [
+    {
+      "name": "repair migration is a verified no-op for matching functions and restores a missing function",
+      "passed": true,
+      "durationMs": 7680
+    },
+    {
+      "name": "read-only hosted catalog diagnostics execute without invoking ingestion RPCs",
+      "passed": true,
+      "durationMs": 309
+    },
+    {
+      "name": "restoration verification SQL is read-only and runs against the restored interface",
+      "passed": true,
+      "durationMs": 308
+    },
+    {
+      "name": "atomic simultaneous upload admission",
+      "passed": true,
+      "durationMs": 1809
+    },
+    {
+      "name": "20 reservations and owner scoped duplicate constraint",
+      "passed": true,
+      "durationMs": 2053
+    },
+    {
+      "name": "overlapping workers share global capacity and do not duplicate live claims",
+      "passed": true,
+      "durationMs": 845
+    },
+    {
+      "name": "restoration preserves every existing fixture document, job and chunk row",
+      "passed": true,
+      "durationMs": 1701
+    },
+    {
+      "name": "restored RPC persists first validation and atomic failure recording",
+      "passed": true,
+      "durationMs": 873
+    },
+    {
+      "name": "PostgreSQL distinguishes missing function from missing column in a live RPC body",
+      "passed": true,
+      "durationMs": 1268
+    },
+    {
+      "name": "expired lease recovery fences stale finalization",
+      "passed": true,
+      "durationMs": 3437
+    },
+    {
+      "name": "fenced idempotent version replacement and complete READY publication",
+      "passed": true,
+      "durationMs": 2501
+    },
+    {
+      "name": "completed claim cannot publish READY twice or renew its lease",
+      "passed": true,
+      "durationMs": 1623
+    },
+    {
+      "name": "dense/lexical queries enforce model, published version, ownership and empty scope before ranking",
+      "passed": true,
+      "durationMs": 3108
+    },
+    {
+      "name": "reindex admission is atomic and READY becomes non-searchable",
+      "passed": true,
+      "durationMs": 2028
+    },
+    {
+      "name": "RLS and service-role retrieval do not broaden scope",
+      "passed": true,
+      "durationMs": 1647
+    },
+    {
+      "name": "direct browser storage writes require an admitted reservation",
+      "passed": true,
+      "durationMs": 758
+    },
+    {
+      "name": "missing limits and null leases fail closed",
+      "passed": true,
+      "durationMs": 1954
+    },
+    {
+      "name": "lease expiry while waiting for a document lock cannot publish",
+      "passed": true,
+      "durationMs": 3202
+    },
+    {
+      "name": "crash recovery stops after the configured attempt budget",
+      "passed": true,
+      "durationMs": 1651
+    },
+    {
+      "name": "deleting a claimed document prevents any new chunks",
+      "passed": true,
+      "durationMs": 1587
+    }
+  ]
+}

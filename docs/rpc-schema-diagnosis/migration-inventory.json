@@ -1,0 +1,149 @@
+[
+  {
+    "migration": "20260814130517_796d00bc-92d6-460e-a45a-3a54b7a6f492.sql",
+    "sha256": "f004afa3c915f4f49eb020a40e96b96baabcc220990f8974f1de39f517d29a18",
+    "objects": [
+      "documents",
+      "document_chunks"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814130616_f103b815-8c33-4023-b69c-5041ebe690dc.sql",
+    "sha256": "94360026e795305d0112f1dfb7b00be4d1bcf39c520522cd79405aa5bd2a408e",
+    "objects": [
+      "documents"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814140015_3869a9d7-8a6c-470c-ab59-42906162d762.sql",
+    "sha256": "2e360c3b3c776949383055fb8aae31c8171808764f9b332f8b5a79974076f3ed",
+    "objects": [
+      "documents",
+      "document_chunks"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814140649_650574de-6451-432c-8751-add3647bde5f.sql",
+    "sha256": "b8a4a5d16ac0297c494871a7cd33b2767cc1be037b0f89d308478b8f7b597b1a",
+    "objects": [
+      "documents"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814140933_a2178045-05a5-4044-85c0-b58e1682874d.sql",
+    "sha256": "a07d22908a1471618f025ea04b7115c09275943bffc8275b460cf769503c7dad",
+    "objects": [
+      "documents",
+      "document_chunks"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814141928_cccb7a84-a6be-4655-8bfe-a3767760aeee.sql",
+    "sha256": "0879fa78ca46722ee0fd747d7edcd40e42d5b69647f4409a46c87a3f125b4b8d",
+    "objects": [
+      "claim_ingestion_jobs",
+      "documents",
+      "ingestion_jobs",
+      "document_chunks"
+    ],
+    "functions": [
+      {
+        "name": "claim_ingestion_jobs",
+        "arguments": "worker_id text, worker_version text DEFAULT '1', max_jobs integer DEFAULT 1, lock_seconds integer DEFAULT 300, only_user_id uuid DEFAULT NULL",
+        "normalizedBodyMd5": "72c37521c04ac00ea72c764f6ef82911"
+      }
+    ]
+  },
+  {
+    "migration": "20260814142729_b597f951-a84f-4a6d-839b-b03ae0d934c3.sql",
+    "sha256": "2abce004074faa09abcf26f06ff8159f2ea481cd5340501c8b9b61f8488d051d",
+    "objects": [
+      "ingestion_jobs"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260814145941_999de10b-ba3b-428c-966b-f1ce604ff581.sql",
+    "sha256": "45fe785f7b94d424e9182ddfd1e697b9f3316cb094ac580dd2d174f9a0face01",
+    "objects": [
+      "documents",
+      "document_chunks"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260820000000_provision_documents_bucket.sql",
+    "sha256": "e34c480ac7619884e554b575bb643b47c928690640c2089c9871c068d084e746",
+    "objects": [
+      "documents"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20260822000000_drop_redundant_fts_index.sql",
+    "sha256": "85ed48d7740721306a4025c90b10a722c8d7ffd3a668968cc7c9fc4020296223",
+    "objects": [
+      "document_chunks"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20261008000000_expand_document_formats.sql",
+    "sha256": "a320d4aed932e97ce2669ff0c3d240b3c44b62d1c0e04297794516a1e2b3962d",
+    "objects": [
+      "documents"
+    ],
+    "functions": []
+  },
+  {
+    "migration": "20261015000000_atomic_upload_admission.sql",
+    "sha256": "f2ddbd19182c3be5be622cd1a6ccebcf4e096751f83c7528d49d4f96d41f804e",
+    "objects": [
+      "mutate_ingestion_claim",
+      "claim_ingestion_jobs",
+      "documents",
+      "ingestion_jobs",
+      "document_chunks"
+    ],
+    "functions": [
+      {
+        "name": "claim_ingestion_jobs",
+        "arguments": "worker_id text, worker_version text DEFAULT '1', max_jobs integer DEFAULT 1, lock_seconds integer DEFAULT 300, only_user_id uuid DEFAULT NULL",
+        "normalizedBodyMd5": "088fb8da8e857320d18a309bbfd13bc7"
+      },
+      {
+        "name": "mutate_ingestion_claim",
+        "arguments": "job_id uuid, claim_worker text, claim_attempt integer, document_patch jsonb DEFAULT '{}'::jsonb, chunk_rows jsonb DEFAULT '[]'::jsonb, job_patch jsonb DEFAULT '{}'::jsonb, prune_max_index integer DEFAULT NULL",
+        "normalizedBodyMd5": "ff4b9de00bca58471e68ab7bf8a32b0d"
+      }
+    ]
+  },
+  {
+    "migration": "20261015010000_production_hardening.sql",
+    "sha256": "b5ea1309ebe9a0699f3fbcac5fa13225391b0a2b7485c0410dad4d98fa940fe1",
+    "objects": [
+      "mutate_ingestion_claim",
+      "claim_ingestion_jobs",
+      "documents",
+      "ingestion_jobs",
+      "document_chunks"
+    ],
+    "functions": [
+      {
+        "name": "claim_ingestion_jobs",
+        "arguments": "worker_id text, worker_version text DEFAULT '1', max_jobs integer DEFAULT 1, lock_seconds integer DEFAULT 300, only_user_id uuid DEFAULT NULL",
+        "normalizedBodyMd5": "ed9ce2462646e7f703c7c8908728a52b"
+      },
+      {
+        "name": "mutate_ingestion_claim",
+        "arguments": "job_id uuid, claim_worker text, claim_attempt integer, document_patch jsonb DEFAULT '{}'::jsonb, chunk_rows jsonb DEFAULT '[]'::jsonb, job_patch jsonb DEFAULT '{}'::jsonb, prune_max_index integer DEFAULT NULL",
+        "normalizedBodyMd5": "93b4899cfcb6d12218ccd2ad5f92215a"
+      }
+    ]
+  }
+]
