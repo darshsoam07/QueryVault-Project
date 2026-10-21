@@ -18,6 +18,7 @@ import {
   getIngestionStatus,
 } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
+import { withDeadline, abortableDelay } from "@/lib/async-deadline";
 
 export type IngestStatus = {
   documentId: string;
@@ -31,6 +32,7 @@ export type IngestStatus = {
   reason: string | null;
   uploadDurationMs?: number;
   uploadPercent?: number;
+  refreshState?: "current" | "unavailable" | "timed_out" | "recovery_pending";
 };
 
 function toStatus(
@@ -56,7 +58,8 @@ function toStatus(
   };
 }
 
-const isPhase = (value: string): value is IngestionPhase => value in PHASE_LABELS;
+const isPhase = (value: string): value is IngestionPhase =>
+  Object.prototype.hasOwnProperty.call(PHASE_LABELS, value);
 
 export type UploadHandle = { documentId: string; jobId: string; uploadDurationMs?: number };
 
@@ -199,20 +202,40 @@ export async function pollIngestion(
 ): Promise<IngestStatus> {
   const intervalMs = options.intervalMs ?? 1500;
   const deadline = Date.now() + (options.timeoutMs ?? 10 * 60 * 1000);
+  let failures = 0;
+  let lastStatus = toStatus(
+    handle.documentId,
+    handle.jobId,
+    "queued",
+    "Queued for server-side indexing…",
+    null,
+    handle.uploadDurationMs,
+  );
 
   for (;;) {
     options.signal?.throwIfAborted();
     let snapshot: Awaited<ReturnType<typeof getIngestionStatus>>;
     try {
-      snapshot = await getIngestionStatus({ data: { documentId: handle.documentId } });
-    } catch {
-      return toStatus(
-        handle.documentId,
-        handle.jobId,
-        "queued",
-        "Status refresh stopped. Indexing continues in the knowledge base.",
+      snapshot = await withDeadline(
+        () => getIngestionStatus({ data: { documentId: handle.documentId } }),
+        Math.max(1, Math.min(25_000, deadline - Date.now())),
+        options.signal,
       );
+    } catch {
+      options.signal?.throwIfAborted();
+      failures++;
+      const retryRefresh = failures < 3 && Date.now() < deadline;
+      const status: IngestStatus = {
+        ...lastStatus,
+        refreshState: "unavailable",
+        detail: `Status unavailable; last confirmed phase: ${lastStatus.label}. ${retryRefresh ? "Retrying status refresh." : "Refresh the knowledge base to check current progress."}`,
+      };
+      onStatus(status);
+      if (!retryRefresh) return status;
+      await abortableDelay(intervalMs, options.signal);
+      continue;
     }
+    failures = 0;
 
     const { document, job } = snapshot;
     const phase: IngestionPhase = isPhase(document.phase) ? document.phase : "queued";
@@ -249,30 +272,42 @@ export async function pollIngestion(
       return status;
     }
 
-    onStatus(
-      toStatus(
+    lastStatus = {
+      ...toStatus(
         handle.documentId,
         job?.id ?? handle.jobId,
         phase,
         job?.status === "retrying"
           ? `Retrying after a transient failure (attempt ${job.attempt_count})…`
-          : `${PHASE_LABELS[phase]}…`,
+          : job?.status === "running" && phase === "queued"
+            ? "Worker started; waiting for the next confirmed processing phase."
+            : `${PHASE_LABELS[phase]}…`,
         reason,
         handle.uploadDurationMs,
       ),
-    );
+      refreshState: "current",
+    };
+    if (snapshot.leaseState === "expired" && job?.status === "running") {
+      lastStatus = {
+        ...lastStatus,
+        label: "Recovery pending",
+        detail:
+          "Worker lease expired; waiting for an authorized worker to reclaim this job. No indexing completion is confirmed.",
+        refreshState: "recovery_pending",
+      };
+    }
+    onStatus(lastStatus);
 
     if (Date.now() > deadline) {
-      return toStatus(
-        handle.documentId,
-        job?.id ?? handle.jobId,
-        "queued",
-        "Indexing is taking longer than expected. It will continue in the background.",
-        null,
-        handle.uploadDurationMs,
-      );
+      const status: IngestStatus = {
+        ...lastStatus,
+        refreshState: "timed_out",
+        detail: `Status monitoring reached its time limit; last confirmed phase: ${lastStatus.label}. Check the knowledge base for current state.`,
+      };
+      onStatus(status);
+      return status;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    await abortableDelay(intervalMs, options.signal);
   }
 }

@@ -14,7 +14,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fromQueryError, userMessage } from "@/lib/client-errors";
 import { deleteDocument, reindexDocument } from "@/lib/documents.functions";
 import { PHASE_LABELS, phaseProgress, type IngestionPhase } from "@/lib/ingestion/contract";
-import { pollIngestion, uploadAndEnqueue } from "@/lib/ingest";
+import { pollIngestion, uploadAndEnqueue, type IngestStatus } from "@/lib/ingest";
+import { withDeadline, withRequestSignal } from "@/lib/async-deadline";
+import { ingestionLeaseState } from "@/lib/ingestion/lease";
 
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -35,21 +37,37 @@ export type DocumentRow = {
   failure_message: string | null;
   failure_code?: string | null;
   parser_version?: number;
+  leaseState?: ReturnType<typeof ingestionLeaseState>;
 };
 
 export function useDocuments(userId: string | undefined) {
   return useQuery({
     queryKey: ["documents", userId],
     enabled: Boolean(userId),
-    queryFn: async (): Promise<DocumentRow[]> => {
-      const { data, error } = await supabase
-        .from("documents")
-        .select(
-          "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message, failure_code, parser_version",
-        )
-        .order("created_at", { ascending: false });
+    queryFn: async ({ signal }): Promise<DocumentRow[]> => {
+      const { data, error } = await withDeadline(
+        (requestSignal) =>
+          withRequestSignal(
+            supabase
+              .from("documents")
+              .select(
+                "id, filename, status, phase, progress, chunk_count, page_count, byte_size, error_message, failure_message, failure_code, parser_version, ingestion_jobs(status, locked_at)",
+              )
+              .eq("user_id", userId!)
+              .eq("ingestion_jobs.status", "running")
+              .order("created_at", { ascending: false }),
+            requestSignal,
+          ),
+        10_000,
+        signal,
+      );
       if (error) throw fromQueryError(error, "Could not load your documents.");
-      return data ?? [];
+      // Left embedding keeps documents without a running job. The partial
+      // unique live-job index limits this relationship to at most one row.
+      return (data ?? []).map((row) => ({
+        ...row,
+        leaseState: ingestionLeaseState(row.ingestion_jobs?.[0] ?? null),
+      }));
     },
     // While anything is mid-pipeline, follow the real server phases.
     refetchInterval: (query) =>
@@ -72,6 +90,12 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function observedProgress(status: IngestStatus): number | undefined {
+  return status.refreshState && status.refreshState !== "current"
+    ? undefined
+    : (status.uploadPercent ?? (status.step / status.totalSteps) * 100);
 }
 
 /**
@@ -124,7 +148,7 @@ export function KnowledgePanel({
   onToggleSelected: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const { data: documents = [], isLoading } = useDocuments(userId);
+  const { data: documents = [], isLoading, isError, refetch } = useDocuments(userId);
   const [dragging, setDragging] = useState(false);
   const scheduler = useRef(new UploadQueue(3));
   const fileIds = useRef(new WeakMap<File, string>());
@@ -178,7 +202,7 @@ export function KnowledgePanel({
                     detail: status.detail,
                     failed: status.failed,
                     controller,
-                    percent: status.uploadPercent ?? (status.step / status.totalSteps) * 100,
+                    percent: observedProgress(status),
                     phase: status.phase,
                     documentId: status.documentId,
                   },
@@ -197,7 +221,7 @@ export function KnowledgePanel({
               detail: status.detail,
               failed: status.failed,
               controller,
-              percent: status.uploadPercent ?? (status.step / status.totalSteps) * 100,
+              percent: observedProgress(status),
               phase: status.phase,
               documentId: status.documentId,
             },
@@ -350,6 +374,14 @@ export function KnowledgePanel({
       </div>
 
       {/* ── Upload progress ── */}
+      {isError && (
+        <div role="alert" className="text-xs text-destructive">
+          Document status could not be refreshed. Displayed phases may be out of date.
+          <Button size="sm" variant="ghost" onClick={() => void refetch()}>
+            Refresh status
+          </Button>
+        </div>
+      )}
       {/* ── Section header ── */}
       {Object.keys(outcomes).length > 0 && (
         <div className="max-h-48 space-y-2 overflow-auto text-xs" aria-live="polite">
@@ -388,7 +420,7 @@ export function KnowledgePanel({
                                 detail: status.detail,
                                 failed: status.failed,
                                 phase: status.phase,
-                                percent: (status.step / status.totalSteps) * 100,
+                                percent: observedProgress(status),
                               },
                             })),
                           );
@@ -481,6 +513,10 @@ export function KnowledgePanel({
                     <span className="mt-1 flex flex-wrap items-center gap-1.5">
                       {needsReindex ? (
                         <Badge variant="outline">Reindex required</Badge>
+                      ) : doc.leaseState === "expired" &&
+                        doc.status !== "ready" &&
+                        doc.status !== "failed" ? (
+                        <Badge variant="outline">Recovery pending</Badge>
                       ) : (
                         <StatusBadge status={doc.status} phase={doc.phase} />
                       )}
@@ -492,7 +528,9 @@ export function KnowledgePanel({
                       )}
                       {isProcessing && (
                         <span className="font-mono text-[10px] text-muted-foreground">
-                          step {phaseStep(doc.phase)}
+                          {doc.leaseState === "expired"
+                            ? "Worker lease expired; waiting for recovery"
+                            : `step ${phaseStep(doc.phase)}`}
                         </span>
                       )}
                       {isFailed && (

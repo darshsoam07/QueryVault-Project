@@ -27,7 +27,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const order = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: () => ({ select: () => ({ order: (...a: unknown[]) => order(...a) }) }),
+    from: () => ({
+      select: () => {
+        const builder = {
+          eq: (..._args: unknown[]) => builder,
+          order: (...a: unknown[]) => order(...a),
+        };
+        return builder;
+      },
+    }),
   },
 }));
 
@@ -127,6 +135,25 @@ afterEach(cleanup);
 // ---------------------------------------------------------------------------
 
 describe("knowledge base list", () => {
+  it("shows an interrupted lease after remount using persisted job metadata", async () => {
+    const row = doc({ status: "uploaded", phase: "queued", progress: 5, chunk_count: 0 });
+    order.mockResolvedValueOnce({
+      data: [
+        {
+          ...row,
+          ingestion_jobs: [
+            { status: "running", locked_at: new Date(Date.now() - 1073000).toISOString() },
+          ],
+        },
+      ],
+      error: null,
+    });
+    renderPanel([row]);
+    expect(await screen.findByText("Recovery pending")).toBeTruthy();
+    expect(screen.getByText("Worker lease expired; waiting for recovery")).toBeTruthy();
+    expect(screen.queryByText(/step \d+\/\d+/)).toBeNull();
+    expect(runIngestionWorker).not.toHaveBeenCalled();
+  });
   it("guides the user when there are no documents yet", async () => {
     renderPanel([]);
     expect(await screen.findByText(/No documents yet/i)).toBeTruthy();
@@ -380,6 +407,28 @@ describe("retry flow", () => {
 });
 
 describe("multi-document selection", () => {
+  it("shows a refresh error without changing database ingestion state and permits a read-only refresh", async () => {
+    order.mockResolvedValue({
+      data: null,
+      error: { message: "network unavailable", code: "08006" },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(["documents", USER], [doc({ status: "processing", phase: "embedding" })]);
+    render(
+      <QueryClientProvider client={client}>
+        <KnowledgePanel userId={USER} selected={[]} onToggleSelected={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Document status could not be refreshed",
+    );
+    expect(screen.getByText(/Embedding/)).toBeTruthy();
+    order.mockResolvedValue({ data: [doc()], error: null });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh status" }));
+    await screen.findByText("Ready");
+    expect(reindexDocument).not.toHaveBeenCalled();
+    expect(runIngestionWorker).not.toHaveBeenCalled();
+  });
   it("queues ten same-name files independently and keeps selection available", async () => {
     const { container } = renderPanel([]);
     await screen.findByText(/No documents yet/i);

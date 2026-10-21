@@ -1,4 +1,5 @@
 import { UploadQueue } from "@/lib/upload-queue";
+import { INGESTION_LEASE_SECONDS } from "./lease";
 /**
  * Server-authoritative ingestion worker.
  *
@@ -43,13 +44,17 @@ import {
   type IngestionPhase,
 } from "./contract";
 import { enforceRateLimit, pruneExpiredRateLimits } from "@/lib/rate-limit.server";
+import { withDeadline, withRequestSignal } from "@/lib/async-deadline";
+import { workerStage, WORKER_DEADLINES, safeWorkerCode } from "./stage.server";
 
 type Admin = SupabaseClient<Database>;
 type Job = Database["public"]["Tables"]["ingestion_jobs"]["Row"];
 
-const LOCK_SECONDS = 300;
+const LOCK_SECONDS = INGESTION_LEASE_SECONDS;
 
-class JobCancelled extends Error {}
+class JobCancelled extends Error {
+  readonly code = "CLAIM_LOST";
+}
 
 async function admin(): Promise<Admin> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -64,18 +69,49 @@ async function mutateClaim(
   jobPatch: Record<string, unknown> = {},
   prune?: number,
 ): Promise<void> {
-  const { data, error } = await db.rpc("mutate_ingestion_claim", {
-    job_id: job.id,
-    claim_worker: job.locked_by!,
-    claim_attempt: job.attempt_count,
-    document_patch: JSON.parse(JSON.stringify(patch)),
-    chunk_rows: JSON.parse(JSON.stringify(chunks)),
-    job_patch: JSON.parse(JSON.stringify(jobPatch)),
-    ...(prune !== undefined ? { prune_max_index: prune } : {}),
-  });
+  const stage =
+    patch.status === "ready"
+      ? "publish_ready"
+      : chunks.length
+        ? "vector_write"
+        : jobPatch["status"] === "failed"
+          ? "record_failure"
+          : jobPatch["status"] === "retrying"
+            ? "record_retry"
+            : patch.phase
+              ? `phase_write.${patch.phase}`
+              : "claim_write";
+  const { data, error } = await workerStage(job, stage, WORKER_DEADLINES.database, (signal) =>
+    withRequestSignal(
+      db.rpc("mutate_ingestion_claim", {
+        job_id: job.id,
+        claim_worker: job.locked_by!,
+        claim_attempt: job.attempt_count,
+        document_patch: JSON.parse(JSON.stringify(patch)),
+        chunk_rows: JSON.parse(JSON.stringify(chunks)),
+        job_patch: JSON.parse(JSON.stringify(jobPatch)),
+        ...(prune !== undefined ? { prune_max_index: prune } : {}),
+      }),
+      signal,
+    ),
+  );
+  if (error && ["PGRST202", "42883", "42703"].includes(error.code))
+    throw permanent(
+      "RPC_SCHEMA_MISMATCH",
+      "Ingestion database schema is incompatible. An operator must verify the migrations before retrying.",
+    );
   if (error)
     throw dependency("CLAIM_WRITE_FAILED", "Storing ingestion state failed. Retrying shortly.");
-  if (!data) throw new JobCancelled("claim expired, replaced, or document removed");
+  if (!data) {
+    // false also covers rejected metadata/payloads, not just removed claims.
+    // Read errors remain failures; only an actually missing/replaced claim or
+    // document is cancellation. The failure write remains fenced by the RPC.
+    await assertLive(db, job);
+    throw dependency(
+      "CLAIM_WRITE_REJECTED",
+      "The fenced ingestion write was rejected. Verify lease and database metadata compatibility.",
+    );
+  }
 }
 async function setPhase(
   db: Admin,
@@ -88,12 +124,23 @@ async function setPhase(
 
 /** Moves `documents.status` along the legal path towards `target`. */
 async function advanceStatus(db: Admin, job: Job, target: "processing"): Promise<void> {
-  const { data: doc } = await db
-    .from("documents")
-    .select("status")
-    .eq("id", job.document_id)
-    .eq("user_id", job.user_id)
-    .maybeSingle();
+  const { data: doc, error } = await workerStage(
+    job,
+    "status_read",
+    WORKER_DEADLINES.database,
+    (signal) =>
+      withRequestSignal(
+        db
+          .from("documents")
+          .select("status")
+          .eq("id", job.document_id)
+          .eq("user_id", job.user_id)
+          .maybeSingle(),
+        signal,
+      ),
+  );
+  if (error)
+    throw dependency("DOCUMENT_READ_FAILED", "Could not read document state. Retrying shortly.");
   if (!doc) throw new JobCancelled("document removed");
   if (doc.status === "deleting") throw new JobCancelled("document is being deleted");
 
@@ -110,21 +157,46 @@ async function advanceStatus(db: Admin, job: Job, target: "processing"): Promise
 
 /** Throws if the document disappeared or entered deletion mid-run. */
 async function assertLive(db: Admin, job: Job): Promise<void> {
-  const { data: claim, error: claimError } = await db
-    .from("ingestion_jobs")
-    .select("id")
-    .eq("id", job.id)
-    .eq("status", "running")
-    .eq("locked_by", job.locked_by!)
-    .eq("attempt_count", job.attempt_count)
-    .maybeSingle();
-  if (claimError || !claim) throw new JobCancelled("claim expired or replaced");
-  const { data } = await db
-    .from("documents")
-    .select("status")
-    .eq("id", job.document_id)
-    .eq("user_id", job.user_id)
-    .maybeSingle();
+  const { data: claim, error: claimError } = await workerStage(
+    job,
+    "claim_read",
+    WORKER_DEADLINES.database,
+    (signal) =>
+      withRequestSignal(
+        db
+          .from("ingestion_jobs")
+          .select("id")
+          .eq("id", job.id)
+          .eq("status", "running")
+          .eq("locked_by", job.locked_by!)
+          .eq("attempt_count", job.attempt_count)
+          .maybeSingle(),
+        signal,
+      ),
+  );
+  if (claimError)
+    throw dependency(
+      "CLAIM_READ_FAILED",
+      "Could not verify ingestion ownership. Retrying shortly.",
+    );
+  if (!claim) throw new JobCancelled("claim expired or replaced");
+  const { data, error } = await workerStage(
+    job,
+    "document_live_read",
+    WORKER_DEADLINES.database,
+    (signal) =>
+      withRequestSignal(
+        db
+          .from("documents")
+          .select("status")
+          .eq("id", job.document_id)
+          .eq("user_id", job.user_id)
+          .maybeSingle(),
+        signal,
+      ),
+  );
+  if (error)
+    throw dependency("DOCUMENT_READ_FAILED", "Could not read document state. Retrying shortly.");
   if (!data) throw new JobCancelled("document removed");
   if (data.status === "deleting") throw new JobCancelled("document is being deleted");
 }
@@ -139,12 +211,17 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     byte_size: number;
     content_hash: string | null;
   } | null = null;
-  const primaryDoc = await db
-    .from("documents")
-    .select("filename, storage_path, content_type, byte_size, content_hash")
-    .eq("id", job.document_id)
-    .eq("user_id", job.user_id)
-    .maybeSingle();
+  const primaryDoc = await workerStage(job, "document_read", WORKER_DEADLINES.database, (signal) =>
+    withRequestSignal(
+      db
+        .from("documents")
+        .select("filename, storage_path, content_type, byte_size, content_hash")
+        .eq("id", job.document_id)
+        .eq("user_id", job.user_id)
+        .maybeSingle(),
+      signal,
+    ),
+  );
 
   if (primaryDoc.data) {
     document = primaryDoc.data;
@@ -155,14 +232,32 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       (typeof primaryDoc.error.message === "string" &&
         primaryDoc.error.message.includes("content_type")))
   ) {
-    const fallback = await db
-      .from("documents")
-      .select("filename, storage_path, byte_size, content_hash")
-      .eq("id", job.document_id)
-      .eq("user_id", job.user_id)
-      .maybeSingle();
+    const fallback = await workerStage(
+      job,
+      "document_read.compatibility",
+      WORKER_DEADLINES.database,
+      (signal) =>
+        withRequestSignal(
+          db
+            .from("documents")
+            .select("filename, storage_path, byte_size, content_hash")
+            .eq("id", job.document_id)
+            .eq("user_id", job.user_id)
+            .maybeSingle(),
+          signal,
+        ),
+    );
+    if (fallback.error)
+      throw dependency(
+        "DOCUMENT_READ_FAILED",
+        "Could not read the reserved document. Retrying shortly.",
+      );
     document = fallback.data ? { ...fallback.data, content_type: null } : null;
-  }
+  } else if (primaryDoc.error)
+    throw dependency(
+      "DOCUMENT_READ_FAILED",
+      "Could not read the reserved document. Retrying shortly.",
+    );
 
   if (!document) throw new JobCancelled("document removed");
   const storagePath =
@@ -181,11 +276,28 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   await assertLive(db, job);
   await setPhase(db, job, "validating", { progress: 10 });
 
-  const { data: blob, error: downloadError } = await db.storage
-    .from("documents")
-    .download(storagePath);
+  const { data: blob, error: downloadError } = await workerStage(
+    job,
+    "storage_download",
+    WORKER_DEADLINES.storage,
+    (signal) => db.storage.from("documents").download(storagePath, {}, { signal }),
+  );
   if (downloadError || !blob) {
-    throw permanent("MISSING_OBJECT", "The uploaded file could not be read. Upload it again.");
+    const code = downloadError
+      ? String(downloadError.status ?? downloadError.statusCode ?? "")
+      : "";
+    const storageCode = downloadError && "code" in downloadError ? downloadError.code : undefined;
+    if (code === "404" || storageCode === "NoSuchKey" || (!downloadError && !blob))
+      throw permanent("MISSING_OBJECT", "The uploaded file is missing. Upload it again.");
+    if (code === "401" || code === "403")
+      throw permanent(
+        "STORAGE_FORBIDDEN",
+        "Storage access was denied. An operator must verify the configuration.",
+      );
+    throw dependency(
+      "STORAGE_UNAVAILABLE",
+      "Storage could not return the uploaded file. Retrying shortly.",
+    );
   }
   if (blob.size < MIN_UPLOAD_BYTES) throw permanent("EMPTY_FILE", "That file is empty.");
   if (blob.size > MAX_UPLOAD_BYTES) {
@@ -202,8 +314,14 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
       "SIZE_MISMATCH",
       "The stored file size differs from the reserved upload. Remove it and upload again.",
     );
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  if (document.content_hash && (await sha256Hex(bytes)) !== document.content_hash)
+  const bytes = new Uint8Array(
+    await workerStage(job, "storage_body", WORKER_DEADLINES.local, () => blob.arrayBuffer()),
+  );
+  if (
+    document.content_hash &&
+    (await workerStage(job, "hash_validation", WORKER_DEADLINES.local, () => sha256Hex(bytes))) !==
+      document.content_hash
+  )
     throw permanent(
       "HASH_MISMATCH",
       "The stored file differs from the reserved upload. Remove it and upload again.",
@@ -219,7 +337,9 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   await assertLive(db, job);
   await setPhase(db, job, "parsing", { progress: 25 });
   const parseStart = Date.now();
-  const pages = await extractDocumentPages(bytes, document.filename);
+  const pages = await workerStage(job, "parse", WORKER_DEADLINES.parser, () =>
+    extractDocumentPages(bytes, document.filename),
+  );
   const parseDurationMs = Date.now() - parseStart;
   const textLength = pages.reduce((sum, page) => sum + page.text.trim().length, 0);
   if (textLength < 40) {
@@ -235,7 +355,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   const pageCount = pages.length || 1;
   if (textLength / pageCount < OCR_SUSPECT_CHARS_PER_PAGE && textLength < 500) {
     await mutateClaim(db, job, {
-      error_message: "OCR suspect: very little text per page � may be a scanned PDF",
+      error_message: "OCR suspect: very little text per page; may be a scanned PDF",
     });
     logEvent("warn", "worker.ocr_suspect", requestId, {
       document_id: job.document_id,
@@ -247,14 +367,18 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   await advanceStatus(db, job, "processing");
   await setPhase(db, job, "chunking", { progress: 40, page_count: pages.length });
   const chunkStart = Date.now();
-  const chunks = preparePageChunks(pages, CHUNK_SIZE, CHUNK_OVERLAP);
+  const chunks = await workerStage(job, "chunk", WORKER_DEADLINES.local, () =>
+    preparePageChunks(pages, CHUNK_SIZE, CHUNK_OVERLAP),
+  );
   const chunkDurationMs = Date.now() - chunkStart;
   if (chunks.length === 0) {
     throw permanent("NO_CHUNKS", "This document produced no usable text.");
   }
 
   // ---- embed + index ---------------------------------------------------
-  const provider = requireAiProvider();
+  const provider = await workerStage(job, "provider_configuration", WORKER_DEADLINES.local, () =>
+    requireAiProvider(),
+  );
   const batches = batchArray(chunks, EMBED_BATCH);
   let indexed = 0;
   let totalEmbedDurationMs = 0;
@@ -269,10 +393,15 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     let embeddings: number[][];
     const embedStart = Date.now();
     try {
-      await enforceRateLimit(job.user_id, "embed");
-      embeddings = await embedTexts(
-        batch.map((chunk) => chunk.content),
-        provider,
+      await workerStage(job, "embedding_admission", WORKER_DEADLINES.database, () =>
+        enforceRateLimit(job.user_id, "embed"),
+      );
+      embeddings = await workerStage(job, "embedding", WORKER_DEADLINES.embedding, (signal) =>
+        embedTexts(
+          batch.map((chunk) => chunk.content),
+          provider,
+          { signal },
+        ),
       );
     } catch (error) {
       throw classifyError(error);
@@ -280,19 +409,21 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
     totalEmbedDurationMs += Date.now() - embedStart;
 
     await setPhase(db, job, "indexing");
-    const rows = await Promise.all(
-      batch.map(async (chunk, i) => ({
-        id: await deterministicChunkId(job.document_id, CHUNKER_VERSION, chunk.index),
-        document_id: job.document_id,
-        user_id: job.user_id,
-        content: chunk.content,
-        page_number: chunk.page,
-        chunk_index: chunk.index,
-        token_estimate: Math.ceil(chunk.content.length / 4),
-        embedding: toVectorLiteral(embeddings[i]!),
-        chunking_version: CHUNKER_VERSION,
-        embedding_model: provider.embeddingModel,
-      })),
+    const rows = await workerStage(job, "vector_prepare", WORKER_DEADLINES.local, () =>
+      Promise.all(
+        batch.map(async (chunk, i) => ({
+          id: await deterministicChunkId(job.document_id, CHUNKER_VERSION, chunk.index),
+          document_id: job.document_id,
+          user_id: job.user_id,
+          content: chunk.content,
+          page_number: chunk.page,
+          chunk_index: chunk.index,
+          token_estimate: Math.ceil(chunk.content.length / 4),
+          embedding: toVectorLiteral(embeddings[i]!),
+          chunking_version: CHUNKER_VERSION,
+          embedding_model: provider.embeddingModel,
+        })),
+      ),
     );
 
     // Deterministic ids + upsert = a retried batch overwrites, never duplicates.
@@ -453,6 +584,7 @@ export type DrainResult = {
   failed: number;
   retrying: number;
   cancelled: number;
+  unconfirmed: number;
 };
 
 /**
@@ -466,7 +598,17 @@ export function drainIngestionJobs(options: {
   userId?: string;
   requestId?: string;
 }): Promise<DrainResult> {
-  return drainSlots.run(() => drainClaimedJobs(options));
+  const requestId = options.requestId ?? newRequestId();
+  const waitingSince = performance.now();
+  logEvent("info", "worker.drain_requested", requestId, {});
+  // Never release this slot by racing an uncancelled pipeline against a timer.
+  // Stage deadlines settle the pipeline before the next drain can claim work.
+  return drainSlots.run(() => {
+    logEvent("info", "worker.drain_started", requestId, {
+      wait_ms: Math.round(performance.now() - waitingSince),
+    });
+    return drainClaimedJobs({ ...options, requestId });
+  });
 }
 async function drainClaimedJobs(options: {
   maxJobs?: number;
@@ -475,7 +617,14 @@ async function drainClaimedJobs(options: {
 }): Promise<DrainResult> {
   const requestId = options.requestId ?? newRequestId();
   const db = await admin();
-  const result: DrainResult = { claimed: 0, succeeded: 0, failed: 0, retrying: 0, cancelled: 0 };
+  const result: DrainResult = {
+    claimed: 0,
+    succeeded: 0,
+    failed: 0,
+    retrying: 0,
+    cancelled: 0,
+    unconfirmed: 0,
+  };
 
   const defaultConcurrency = 3;
   const envConcurrency =
@@ -487,13 +636,33 @@ async function drainClaimedJobs(options: {
     Math.min(Number.isFinite(envConcurrency) ? envConcurrency : defaultConcurrency, 5),
   );
 
-  const { data: jobs, error } = await db.rpc("claim_ingestion_jobs", {
-    worker_id: `${WORKER_VERSION}:${requestId}`,
-    worker_version: WORKER_VERSION,
-    max_jobs: Math.max(1, Math.min(options.maxJobs ?? concurrency, concurrency)),
-    lock_seconds: LOCK_SECONDS,
-    ...(options.userId ? { only_user_id: options.userId } : {}),
-  });
+  let claimResult;
+  try {
+    claimResult = await withDeadline(
+      (signal) =>
+        withRequestSignal(
+          db.rpc("claim_ingestion_jobs", {
+            worker_id: `${WORKER_VERSION}:${requestId}`,
+            worker_version: WORKER_VERSION,
+            max_jobs: Math.max(1, Math.min(options.maxJobs ?? concurrency, concurrency)),
+            lock_seconds: LOCK_SECONDS,
+            ...(options.userId ? { only_user_id: options.userId } : {}),
+          }),
+          signal,
+        ),
+      WORKER_DEADLINES.database,
+    );
+  } catch (error) {
+    logEvent("error", "worker.claim_failed", requestId, {
+      stage: "claim_jobs",
+      error_code:
+        error instanceof Error && error.name === "TimeoutError"
+          ? "STAGE_TIMEOUT"
+          : safeWorkerCode(error),
+    });
+    return result;
+  }
+  const { data: jobs, error } = claimResult;
 
   if (error) {
     logEvent("error", "worker.claim_failed", requestId, { detail: error.code });
@@ -502,20 +671,59 @@ async function drainClaimedJobs(options: {
 
   const claimedJobs = (jobs ?? []) as Job[];
   result.claimed = claimedJobs.length;
+  for (const job of claimedJobs) {
+    logEvent("info", "worker.claimed", requestId, {
+      job_id: job.id,
+      attempt: job.attempt_count,
+      subsequent_attempt: job.attempt_count > 1,
+    });
+  }
 
   if (claimedJobs.length > 0) {
     // Process claimed jobs with bounded concurrency
     await Promise.all(
       claimedJobs.map(async (job) => {
+        let heartbeatPending = false;
         const heartbeat = setInterval(() => {
-          void db
-            .rpc("mutate_ingestion_claim", {
-              job_id: job.id,
-              claim_worker: job.locked_by!,
-              claim_attempt: job.attempt_count,
-              job_patch: { locked_at: new Date().toISOString() },
+          if (heartbeatPending) return;
+          heartbeatPending = true;
+          void workerStage(job, "lease_renewal", WORKER_DEADLINES.database, (signal) =>
+            withRequestSignal(
+              db.rpc("mutate_ingestion_claim", {
+                job_id: job.id,
+                claim_worker: job.locked_by!,
+                claim_attempt: job.attempt_count,
+                job_patch: { locked_at: new Date().toISOString() },
+              }),
+              signal,
+            ),
+          )
+            .then(({ data, error }) => {
+              if (error || !data) {
+                clearInterval(heartbeat);
+                logEvent("warn", "worker.lease_renewal_rejected", requestId, {
+                  job_id: job.id,
+                  attempt: job.attempt_count,
+                  error_code: error ? "LEASE_RENEWAL_FAILED" : "CLAIM_LOST",
+                });
+              } else {
+                logEvent("info", "worker.lease_renewed", requestId, {
+                  job_id: job.id,
+                  attempt: job.attempt_count,
+                });
+              }
             })
-            .then(() => undefined);
+            .catch((error) => {
+              clearInterval(heartbeat);
+              logEvent("warn", "worker.lease_renewal_failed", requestId, {
+                job_id: job.id,
+                attempt: job.attempt_count,
+                error_code: safeWorkerCode(error),
+              });
+            })
+            .finally(() => {
+              heartbeatPending = false;
+            });
         }, 30_000);
         try {
           await processJob(db, job, requestId);
@@ -523,23 +731,34 @@ async function drainClaimedJobs(options: {
         } catch (error) {
           if (error instanceof JobCancelled) {
             result.cancelled += 1;
-            return;
-          }
-          try {
-            await assertLive(db, job);
-          } catch {
-            result.cancelled += 1;
+            logEvent("info", "worker.job_cancelled", requestId, {
+              job_id: job.id,
+              error_code: error.code,
+            });
             return;
           }
           const failure = classifyError(error);
-          const retry = isRetryable(failure, job.attempt_count)
-            ? { delaySeconds: backoffSeconds(job.attempt_count, failure.failureClass) }
-            : null;
-          await failJob(db, job, failure.code, failure.message, retry, requestId);
-          if (retry) {
-            result.retrying += 1;
-          } else {
-            result.failed += 1;
+          const retry =
+            isRetryable(failure, job.attempt_count) && job.attempt_count < (job.max_attempts ?? 4)
+              ? { delaySeconds: backoffSeconds(job.attempt_count, failure.failureClass) }
+              : null;
+          try {
+            // The mutation RPC itself checks the live lease atomically. A
+            // separate failed read must not silently erase the real failure.
+            await failJob(db, job, failure.code, failure.message, retry, requestId);
+            if (retry) result.retrying += 1;
+            else result.failed += 1;
+          } catch (persistError) {
+            if (persistError instanceof JobCancelled) result.cancelled += 1;
+            else {
+              result.unconfirmed += 1;
+              logEvent("error", "worker.failure_recording_deferred", requestId, {
+                job_id: job.id,
+                attempt: job.attempt_count,
+                error_code: safeWorkerCode(persistError),
+                original_error_code: failure.code,
+              });
+            }
           }
         } finally {
           clearInterval(heartbeat);
@@ -549,12 +768,33 @@ async function drainClaimedJobs(options: {
   }
 
   // Phase 5+6: prune stale rate-limit counters at end of every drain cycle.
-  await pruneExpiredRateLimits();
+  try {
+    await withDeadline(() => pruneExpiredRateLimits(), WORKER_DEADLINES.database);
+  } catch {
+    logEvent("warn", "worker.maintenance_failed", requestId, {
+      error_code: "RATE_LIMIT_PRUNE_FAILED",
+    });
+  }
 
-  const { count: queueDepth } = await db
-    .from("ingestion_jobs")
-    .select("id", { count: "exact", head: true })
-    .in("status", ["queued", "retrying"]);
+  let queueDepth: number | null = null;
+  try {
+    const snapshot = await withDeadline(
+      (signal) =>
+        withRequestSignal(
+          db
+            .from("ingestion_jobs")
+            .select("id", { count: "exact", head: true })
+            .in("status", ["queued", "retrying"]),
+          signal,
+        ),
+      WORKER_DEADLINES.database,
+    );
+    if (!snapshot.error) queueDepth = snapshot.count;
+  } catch {
+    logEvent("warn", "worker.queue_depth_unavailable", requestId, {
+      error_code: "QUEUE_READ_FAILED",
+    });
+  }
 
   logEvent("info", "worker.drain_cycle_completed", requestId, {
     concurrency,
@@ -563,7 +803,8 @@ async function drainClaimedJobs(options: {
     failed: result.failed,
     retrying: result.retrying,
     cancelled: result.cancelled,
-    queue_depth: queueDepth ?? 0,
+    unconfirmed: result.unconfirmed,
+    queue_depth: queueDepth,
   });
 
   return result;

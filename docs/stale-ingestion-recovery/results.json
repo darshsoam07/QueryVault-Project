@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-21",
+  "verdict": "PARTIAL",
+  "liveProductionRecoveryVerified": false,
+  "externalAIRequests": 0,
+  "hostedWrites": 0,
+  "downloads": 0,
+  "checks": {
+    "targetedWorkerPolling": {
+      "passed": 31
+    },
+    "targetedKnowledgePanel": {
+      "passed": 24
+    },
+    "typecheck": {
+      "passed": true
+    },
+    "lint": {
+      "errors": 0,
+      "warnings": 14
+    },
+    "unit": {
+      "passed": 589,
+      "skipped": 2,
+      "failed": 0,
+      "filesPassed": 35,
+      "filesSkipped": 1
+    },
+    "build": {
+      "passed": true
+    },
+    "clientSecrets": {
+      "violations": 0
+    },
+    "localPostgres": {
+      "passed": 14,
+      "authStorageHttpVerified": false,
+      "schedulerVerified": false
+    }
+  },
+  "notRun": [
+    "Playwright",
+    "standalone RAG evaluation",
+    "live provider ingestion",
+    "hosted scheduler acceptance"
+  ]
+}

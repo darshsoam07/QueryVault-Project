@@ -148,6 +148,11 @@ try {
   const mutate = (worker, attempt, patch = {}, rows = [], jobPatch = {}, prune = null) =>
     `SELECT public.mutate_ingestion_claim('${claim.id}','${worker}',${attempt},'${JSON.stringify(patch)}'::jsonb,'${JSON.stringify(rows)}'::jsonb,'${JSON.stringify(jobPatch)}'::jsonb,${prune ?? "NULL"});`;
   await check("expired lease recovery fences stale finalization", async () => {
+    // Model termination immediately after claiming, before the first phase write.
+    assert.equal(
+      await sql(`SELECT status FROM public.documents WHERE id='${claim.document_id}';`),
+      "uploaded",
+    );
     await sql(
       `UPDATE public.ingestion_jobs SET locked_at=clock_timestamp()-interval '301 seconds', available_at='2000-01-01' WHERE id='${claim.id}';`,
     );
@@ -161,6 +166,20 @@ try {
       await sql(`SELECT row_to_json(j) FROM public.ingestion_jobs j WHERE id='${claim.id}';`),
     );
     assert.equal(current.locked_by, "replacement");
+    assert.equal(current.attempt_count, claim.attempt_count + 1);
+    assert.equal(
+      await sql(`SELECT status FROM public.documents WHERE id='${claim.document_id}';`),
+      "uploaded",
+    );
+    // An old process resuming after reclaim cannot renew or change document state.
+    assert.equal(
+      await sql(
+        mutate(claim.locked_by, claim.attempt_count, {}, [], {
+          locked_at: new Date().toISOString(),
+        }),
+      ),
+      "f",
+    );
     assert.equal(
       await sql(
         mutate(current.locked_by, current.attempt_count, {}, [], {
@@ -235,6 +254,30 @@ try {
         ),
       ),
       "t",
+    );
+  });
+  await check("completed claim cannot publish READY twice or renew its lease", async () => {
+    assert.equal(
+      await sql(mutate(claim.locked_by, claim.attempt_count, { status: "ready", phase: "ready" })),
+      "f",
+    );
+    assert.equal(
+      await sql(
+        mutate(claim.locked_by, claim.attempt_count, {}, [], {
+          locked_at: new Date().toISOString(),
+        }),
+      ),
+      "f",
+    );
+    assert.equal(
+      await sql(
+        `SELECT count(*) FROM public.document_chunks WHERE document_id='${claim.document_id}';`,
+      ),
+      "1",
+    );
+    assert.equal(
+      await sql(`SELECT status FROM public.documents WHERE id='${claim.document_id}';`),
+      "ready",
     );
   });
   await check(

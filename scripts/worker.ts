@@ -32,7 +32,7 @@ async function runWorkerLoop() {
       const result = await drainIngestionJobs({ maxJobs: CONCURRENCY });
       if (result.claimed > 0) {
         console.log(
-          `[QueryVault Worker] Drained cycle: claimed=${result.claimed}, succeeded=${result.succeeded}, retrying=${result.retrying}, failed=${result.failed}`,
+          `[QueryVault Worker] Drained cycle: claimed=${result.claimed}, succeeded=${result.succeeded}, retrying=${result.retrying}, failed=${result.failed}, cancelled=${result.cancelled}, unconfirmed=${result.unconfirmed}`,
         );
         // Reset interval to fast poll if jobs were found
         currentInterval = DEFAULT_POLL_INTERVAL_MS;

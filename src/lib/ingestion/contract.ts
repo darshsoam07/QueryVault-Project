@@ -255,6 +255,12 @@ export function classifyError(error: unknown): IngestionFailure {
           ? candidate["message"]
           : "Ingestion failed.";
 
+  if (rawCode === "ZERO_COST_AI_BLOCKED")
+    return permanent(
+      "AI_DISABLED",
+      "AI requests are disabled in the local-only zero-cost profile. No embedding request was sent.",
+    );
+
   // 1. Quota / Credits exhausted (permanent, terminal failure state, NO exponential backoff)
   if (isCreditsOrQuotaExhausted(status, rawCode, rawType, rawMsg)) {
     const userMsg =

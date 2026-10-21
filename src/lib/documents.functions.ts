@@ -17,6 +17,8 @@ import { PARSER_VERSION } from "@/lib/ingestion/contract";
 import { EVENTS } from "@/lib/observability/events";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { withDeadline, withRequestSignal } from "@/lib/async-deadline";
+import { ingestionLeaseState } from "@/lib/ingestion/lease";
 
 const uuid = z.string().uuid();
 
@@ -274,7 +276,9 @@ export const enqueueIngestion = createServerFn({ method: "POST" })
     // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
     void import("@/lib/ingestion/worker.server")
       .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
-      .catch(() => undefined);
+      .catch(() =>
+        logEvent("warn", "worker.wakeup_failed", requestId, { error_code: "WAKEUP_FAILED" }),
+      );
 
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });
@@ -303,23 +307,44 @@ export const getIngestionStatus = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const { data: doc } = await supabase
-      .from("documents")
-      .select("id, status, phase, progress, chunk_count, page_count, failure_code, failure_message")
-      .eq("id", data.documentId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const { data: doc, error: docError } = await withDeadline(
+      (signal) =>
+        withRequestSignal(
+          supabase
+            .from("documents")
+            .select(
+              "id, status, phase, progress, chunk_count, page_count, failure_code, failure_message",
+            )
+            .eq("id", data.documentId)
+            .eq("user_id", userId)
+            .maybeSingle(),
+          signal,
+        ),
+      10_000,
+    );
+    if (docError)
+      throw new ApiError("INTERNAL", "Document status is temporarily unavailable. Please retry.");
     if (!doc) throw new ApiError("DOCUMENT_NOT_FOUND", "That document no longer exists.");
 
-    const { data: job } = await supabase
-      .from("ingestion_jobs")
-      .select("id, status, attempt_count, error_code, error_message, available_at")
-      .eq("document_id", data.documentId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: job, error: jobError } = await withDeadline(
+      (signal) =>
+        withRequestSignal(
+          supabase
+            .from("ingestion_jobs")
+            .select("id, status, attempt_count, error_code, error_message, available_at, locked_at")
+            .eq("document_id", data.documentId)
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          signal,
+        ),
+      10_000,
+    );
+    if (jobError)
+      throw new ApiError("INTERNAL", "Ingestion status is temporarily unavailable. Please retry.");
 
-    return { document: doc, job: job ?? null };
+    return { document: doc, job: job ?? null, leaseState: ingestionLeaseState(job ?? null) };
   });
 
 /* -------------------------------------------------------------------------- */
@@ -408,7 +433,9 @@ export const reindexDocument = createServerFn({ method: "POST" })
     // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
     void import("@/lib/ingestion/worker.server")
       .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
-      .catch(() => undefined);
+      .catch(() =>
+        logEvent("warn", "worker.wakeup_failed", requestId, { error_code: "WAKEUP_FAILED" }),
+      );
 
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });
