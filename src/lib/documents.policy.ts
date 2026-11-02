@@ -43,7 +43,9 @@ export const ACTIVE_STATES: readonly DocumentState[] = [
 ];
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
-export const MIN_UPLOAD_BYTES = 100;
+// Short text files can contain valid identifiers or policy facts. Format and
+// readable-content validation happen independently of this empty-file check.
+export const MIN_UPLOAD_BYTES = 1;
 export const DOCUMENT_FORMATS = {
   pdf: { mimeTypes: ["application/pdf", "application/x-pdf"], extensions: ["pdf"] },
   docx: {

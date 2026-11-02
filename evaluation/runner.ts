@@ -98,16 +98,15 @@ export type CaseResult = {
   reciprocalRank: number;
   ndcgAt10: number;
   evidencePrecision: number;
-  citationsValid: boolean;
-  injectionSafe: boolean;
+  evidenceIdsValid: boolean;
+  evidenceMarkerContainment: boolean;
   crossDocumentSatisfied: boolean;
   gateReason: string;
 };
 
 /**
- * Simulates a well-behaved model: it cites exactly the evidence ids it was
- * given. That isolates retrieval quality from model variance — generation-side
- * citation validity is enforced separately at runtime in /api/chat.
+ * Measures retrieval and evidence structure only. No answer is generated;
+ * citation support, hallucinations and model injection resistance are unmeasured.
  */
 export async function runCase(evalCase: EvalCase, deps: RetrievalDeps): Promise<CaseResult> {
   const outcome = await runRetrieval(evalCase.question, deps);
@@ -116,21 +115,27 @@ export async function runCase(evalCase: EvalCase, deps: RetrievalDeps): Promise<
   const evidenceIds = evidence.map((source) => source.chunkId);
   const refused = !outcome.verdict.grounded;
 
-  // Injection defence: adversarial text must reach the model only as quoted,
+  // Structural containment only: adversarial text must reach the model as quoted,
   // id-tagged evidence — never as bare instruction text. We assert that every
   // forbidden marker present in the context sits inside an <evidence> element
   // and that source ids keep their immutable, model-uncontrollable form.
-  const injectionSafe =
-    (evalCase.forbiddenInAnswer ?? []).every((marker) =>
-      isEnclosedInEvidence(outcome.context.contextBlock, marker),
-    ) && evidence.every((source) => /^source_\d{2}$/.test(source.sourceId));
-
-  // A well-behaved model cites the top evidence it was shown; the runtime
-  // citation validator rejects anything else, so validity must always hold.
-  const simulatedCitations = evidence.slice(0, 3).map((source) => source.sourceId);
-  const citationsValid = simulatedCitations.every((id) =>
-    evidence.some((source) => source.sourceId === id),
+  const evidenceMarkerContainment = (evalCase.forbiddenInAnswer ?? []).every((marker) =>
+    isEnclosedInEvidence(outcome.context.contextBlock, marker),
   );
+
+  // Check actual context IDs, not citations manufactured from those same IDs.
+  const evidenceIdsValid =
+    (refused || evidence.length > 0) &&
+    new Set(evidence.map((source) => source.sourceId)).size === evidence.length &&
+    new Set(evidenceIds).size === evidence.length &&
+    evidence.every(
+      (source) =>
+        /^source_\d{2}$/.test(source.sourceId) &&
+        outcome.ranked.some(
+          (candidate) =>
+            candidate.chunkId === source.chunkId && candidate.documentId === source.documentId,
+        ),
+    );
 
   const documentIds = new Set(evidence.map((source) => source.documentId));
   const crossDocumentSatisfied = (evalCase.requiredDocumentIds ?? []).every((id) =>
@@ -155,14 +160,16 @@ export async function runCase(evalCase: EvalCase, deps: RetrievalDeps): Promise<
     evidencePrecision: evalCase.relevantChunkIds.length
       ? precisionAtK(evidenceIds, evalCase.relevantChunkIds, evidenceIds.length)
       : 1,
-    citationsValid,
-    injectionSafe,
+    evidenceIdsValid,
+    evidenceMarkerContainment,
     crossDocumentSatisfied,
     gateReason: outcome.verdict.reason,
   };
 }
 
 export type EvalReport = {
+  scope: "offline-fixture-retrieval";
+  unmeasured: string[];
   cases: CaseResult[];
   overall: Record<string, number>;
   perCategory: Record<string, Record<string, number>>;
@@ -172,9 +179,11 @@ export type EvalReport = {
 
 export async function runEvaluation(
   deps: RetrievalDeps = createFixtureDeps(),
+  dataset: EvalCase[] = EVAL_CASES,
 ): Promise<EvalReport> {
+  const datasetViolations = validateDataset(dataset);
   const cases: CaseResult[] = [];
-  for (const evalCase of EVAL_CASES) {
+  for (const evalCase of dataset) {
     cases.push(await runCase(evalCase, deps));
   }
 
@@ -185,19 +194,24 @@ export async function runEvaluation(
 
   const overall = {
     cases: cases.length,
+    answerable_cases: answerable.length,
+    retrieval_negative_cases: gateNegatives.length,
+    generation_negative_cases_unmeasured: cases.filter(
+      (c) => c.expectRefusal && c.refusalStage === "generation",
+    ).length,
     recall_at_5: mean(answerable.map((c) => c.recallAt5)),
     recall_at_10: mean(answerable.map((c) => c.recallAt10)),
     precision_at_5: mean(answerable.map((c) => c.precisionAt5)),
     mrr: meanReciprocalRank(answerable.map((c) => c.reciprocalRank)),
     ndcg_at_10: mean(answerable.map((c) => c.ndcgAt10)),
     evidence_precision: mean(answerable.map((c) => c.evidencePrecision)),
-    citation_validity: cases.every((c) => c.citationsValid) ? 1 : 0,
-    refusal_accuracy: refusalAccuracy(
+    evidence_ids_valid: cases.every((c) => c.evidenceIdsValid) ? 1 : 0,
+    retrieval_refusal_accuracy: refusalAccuracy(
       gateNegatives.map((c) => ({ refused: c.refused, expectRefusal: true })),
     ),
     false_refusal_rate: falseRefusalRate(cases),
-    injection_defense: injectionCases.length
-      ? injectionCases.filter((c) => c.injectionSafe).length / injectionCases.length
+    evidence_marker_containment: injectionCases.length
+      ? injectionCases.filter((c) => c.evidenceMarkerContainment).length / injectionCases.length
       : 1,
     cross_document_coverage: crossDocCases.length
       ? crossDocCases.filter((c) => c.crossDocumentSatisfied).length / crossDocCases.length
@@ -210,13 +224,73 @@ export async function runEvaluation(
     if (subset.length === 0) continue;
     perCategory[category] = {
       cases: subset.length,
-      recall_at_5: mean(subset.map((c) => c.recallAt5)),
-      mrr: meanReciprocalRank(subset.map((c) => c.reciprocalRank)),
+      ...(category === "negative"
+        ? {}
+        : {
+            recall_at_5: mean(subset.map((c) => c.recallAt5)),
+            mrr: meanReciprocalRank(subset.map((c) => c.reciprocalRank)),
+          }),
     };
   }
 
-  const violations = collectViolations(overall, perCategory);
-  return { cases, overall, perCategory, violations, passed: violations.length === 0 };
+  const violations = [...datasetViolations, ...collectViolations(overall, perCategory)];
+  return {
+    scope: "offline-fixture-retrieval",
+    unmeasured: [
+      "answer correctness",
+      "answer faithfulness",
+      "generated citation support",
+      "model injection resistance",
+      "generation-stage refusal",
+    ],
+    cases,
+    overall,
+    perCategory,
+    violations,
+    passed: violations.length === 0,
+  };
+}
+
+/** Fixture labels must refer to real corpus members and preserve negative coverage. */
+export function validateDataset(dataset: EvalCase[]): string[] {
+  const violations: string[] = [];
+  const seen = new Set<string>();
+  const chunks = new Map(FIXTURE_CHUNKS.map((chunk) => [chunk.chunkId, chunk]));
+  for (const item of dataset) {
+    const fail = (reason: string) => violations.push(`[${item.id}] ${reason}`);
+    if (!item.id.trim() || seen.has(item.id)) fail("missing or duplicate case id");
+    seen.add(item.id);
+    if (!item.question.trim()) fail("empty question");
+    if (!CATEGORIES.includes(item.category)) fail("unknown category");
+    if (new Set(item.relevantChunkIds).size !== item.relevantChunkIds.length)
+      fail("duplicate relevant chunk ids");
+    for (const id of item.relevantChunkIds)
+      if (!chunks.has(id)) fail(`unknown relevant chunk ${id}`);
+    if (item.expectRefusal ? item.relevantChunkIds.length > 0 : item.relevantChunkIds.length === 0)
+      fail("refusal expectation and relevance labels disagree");
+    if ((item.category === "negative") !== Boolean(item.expectRefusal))
+      fail("negative category and refusal expectation disagree");
+    if (
+      item.refusalStage &&
+      (!item.expectRefusal || !["retrieval", "generation"].includes(item.refusalStage))
+    )
+      fail("invalid refusal stage");
+    const required = item.requiredDocumentIds ?? [];
+    if (new Set(required).size !== required.length) fail("duplicate required document ids");
+    if (item.category === "cross-document" && new Set(required).size < 2)
+      fail("cross-document case requires at least two documents");
+    for (const id of required)
+      if (!item.relevantChunkIds.some((chunkId) => chunks.get(chunkId)?.documentId === id))
+        fail(`required document ${id} has no relevant chunk`);
+    if (item.category === "injection" && !item.forbiddenInAnswer?.length)
+      fail("injection case requires marker labels");
+    if (item.forbiddenInAnswer?.some((marker) => !marker.trim())) fail("empty forbidden marker");
+  }
+  if (!dataset.some((c) => c.expectRefusal && (c.refusalStage ?? "retrieval") === "retrieval"))
+    violations.push("missing retrieval-stage negative cases");
+  if (!dataset.some((c) => c.expectRefusal && c.refusalStage === "generation"))
+    violations.push("missing generation-stage negative cases (unmeasured offline)");
+  return violations;
 }
 
 export function collectViolations(
@@ -227,10 +301,41 @@ export function collectViolations(
     per_category?: Record<string, Record<string, number>>;
   };
   const violations: string[] = [];
+  const validMetric = (name: string, value: number | undefined): value is number => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+      violations.push(`${name} must be a finite number between 0 and 1`);
+      return false;
+    }
+    return true;
+  };
+  const validCount = (name: string, value: number | undefined, minimum: number) => {
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum) {
+      violations.push(`${name} must be an integer >= ${minimum}`);
+      return false;
+    }
+    return true;
+  };
+  validCount("cases", overall["cases"], thresholds.cases_min);
+  validCount("answerable_cases", overall["answerable_cases"], 1);
+  validCount("retrieval_negative_cases", overall["retrieval_negative_cases"], 1);
+  validCount(
+    "generation_negative_cases_unmeasured",
+    overall["generation_negative_cases_unmeasured"],
+    1,
+  );
+  if (
+    overall["cases"] !==
+    (overall["answerable_cases"] ?? NaN) +
+      (overall["retrieval_negative_cases"] ?? NaN) +
+      (overall["generation_negative_cases_unmeasured"] ?? NaN)
+  )
+    violations.push("case counts do not sum to overall cases");
+  validMetric("precision_at_5", overall["precision_at_5"]);
   const floor = (metric: string, key: string) => {
     const limit = t[key];
     if (typeof limit !== "number") return;
-    const value = overall[metric] ?? 0;
+    const value = overall[metric];
+    if (!validMetric(metric, value)) return;
     if (value + 1e-9 < limit) {
       violations.push(`${metric} ${value.toFixed(3)} < required ${limit}`);
     }
@@ -241,12 +346,18 @@ export function collectViolations(
   floor("mrr", "mrr_min");
   floor("ndcg_at_10", "ndcg_at_10_min");
   floor("evidence_precision", "evidence_precision_min");
-  floor("citation_validity", "citation_validity_min");
-  floor("refusal_accuracy", "refusal_accuracy_min");
-  floor("injection_defense", "injection_defense_min");
+  floor("evidence_ids_valid", "evidence_ids_valid_min");
+  floor("retrieval_refusal_accuracy", "retrieval_refusal_accuracy_min");
+  floor("evidence_marker_containment", "evidence_marker_containment_min");
+  floor("cross_document_coverage", "cross_document_coverage_min");
 
   const ceiling = t["false_refusal_rate_max"];
-  if (typeof ceiling === "number" && (overall["false_refusal_rate"] ?? 0) > ceiling + 1e-9) {
+  const falseRefusals = overall["false_refusal_rate"];
+  if (
+    validMetric("false_refusal_rate", falseRefusals) &&
+    typeof ceiling === "number" &&
+    falseRefusals > ceiling + 1e-9
+  ) {
     violations.push(
       `false_refusal_rate ${(overall["false_refusal_rate"] ?? 0).toFixed(3)} > allowed ${ceiling}`,
     );
@@ -254,7 +365,15 @@ export function collectViolations(
 
   for (const [category, limits] of Object.entries(t.per_category ?? {})) {
     const measured = perCategory[category];
-    if (!measured) continue;
+    if (!measured) {
+      violations.push(`[${category}] missing required category`);
+      continue;
+    }
+    validCount(`[${category}] cases`, measured["cases"], limits["cases_min"] ?? 1);
+    if (category !== "negative") {
+      validMetric(`[${category}] recall_at_5`, measured["recall_at_5"]);
+      validMetric(`[${category}] mrr`, measured["mrr"]);
+    }
     const limit = limits["recall_at_5_min"];
     if (typeof limit === "number" && (measured["recall_at_5"] ?? 0) + 1e-9 < limit) {
       violations.push(
@@ -263,11 +382,21 @@ export function collectViolations(
     }
   }
 
+  if (
+    Object.values(perCategory).reduce((sum, metrics) => sum + (metrics["cases"] ?? NaN), 0) !==
+    overall["cases"]
+  )
+    violations.push("category counts do not sum to overall cases");
+  for (const category of Object.keys(perCategory))
+    if (!CATEGORIES.includes(category as EvalCase["category"]))
+      violations.push(`[${category}] unknown result category`);
+
   return violations;
 }
 
 /** True when every occurrence of `marker` in the context is inside <evidence>. */
 export function isEnclosedInEvidence(contextBlock: string, marker: string): boolean {
+  if (!marker.trim()) return false;
   const haystack = contextBlock.toLowerCase();
   const needle = marker.toLowerCase();
   let from = 0;
@@ -282,21 +411,29 @@ export function isEnclosedInEvidence(contextBlock: string, marker: string): bool
 }
 
 function format(report: EvalReport): string {
-  const lines = ["QueryVault retrieval evaluation", "=".repeat(34), ""];
+  const lines = [
+    "QueryVault offline fixture retrieval evaluation",
+    "=".repeat(46),
+    `Unmeasured: ${report.unmeasured.join(", ")}.`,
+    "",
+  ];
   for (const [key, value] of Object.entries(report.overall)) {
     lines.push(`${key.padEnd(24)} ${typeof value === "number" ? value.toFixed(3) : value}`);
   }
   lines.push("", "per category");
   for (const [category, metrics] of Object.entries(report.perCategory)) {
     lines.push(
-      `  ${category.padEnd(16)} recall@5 ${(metrics["recall_at_5"] ?? 0).toFixed(3)}  mrr ${(metrics["mrr"] ?? 0).toFixed(3)}  (${metrics["cases"]} cases)`,
+      `  ${category.padEnd(16)} recall@5 ${metrics["recall_at_5"]?.toFixed(3) ?? "N/A"}  mrr ${metrics["mrr"]?.toFixed(3) ?? "N/A"}  (${metrics["cases"]} cases)`,
     );
   }
   lines.push("", "failing cases");
   const failing = report.cases.filter(
     (c) =>
       (c.expectRefusal && c.refusalStage === "retrieval" && !c.refused) ||
-      (!c.expectRefusal && c.recallAt5 < 1),
+      (!c.expectRefusal && (c.refused || c.recallAt5 < 1)) ||
+      !c.crossDocumentSatisfied ||
+      !c.evidenceIdsValid ||
+      !c.evidenceMarkerContainment,
   );
   if (failing.length === 0) lines.push("  none");
   for (const c of failing) {

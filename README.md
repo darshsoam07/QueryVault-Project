@@ -276,7 +276,7 @@ npm run dev
 npm test          # run the automated test suite
 npm run typecheck # strict TypeScript checking
 npm run lint      # ESLint (Prettier enforced as an error)
-npm run eval      # RAG evaluation against a ground-truth dataset
+npm run eval      # offline synthetic retrieval evaluation (no generated answers)
 npm run eval:gate # evaluation with pass/fail quality thresholds
 ```
 
@@ -284,7 +284,7 @@ npm run eval:gate # evaluation with pass/fail quality thresholds
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Automated unit & integration tests | Auth, documents, ingestion, config, health, client errors                                                       |
 | RLS isolation tests                | Every user-data table policy is verified as scoped to `auth.uid()`                                              |
-| RAG ground-truth evaluation        | Factual, semantic, cross-document, multi-hop, negative, and prompt-injection cases                              |
+| Offline retrieval evaluation      | 13 synthetic cases with relevant-chunk labels; evidence structure, retrieval refusals and cross-document coverage |
 | Static analysis                    | TypeScript strict mode + ESLint                                                                                 |
 | CI                                 | GitHub Actions runs typecheck → lint → test on every push and PR, fully offline (mocked Supabase & AI provider) |
 
@@ -346,7 +346,7 @@ Full write-up: [`docs/SECURITY.md`](./docs/SECURITY.md)
 
 - The ingestion scheduler (`pg_cron` + `pg_net`) requires a live Supabase project to run in production.
 - Serverless hosting (e.g. Vercel) works for the web surface, but document ingestion needs an always-on process — see the platform comparison in [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
-- Live RAG evaluation depends on real AI provider and database credentials being configured.
+- The evaluation CLI uses synthetic fixtures. A reviewed 50+ question real-document benchmark and live generated-answer quality scoring are not yet implemented; see [`docs/TESTING.md`](./docs/TESTING.md).
 
 <br/>
 

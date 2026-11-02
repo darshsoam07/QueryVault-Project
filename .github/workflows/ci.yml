@@ -58,8 +58,9 @@ jobs:
       - name: Tests
         run: npm run test
 
-      # Fails the build if retrieval quality, refusal accuracy, citation validity
-      # or injection defence drops below the floors in evaluation/thresholds.json.
+      # Fails on invalid/incomplete fixture results or regressions in retrieval,
+      # retrieval refusals, cross-document coverage and evidence structure.
+      # This does not measure generated-answer quality or model injection defence.
       # A silent RAG regression is exactly the kind that ships otherwise.
       - name: Retrieval evaluation gate
         run: npm run eval:gate

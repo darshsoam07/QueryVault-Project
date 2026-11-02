@@ -1,108 +1,68 @@
-﻿# Testing
+# Testing
 
-This document describes the test suite, what each group of tests covers, and how to run them.
-
----
-
-## Running tests
+## Local checks
 
 ```bash
-npm test          # full suite -- 254 tests across 12 files
-npm run typecheck # TypeScript type check -- 0 errors
-npm run lint      # ESLint + Prettier -- 0 errors
-```
-
-All three commands run in CI on every push.
-
----
-
-## Test file inventory
-
-| File                                                          | Tests | What it covers                                                       |
-| ------------------------------------------------------------- | ----- | -------------------------------------------------------------------- |
-| `src/lib/__tests__/rls.test.ts`                               | 32    | Cross-tenant isolation; RLS blocks reads and writes                  |
-| `src/lib/__tests__/auth.test.ts`                              | 26    | Bearer token verification; fail-closed on missing config             |
-| `src/lib/__tests__/config.test.ts`                            | 50    | Boot validation; service-role key detection in VITE_ vars; redaction |
-| `src/lib/__tests__/health.test.ts`                            | 17    | Liveness and readiness probe logic; deep probe auth                  |
-| `src/lib/__tests__/security.test.ts`                          | 22    | Secret exposure checks; header validation; timing-safe auth          |
-| `src/lib/__tests__/ingestion.test.ts`                         | 16    | Ingestion pipeline stages; idempotency; retry logic                  |
-| `src/lib/__tests__/scheduler.test.ts`                         | 3     | Migration structure; Vault-backed credentials; canonical auth header |
-| `src/lib/__tests__/retrieval.eval.test.ts`                    | 20    | Hybrid retrieval; RRF fusion; chunk ranking                          |
-| `src/lib/__tests__/evaluation.test.ts`                        | 16    | RAG evaluation harness; evidence gate; citation validation           |
-| `src/lib/__tests__/documents.test.ts`                         | 22    | Document CRUD; upload validation; tenant scoping                     |
-| `src/lib/__tests__/client-errors.test.ts`                     | 12    | Error sanitization; no internal details leaked to client             |
-| `src/components/queryvault/__tests__/KnowledgePanel.test.tsx` | 18    | UI deletion flow; RLS error redaction in the component layer         |
-
-**Total: 254 tests across 12 files.**
-
----
-
-## Test groups
-
-### RLS isolation (32 tests)
-
-These tests directly verify that cross-tenant access is blocked at the database layer. Each test sets up data as tenant A, then attempts to read or write it as tenant B and asserts a rejection.
-
-These tests do not mock RLS -- they use the actual Supabase Postgres client with real policy enforcement.
-
-### Config and boot validation (50 tests)
-
-Covers `validateSupabaseConfig` and `collectBootFindings`. Key cases:
-
-- Service-role key placed in a `VITE_` variable -- rejected
-- Missing required env vars -- correct warning codes
-- Redacted output -- secret values must not appear in diagnostic strings
-- Project ref cross-check between `VITE_` and server-side keys
-
-### Scheduler tests (3 tests)
-
-Reads the migration file and worker route source and asserts:
-
-1. Migration uses an idempotent `IF NOT EXISTS` guard and a `* * * * *` schedule named `queryvault-ingestion-worker`
-2. Credentials are loaded from `vault.decrypted_secrets` -- no literal URL or secret baked in
-3. The scheduler sends `x-worker-secret`; the worker route accepts only `x-worker-secret`; no `x-worker-token` or `worker_credentials` references exist
-
-### RAG evaluation (13 ground-truth cases)
-
-The offline evaluation runner (`evaluation/runner.ts`) tests the full RAG pipeline against known document/question/answer triples. Each case asserts:
-
-- The answer is grounded (at least one citation)
-- The cited chunk IDs appear in the retrieved set
-- The answer is not hallucinated (checked against ground-truth expected content)
-
-**Baseline: 13/13 PASS** from the pre-remediation audit. No RAG logic was changed during remediation; the baseline is expected to hold. A formal re-run requires a live Supabase connection and an AI provider key.
-
-```bash
-npm run eval        # run and report
-npm run eval:gate   # run and fail CI if any case fails
-```
-
----
-
-## Lint
-
-```bash
-npm run lint
-```
-
-**0 errors. 16 warnings.**
-
-All 16 warnings are `react-refresh/only-export-components` in Radix UI primitives and Lovable-generated UI kit files. They affect only hot-reload granularity in development; production builds are unaffected. Refactoring to eliminate them would require splitting ~10 files with meaningful behavioral risk for zero runtime gain.
-
----
-
-## TypeScript
-
-```bash
+npm test
 npm run typecheck
+npm run lint
+npm run eval:gate
+npm run build -- --configLoader native
+npm run security:client
 ```
 
-**0 errors.** Runs `tsc --noEmit` against the full source tree.
+Use the current test runner summary for counts. Live-provider tests are opt-in and may be skipped; a green offline suite does not establish live provider or deployed database health. Lint currently includes React Fast Refresh warnings about mixed component/helper exports.
 
----
+On Windows, if the sandbox denies temporary-file renames, point `TEMP` and `TMP` at a writable workspace directory before running tests. Native config loading can avoid Windows config-bundling problems. A build with `QV_ALLOW_PLACEHOLDER_CONFIG=1` and placeholder public configuration is a verification artifact and must not be deployed.
 
-## What is not tested
+## What each layer proves
 
-- **Docker image:** Dockerfile is correct by inspection; the daemon was unavailable during the last validation run.
-- **Remote Supabase migrations:** migration SQL is verified at code level; remote application requires manual `supabase db push`.
-- **RAG evaluation re-run post-remediation:** blocked by external connectivity; expected to hold at 13/13.
+| Layer                             | Coverage                                                                                                       | Boundary                                                                                                                                        |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vitest unit/component/route tests | Ingestion, chunking, auth, cancellation, retries, citation validation, verifier behavior, UI and configuration | External services are mocked except explicit live opt-ins.                                                                                      |
+| `rls.test.ts`                     | Static migration-policy and service-role scoping invariants                                                    | Does not execute PostgreSQL or prove deployed RLS enforcement.                                                                                  |
+| `npm run test:db`                 | SQL behavior on a disposable local PostgreSQL/pgvector container                                               | Requires a running Docker engine and `QV_DB_TEST_CONTAINER=queryvault-phase2-*`; script verifies isolation. Does not test the deployed project. |
+| `npm run test:e2e`                | Browser flows with mocked service boundaries                                                                   | Database-writing pagination case requires explicitly isolated local setup; inspect skips and startup failures.                                  |
+| `npm run eval:gate`               | Offline fixture retrieval plus deterministic safety contracts                                                  | No document ingestion, real embeddings, PostgreSQL retrieval or generated answers.                                                              |
+| Live provider opt-ins             | Synthetic embedding/support-verifier checks                                                                    | Not a real-document answer-quality benchmark.                                                                                                   |
+| Build and bundle scan             | Compilation and configured secret-value leakage detection                                                      | Not deployment or end-to-end acceptance.                                                                                                        |
+
+## Offline RAG benchmark
+
+`evaluation/dataset.ts` contains 13 synthetic questions over the 15 prewritten chunks in `evaluation/fixtures.ts`. Labels identify relevant chunks and required documents, not reference answers. There are three factual, two semantic, two cross-document, one multi-hop, three negative and two injection cases.
+
+The runner uses hand-written topic vectors and lexical overlap in place of real retrievers, then exercises production fusion, heuristic reranking, evidence gating and context construction. It reports Recall@5/10, Precision@5, MRR, nDCG@10 and evidence precision on answerable cases. Negative-category ranking metrics are omitted (N/A) because those cases have no relevant chunks.
+
+Structural metrics are explicitly scoped:
+
+- `evidence_ids_valid`: context source IDs are well-formed and unique, and chunks/documents belong to the ranked candidates. This replaces the old simulated `citation_validity` metric; values are not semantically comparable.
+- `evidence_marker_containment`: forbidden markers present in context remain inside evidence elements. This replaces `injection_defense`; it does not measure model obedience to malicious text.
+- `retrieval_refusal_accuracy`: refusal on retrieval-stage negatives only (currently two). This replaces `refusal_accuracy` to make the scope explicit.
+- `generation_negative_cases_unmeasured`: near-miss negatives requiring generation evaluation (currently one); not counted as passed refusals.
+- `cross_document_coverage`: required documents appear in final context; gated at 1.0.
+
+JSON reports include `scope` and `unmeasured`. Consumers must migrate the renamed keys; there are no misleading legacy aliases. Answer correctness, faithfulness, generated citation support, model injection resistance and generation-stage refusal are unmeasured. The runtime semantic support verifier is a separate guard and does not turn the offline runner into an answer benchmark.
+
+`evaluation/thresholds.json` enforces finite scores in [0,1], minimum case counts (13 total and each category's existing count), category presence, consistent aggregate counts and quality floors/ceilings. Dataset validation rejects duplicate IDs/labels, unknown chunk references, empty questions/markers, contradictory refusal labels and incomplete required-document labels. Both retrieval- and generation-stage negative labels must remain represented. These counts preserve the current regression set; they do not satisfy a 50-question real-document benchmark.
+
+`evaluation/safety.ts` separately checks deterministic quote, citation, scope, conflict and evidence-delimiter contracts. It does not score model answers.
+
+```bash
+npm run eval
+bun evaluation/runner.ts --json
+npm run eval:gate
+```
+
+## Short-fact ingestion change
+
+Chunker version 4 preserves standalone facts, numbers and identifiers regardless of length, including non-Latin letters/numbers. Recursive text splitting discards empty and punctuation-only fragments. Page and heading metadata remain attached to each chunk. Regression tests cover short pages, sections, trailing facts and blank/noise input.
+
+Upload admission now rejects zero-byte files rather than all files below 100 bytes. The worker rejects empty extracted text rather than all documents below 40 characters. Format/signature, encoding, maximum-size and usable-chunk checks remain in place. Worker regression tests verify short content reaches indexing and empty/noise input fails before embedding, using mocked services.
+
+The version bump separates new deterministic chunk IDs from version 3. Existing indexed documents do not automatically regain omitted facts: they must be reprocessed through the normal ingestion/reindex workflow after deployment. No reindex or database mutation is part of this source change. Historical reports describe their original versions and should not be interpreted as current acceptance evidence.
+
+## CI and remaining evaluation work
+
+`.github/workflows/ci.yml` runs typecheck, lint, offline tests, the evaluation/safety gates, a placeholder verification build, boot validation and a bundle secret check. It does not currently run the database or browser suites or live answer-quality evaluation.
+
+A reviewed 50+ question real-document benchmark, reference answers, difficulty labels, controlled retrieval/chunking/reranking comparisons, live answer scoring and human review remain separate future work. Do not present fixture results as production accuracy or a hallucination-free guarantee.

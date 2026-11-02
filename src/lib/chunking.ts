@@ -128,7 +128,10 @@ export function recursiveSplit(text: string, chunkSize: number, overlap: number)
   }
   if (current.trim()) chunks.push(current.trim());
 
-  return chunks.filter((chunk) => chunk.length > 24);
+  // Length is not a relevance signal: a SKU, number or short policy can be
+  // the entire answer. Keep letters/numbers in any language; discard only
+  // empty or punctuation-only fragments, without inventing cross-page context.
+  return chunks.filter((chunk) => /[\p{L}\p{N}]/u.test(chunk));
 }
 
 /**

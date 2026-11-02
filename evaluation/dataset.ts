@@ -5,9 +5,9 @@
  * correct system must surface. `expectRefusal` cases have no relevant evidence
  * at all — the evidence gate is supposed to refuse rather than invent.
  *
- * The corpus ids are placeholders on purpose: the set is fixture-driven in CI
- * (see `fixtures.ts`) and can be pointed at a real seeded tenant by exporting
- * EVAL_TENANT_ID and replacing the ids with rows from that tenant.
+ * The corpus ids refer to synthetic fixtures (see `fixtures.ts`). The current
+ * CLI always uses fixture retrievers; it does not read EVAL_TENANT_ID or score
+ * generated answers. A real-corpus runner and reference answers are future work.
  */
 
 export type EvalCategory =
@@ -27,7 +27,7 @@ export type EvalCase = {
    * Where the refusal must happen. "retrieval" means the evidence gate itself
    * must block (nothing topically close exists). "generation" means retrieval
    * legitimately surfaces near-miss passages and the model must decline — that
-   * is graded by the live suite, not by this retrieval-only harness.
+   * remains unmeasured by this retrieval-only harness.
    */
   refusalStage?: "retrieval" | "generation";
   /** Substrings that must NOT appear in the answer (injection defence). */

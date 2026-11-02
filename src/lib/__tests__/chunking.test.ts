@@ -10,6 +10,46 @@ import {
   splitTable,
 } from "@/lib/chunking";
 
+describe("short fact preservation", () => {
+  it.each(["Backups last 35 days.", "SKU: AB-1234", "42", "保留35天。"])(
+    "preserves standalone page content: %s",
+    (text) => {
+      const chunks = preparePageChunks([{ page: 7, text }]);
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0]).toMatchObject({ content: text, page: 7, index: 0 });
+      expect(chunks[0]!.metadata?.pageNumber).toBe(7);
+    },
+  );
+
+  it("preserves short sections and their own headings", () => {
+    const chunks = preparePageChunks([
+      { page: 2, text: "# Policy\n## Backups\n35 days.\n## Product\nAB-1234" },
+    ]);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toMatchObject({
+      content: "[Section: Policy > Backups]\n\n35 days.",
+      index: 0,
+    });
+    expect(chunks[1]).toMatchObject({
+      content: "[Section: Policy > Product]\n\nAB-1234",
+      index: 1,
+    });
+  });
+
+  it("keeps a trailing short fact when a long passage fills a chunk", () => {
+    const paragraph = "A".repeat(96);
+    expect(recursiveSplit(`${paragraph}\n\nSKU: AB-1234`, 100, 0)).toEqual([
+      paragraph,
+      "SKU: AB-1234",
+    ]);
+  });
+
+  it.each(["", " \n\t", "--- ... !!!", "# Empty\n---"])(
+    "rejects empty or punctuation-only text: %s",
+    (text) => expect(preparePageChunks([{ page: 1, text }])).toEqual([]),
+  );
+});
+
 describe("boundary snapping for sliding window overlap", () => {
   it("snaps overlap to a sentence boundary when available", () => {
     const text =

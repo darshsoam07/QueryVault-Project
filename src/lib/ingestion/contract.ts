@@ -9,7 +9,7 @@
 /** Bump when document extraction or authentic locator ordering changes in a way that alters output. */
 export const PARSER_VERSION = 2;
 /** Bump when chunk boundaries change. Vectors from other versions are pruned. */
-export const CHUNKER_VERSION = 3;
+export const CHUNKER_VERSION = 4;
 /** Identifies the code that ran a job; recorded on every attempt. */
 export const WORKER_VERSION = "ingest-worker@4";
 

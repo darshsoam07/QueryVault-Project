@@ -9,6 +9,7 @@ const fixture = vi.hoisted(() => {
   const claimed: number[] = [];
   const faults = {
     mode: "none",
+    text: undefined as string | undefined,
     logs: [] as Array<{ event: string; fields: Record<string, unknown> }>,
   };
   const db = {
@@ -44,7 +45,7 @@ const fixture = vi.hoisted(() => {
           if (faults.mode === "storage_hang") return new Promise<never>(() => {});
           if (faults.mode === "storage_503") return { data: null, error: { statusCode: "503" } };
           if (faults.mode === "storage_404") return { data: null, error: { statusCode: "404" } };
-          return { data: new Blob(["Valid source text ".repeat(20)]), error: null };
+          return { data: new Blob([faults.text ?? "Valid source text ".repeat(20)]), error: null };
         },
       }),
     },
@@ -127,6 +128,7 @@ const fixture = vi.hoisted(() => {
       peak = 0;
       afterEmbed = undefined;
       faults.mode = "none";
+      faults.text = undefined;
       faults.logs.length = 0;
     },
     async embed(texts: string[]) {
@@ -162,9 +164,9 @@ vi.mock("@/lib/ingestion/document-parser.server", () => ({
     return [
       {
         page: 1,
-        text: "Deterministic document evidence with sufficient readable text for indexing. ".repeat(
-          4,
-        ),
+        text:
+          fixture.faults.text ??
+          "Deterministic document evidence with sufficient readable text for indexing. ".repeat(4),
       },
     ];
   },
@@ -213,6 +215,38 @@ function seed(count: number) {
   }
 }
 describe("concurrent durable worker orchestration (mocked storage, database and provider)", () => {
+  it.each(["Backups last 35 days.", "SKU: AB-1234", "42", "保留35天。"])(
+    "indexes short source text without a minimum-length rejection: %s",
+    async (text) => {
+      seed(1);
+      fixture.faults.text = text;
+      [...fixture.docs.values()][0]!["byte_size"] = new Blob([text]).size;
+      const result = await drainIngestionJobs({ maxJobs: 1 });
+      expect(result.succeeded).toBe(1);
+      expect([...fixture.chunks.values()]).toEqual([
+        expect.objectContaining({ content: text, chunking_version: 4 }),
+      ]);
+      expect([...fixture.docs.values()][0]).toMatchObject({ status: "ready", chunk_count: 1 });
+    },
+  );
+
+  it.each([
+    ["", "EMPTY_FILE"],
+    [" \n\t", "NO_TEXT_LAYER"],
+    ["--- ... !!!", "NO_CHUNKS"],
+  ])("rejects unusable content before embedding: %s", async (text, failureCode) => {
+    seed(1);
+    fixture.faults.text = text;
+    [...fixture.docs.values()][0]!["byte_size"] = new Blob([text]).size;
+    const result = await drainIngestionJobs({ maxJobs: 1 });
+    expect(result.failed).toBe(1);
+    expect([...fixture.docs.values()][0]).toMatchObject({
+      status: "failed",
+      failure_code: failureCode,
+    });
+    expect(fixture.peak()).toBe(0);
+    expect(fixture.chunks.size).toBe(0);
+  });
   it.each([
     ["heartbeat_error", "worker.lease_renewal_rejected"],
     ["heartbeat_false", "worker.lease_renewal_rejected"],

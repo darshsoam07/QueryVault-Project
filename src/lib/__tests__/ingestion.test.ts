@@ -147,8 +147,8 @@ describe("backoff", () => {
 });
 
 describe("idempotency", () => {
-  it("enforces chunker version 3 for hardened ingestion", () => {
-    expect(CHUNKER_VERSION).toBe(3);
+  it("uses a new chunk identity version when short facts are preserved", () => {
+    expect(CHUNKER_VERSION).toBe(4);
   });
 
   it("derives the same chunk id for the same document, version and index", async () => {

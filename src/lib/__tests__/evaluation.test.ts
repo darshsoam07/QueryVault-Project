@@ -14,7 +14,13 @@ import {
   reciprocalRank,
   refusalAccuracy,
 } from "../../../evaluation/metrics";
-import { isEnclosedInEvidence, runEvaluation } from "../../../evaluation/runner";
+import {
+  collectViolations,
+  isEnclosedInEvidence,
+  runEvaluation,
+  validateDataset,
+} from "../../../evaluation/runner";
+import { EVAL_CASES } from "../../../evaluation/dataset";
 import { sanitizeAttributes } from "../observability/events";
 import { latencySummary, percentile, rate, scoreDistribution } from "../observability/metrics";
 
@@ -139,11 +145,115 @@ describe("retrieval quality gate", () => {
     for (const negative of gateNegatives) expect(negative.refused).toBe(true);
   }, 30_000);
 
-  it("keeps adversarial passages contained and citations valid", async () => {
+  it("checks evidence structure without claiming to score generated answers", async () => {
     const report = await runEvaluation();
+    expect(report.scope).toBe("offline-fixture-retrieval");
+    expect(report.unmeasured).toContain("answer faithfulness");
+    expect(report.overall).not.toHaveProperty("citation_validity");
+    expect(report.overall).not.toHaveProperty("injection_defense");
+    expect(report.overall["retrieval_negative_cases"]).toBe(2);
+    expect(report.overall["generation_negative_cases_unmeasured"]).toBe(1);
+    expect(report.perCategory["negative"]).not.toHaveProperty("mrr");
     for (const result of report.cases) {
-      expect(result.injectionSafe).toBe(true);
-      expect(result.citationsValid).toBe(true);
+      expect(result.evidenceMarkerContainment).toBe(true);
+      expect(result.evidenceIdsValid).toBe(true);
     }
   }, 30_000);
+
+  it.each([NaN, Infinity, -Infinity, -0.1, 1.1, undefined])(
+    "fails closed for invalid quality measurements: %s",
+    async (invalid) => {
+      const report = await runEvaluation();
+      for (const key of [
+        "recall_at_5",
+        "recall_at_10",
+        "precision_at_5",
+        "mrr",
+        "ndcg_at_10",
+        "evidence_precision",
+        "false_refusal_rate",
+        "cross_document_coverage",
+        "evidence_ids_valid",
+        "retrieval_refusal_accuracy",
+        "evidence_marker_containment",
+      ]) {
+        const overall = { ...report.overall };
+        if (invalid === undefined) delete overall[key];
+        else overall[key] = invalid;
+        expect(collectViolations(overall, report.perCategory).some((v) => v.includes(key))).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it("rejects missing categories, invalid subgroup metrics and insufficient counts", async () => {
+    const report = await runEvaluation();
+    for (const category of Object.keys(report.perCategory)) {
+      const missing = { ...report.perCategory };
+      delete missing[category];
+      expect(collectViolations(report.overall, missing)).toContain(
+        `[${category}] missing required category`,
+      );
+      const empty = {
+        ...report.perCategory,
+        [category]: { ...report.perCategory[category], cases: 0 },
+      };
+      expect(
+        collectViolations(report.overall, empty).some((v) => v.includes(`[${category}] cases`)),
+      ).toBe(true);
+    }
+    for (const metric of ["recall_at_5", "mrr"]) {
+      const broken = {
+        ...report.perCategory,
+        fact: { ...report.perCategory["fact"], [metric]: NaN },
+      };
+      expect(collectViolations(report.overall, broken)).toContain(
+        `[fact] ${metric} must be a finite number between 0 and 1`,
+      );
+    }
+    expect(collectViolations({ ...report.overall, cases: 0 }, report.perCategory)).toContain(
+      "cases must be an integer >= 13",
+    );
+    expect(collectViolations({ ...report.overall, cases: 14 }, report.perCategory)).toContain(
+      "category counts do not sum to overall cases",
+    );
+  });
+
+  it("fails on lost cross-document coverage", async () => {
+    const report = await runEvaluation();
+    expect(
+      collectViolations({ ...report.overall, cross_document_coverage: 0 }, report.perCategory),
+    ).toContain("cross_document_coverage 0.000 < required 1");
+  });
+
+  it("fails an empty evaluation instead of passing vacuous structural checks", async () => {
+    const report = await runEvaluation(undefined, []);
+    expect(report.passed).toBe(false);
+    expect(report.violations).toContain("cases must be an integer >= 13");
+  });
+
+  it("rejects duplicate case IDs, unknown labels and contradictory expectations", async () => {
+    const dataset = structuredClone(EVAL_CASES);
+    dataset[1]!.id = dataset[0]!.id;
+    dataset[0]!.relevantChunkIds = ["missing", "missing"];
+    dataset[0]!.expectRefusal = true;
+    const violations = validateDataset(dataset).join("\n");
+    expect(violations).toContain("duplicate case id");
+    expect(violations).toContain("unknown relevant chunk missing");
+    expect(violations).toContain("duplicate relevant chunk ids");
+    expect(violations).toContain("refusal expectation and relevance labels disagree");
+    expect((await runEvaluation(undefined, dataset)).passed).toBe(false);
+  });
+
+  it("rejects empty marker labels and incomplete document labels", () => {
+    const dataset = structuredClone(EVAL_CASES);
+    dataset.find((c) => c.category === "injection")!.forbiddenInAnswer = [""];
+    dataset.find((c) => c.category === "cross-document")!.requiredDocumentIds = ["missing"];
+    const violations = validateDataset(dataset).join("\n");
+    expect(violations).toContain("empty forbidden marker");
+    expect(violations).toContain("at least two documents");
+    expect(violations).toContain("required document missing has no relevant chunk");
+    expect(isEnclosedInEvidence("anything", "")).toBe(false);
+  });
 });

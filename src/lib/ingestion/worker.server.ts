@@ -342,7 +342,7 @@ async function processJob(db: Admin, job: Job, requestId: string): Promise<{ chu
   );
   const parseDurationMs = Date.now() - parseStart;
   const textLength = pages.reduce((sum, page) => sum + page.text.trim().length, 0);
-  if (textLength < 40) {
+  if (textLength === 0) {
     throw permanent(
       "NO_TEXT_LAYER",
       "No readable text found. Scanned PDFs and images need OCR before upload.",
