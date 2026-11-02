@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "queryvault-synthetic-workflow-example",
+  "version": "0.1.0",
+  "kind": "sample",
+  "status": "draft",
+  "documents": [
+    {
+      "id": "policy",
+      "file": "policy.txt",
+      "sha256": "8a4c69664e5fe14b7836768d6389ba4cbf4b6a7d2596298db1bbcc6ae0905977",
+      "extractionSha256": "328e5defd3bdd49d90b97270498a0e186341da4541fec969e2a871f01f9330b8",
+      "provenance": {
+        "kind": "sample",
+        "origin": "Repository-authored synthetic fixture; not a real organization",
+        "permission": "Synthetic test text authored for this repository",
+        "suppliedBy": "QueryVault benchmark sample author (AI-assisted)",
+        "receivedAt": "2026-11-02T00:00:00Z",
+        "providerUseAllowed": false
+      },
+      "review": {
+        "status": "pending"
+      }
+    },
+    {
+      "id": "guide",
+      "file": "guide.txt",
+      "sha256": "6062b7b3998fa2d21a11a4b98ed90590a04a93403145b397e9fb9b092ca60922",
+      "extractionSha256": "b13c3d621c0941f7580e217d21b4a07a1a0a51ad3a014737137a3076b2f35c04",
+      "provenance": {
+        "kind": "sample",
+        "origin": "Repository-authored synthetic fixture; not a real organization",
+        "permission": "Synthetic test text authored for this repository",
+        "suppliedBy": "QueryVault benchmark sample author (AI-assisted)",
+        "receivedAt": "2026-11-02T00:00:00Z",
+        "providerUseAllowed": false
+      },
+      "review": {
+        "status": "pending"
+      }
+    }
+  ],
+  "questions": [
+    {
+      "acceptedAnswers": [],
+      "review": {
+        "status": "pending"
+      },
+      "answerable": true,
+      "expectedRefusal": false,
+      "id": "sample-retention",
+      "question": "What is the sample backup retention period?",
+      "referenceAnswer": "35 days.",
+      "category": "factual",
+      "difficulty": "easy",
+      "split": "development",
+      "leakageGroup": "retention",
+      "supportingSpans": [
+        {
+          "documentId": "policy",
+          "page": 1,
+          "start": 86,
+          "end": 132,
+          "quote": "The sample backup retention period is 35 days."
+        }
+      ]
+    },
+    {
+      "acceptedAnswers": [],
+      "review": {
+        "status": "pending"
+      },
+      "answerable": true,
+      "expectedRefusal": false,
+      "id": "sample-product",
+      "question": "Which identifier belongs to the sample product?",
+      "referenceAnswer": "QV-SAMPLE-42.",
+      "category": "exact",
+      "difficulty": "easy",
+      "split": "development",
+      "leakageGroup": "product",
+      "supportingSpans": [
+        {
+          "documentId": "policy",
+          "page": 1,
+          "start": 133,
+          "end": 179,
+          "quote": "The sample product identifier is QV-SAMPLE-42."
+        }
+      ]
+    },
+    {
+      "acceptedAnswers": [],
+      "review": {
+        "status": "pending"
+      },
+      "answerable": true,
+      "expectedRefusal": false,
+      "id": "sample-training",
+      "question": "What preparation do participants complete before beginning?",
+      "referenceAnswer": "Two practice sessions.",
+      "category": "semantic",
+      "difficulty": "medium",
+      "split": "held-out",
+      "leakageGroup": "preparation",
+      "supportingSpans": [
+        {
+          "documentId": "guide",
+          "page": 1,
+          "start": 75,
+          "end": 144,
+          "quote": "Participants attend two practice sessions before the exercise begins."
+        }
+      ]
+    },
+    {
+      "acceptedAnswers": [],
+      "review": {
+        "status": "pending"
+      },
+      "answerable": false,
+      "expectedRefusal": true,
+      "id": "sample-phone",
+      "question": "What is the facilitator personal phone number?",
+      "referenceAnswer": "The documents do not provide that number.",
+      "category": "unanswerable",
+      "difficulty": "easy",
+      "split": "held-out",
+      "leakageGroup": "absent-phone",
+      "supportingSpans": []
+    }
+  ]
+}

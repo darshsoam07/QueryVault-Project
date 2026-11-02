@@ -1,0 +1,4 @@
+SYNTHETIC SAMPLE ONLY. This is an authored test fixture, not a real company's policy.
+The sample backup retention period is 35 days.
+The sample product identifier is QV-SAMPLE-42.
+Restoration requires approval from the sample operations team.
