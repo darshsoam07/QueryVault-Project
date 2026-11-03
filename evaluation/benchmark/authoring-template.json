@@ -1,0 +1,56 @@
+{
+  "purpose": "Blank authoring worksheet, NOT a benchmark manifest. Copy into a private directory. Replace blank/null fields using actual sources; never submit this worksheet as reviewed data.",
+  "document": {
+    "id": "",
+    "file": "",
+    "sha256": "",
+    "extractionSha256": "",
+    "provenance": {
+      "kind": "owner-supplied",
+      "origin": "",
+      "permission": "",
+      "suppliedBy": "",
+      "receivedAt": "",
+      "providerUseAllowed": false
+    },
+    "review": { "status": "pending" }
+  },
+  "question": {
+    "id": "",
+    "question": "",
+    "referenceAnswer": "",
+    "acceptedAnswers": [],
+    "gradingNotes": "",
+    "category": null,
+    "difficulty": null,
+    "split": null,
+    "leakageGroup": "",
+    "answerable": null,
+    "expectedRefusal": null,
+    "supportingSpans": [],
+    "review": { "status": "pending" }
+  },
+  "supportingSpan": {
+    "documentId": "",
+    "page": null,
+    "start": null,
+    "end": null,
+    "quote": ""
+  },
+  "reviewAfterActualSignoff": {
+    "status": "pending",
+    "author": "",
+    "decision": null,
+    "reviewer": "",
+    "reviewedAt": "",
+    "notes": ""
+  },
+  "allocation": [
+    { "category": "factual", "development": 10, "held-out": 5 },
+    { "category": "semantic", "development": 7, "held-out": 3 },
+    { "category": "exact", "development": 7, "held-out": 3 },
+    { "category": "multi-hop", "development": 6, "held-out": 4 },
+    { "category": "unanswerable", "development": 7, "held-out": 3 },
+    { "category": "adversarial", "development": 3, "held-out": 2 }
+  ]
+}

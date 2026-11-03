@@ -130,6 +130,8 @@ const nitroOptions = {
 // Inside the Lovable build environment this option is ignored and the platform's own
 // Cloudflare target is used, so the hosted preview/publish flow is unchanged.
 export default defineConfig({
+  // Isolated browser tests/local-only runs must not read the hosted .env.
+  ...(process.env["QV_LOCAL_ONLY"] === "1" ? { envDefine: false, vite: { envDir: false as const } } : {}),
   plugins: [publicConfigGuard()],
   nitro: nitroOptions,
   tanstackStart: {

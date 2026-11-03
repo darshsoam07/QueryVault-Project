@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Benchmark byte hashes must survive Windows checkouts unchanged.
+evaluation/benchmark/sample/*.txt text eol=lf

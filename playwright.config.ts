@@ -42,7 +42,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- --port 5173${process.env["QV_E2E_COLD_START"] === "1" ? " --force" : ""}`,
+    command: `npm run dev -- --host 127.0.0.1 --configLoader native --port 5173${process.env["QV_E2E_COLD_START"] === "1" ? " --force" : ""}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 60_000,

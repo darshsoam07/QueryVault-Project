@@ -63,6 +63,8 @@ The version bump separates new deterministic chunk IDs from version 3. Existing 
 
 ## CI and remaining evaluation work
 
+The separate [real-document benchmark framework](REAL_DOCUMENT_BENCHMARK.md) provides `npm run benchmark -- prepare|validate|run|review`, reviewed manifest/span validation, isolated production ingestion/retrieval/chat integration and explicit metric states. No owner corpus is available: the real manifest remains empty and the sample contains four unreviewed synthetic questions. This framework does not replace `npm run eval:gate` or establish live answer quality until a real run and review occur.
+
 `.github/workflows/ci.yml` runs typecheck, lint, offline tests, the evaluation/safety gates, a placeholder verification build, boot validation and a bundle secret check. It does not currently run the database or browser suites or live answer-quality evaluation.
 
-A reviewed 50+ question real-document benchmark, reference answers, difficulty labels, controlled retrieval/chunking/reranking comparisons, live answer scoring and human review remain separate future work. Do not present fixture results as production accuracy or a hallucination-free guarantee.
+A reviewed 60-question real-document benchmark (exactly 40 development and 20 held-out), reference answers, difficulty labels, controlled retrieval/chunking/reranking comparisons, live answer scoring and human review remain separate future work. The [blank authoring worksheet](../evaluation/benchmark/authoring-template.json) and Phase 3A instructions in the benchmark guide support private corpus preparation; they contain no reviewed corpus data. Do not present fixture results as production accuracy or a hallucination-free guarantee.
