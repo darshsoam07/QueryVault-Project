@@ -103,11 +103,13 @@ describe("private collection progress", () => {
 
 describe("real-document benchmark schema and provenance", () => {
   it("passes plain Uint8Array bytes to the production parser, never Node Buffer", async () => {
-    const parse = vi.spyOn(productionParser, "extractDocumentPages").mockImplementation(async (bytes) => {
-      expect(bytes).toBeInstanceOf(Uint8Array);
-      expect(Buffer.isBuffer(bytes)).toBe(false);
-      return [{ page: 1, text: "Parser boundary test" }];
-    });
+    const parse = vi
+      .spyOn(productionParser, "extractDocumentPages")
+      .mockImplementation(async (bytes) => {
+        expect(bytes).toBeInstanceOf(Uint8Array);
+        expect(Buffer.isBuffer(bytes)).toBe(false);
+        return [{ page: 1, text: "Parser boundary test" }];
+      });
     const result = await extractFile("evaluation/benchmark/sample/policy.txt");
     expect(parse).toHaveBeenCalledOnce();
     expect(Buffer.from(parse.mock.calls[0]![0])).toEqual(result.bytes);

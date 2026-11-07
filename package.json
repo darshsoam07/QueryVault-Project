@@ -19,6 +19,7 @@
     "worker": "bun scripts/worker.ts",
     "reindex": "tsx scripts/reindex.ts",
     "test:e2e": "playwright test",
+    "demo:rehearse": "node scripts/demo-rehearsal.mjs",
     "test:db": "node scripts/test-database.mjs",
     "benchmark:ingestion": "bun scripts/benchmark-ingestion.ts",
     "eval:safety": "bun evaluation/safety.ts",

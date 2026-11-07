@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFile } from "node:fs/promises";
 const fixture = vi.hoisted(() => {
   const docs = new Map<string, Record<string, unknown>>();
   const jobs: Array<Record<string, unknown>> = [];
@@ -158,7 +159,13 @@ vi.mock("@/lib/ai-gateway.server", () => ({
   toVectorLiteral: (v: number[]) => JSON.stringify(v),
 }));
 vi.mock("@/lib/ingestion/document-parser.server", () => ({
-  extractDocumentPages: async () => {
+  extractDocumentPages: async (bytes: Uint8Array, filename: string) => {
+    if (fixture.faults.mode === "demo-file") {
+      const parser = await vi.importActual<typeof import("../ingestion/document-parser.server")>(
+        "../ingestion/document-parser.server",
+      );
+      return parser.extractDocumentPages(bytes, filename);
+    }
     if (fixture.faults.mode === "parser_hang" || fixture.faults.mode.startsWith("heartbeat_"))
       return new Promise<never>(() => {});
     return [
@@ -215,6 +222,27 @@ function seed(count: number) {
   }
 }
 describe("concurrent durable worker orchestration (mocked storage, database and provider)", () => {
+  it.each([
+    ["harbor-guide.txt", "HBR-204"],
+    ["harbor-travel.txt", "09:15"],
+    ["meadow-guide.txt", "MDW-909"],
+  ])("publishes ready and searchable chunk data for demo file %s", async (filename, expected) => {
+    seed(1);
+    const text = await readFile(`demo/documents/${filename}`, "utf8");
+    fixture.faults.mode = "demo-file";
+    fixture.faults.text = text;
+    const doc = [...fixture.docs.values()][0]!;
+    Object.assign(doc, { filename, byte_size: Buffer.byteLength(text) });
+    expect((await drainIngestionJobs({ maxJobs: 1 })).succeeded).toBe(1);
+    expect(doc).toMatchObject({ status: "ready", page_count: 1, chunk_count: fixture.chunks.size });
+    expect([...fixture.chunks.values()]).toContainEqual(
+      expect.objectContaining({
+        content: expect.stringContaining(expected),
+        document_id: doc["id"],
+        page_number: 1,
+      }),
+    );
+  });
   it.each(["Backups last 35 days.", "SKU: AB-1234", "42", "保留35天。"])(
     "indexes short source text without a minimum-length rejection: %s",
     async (text) => {

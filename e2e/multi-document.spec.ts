@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { fromJSON } from "seroval";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 /** Entire HTTP boundary is mocked. No hosted Auth/Storage/Postgres/provider writes. */
 test("20 document batch overlaps within three slots and survives refresh", async ({ page }) => {
   page.on("pageerror", (error) => console.log("Fixture page error:", error.message));
@@ -114,6 +115,21 @@ test("20 document batch overlaps within three slots and survives refresh", async
         Object.assign(doc, { status: "processing", phase: "queued", progress: 5 });
         return json({ result: { documentId: id, jobId: id, status: "queued" }, context: {} });
       }
+      if (doc["filename"] === "broken.pdf") {
+        Object.assign(doc, {
+          status: "failed",
+          phase: "failed",
+          failure_code: "PARSE_FAILED",
+          failure_message: "That PDF could not be read.",
+        });
+        return json({
+          result: {
+            document: doc,
+            job: { id, status: "failed", attempt_count: 1, error_message: doc.failure_message },
+          },
+          context: {},
+        });
+      }
       Object.assign(doc, {
         status: "ready",
         phase: "ready",
@@ -141,6 +157,7 @@ test("20 document batch overlaps within three slots and survives refresh", async
   );
   const picker = page.getByLabel("Choose documents to upload", { exact: true });
   await expect(picker).toBeAttached();
+  await expect(page.getByText(/No documents yet\. Upload a document/)).toBeVisible();
   const files = Array.from({ length: 20 }, (_, i) => ({
     name: i < 2 ? "same-name.txt" : `document-${i}.txt`,
     mimeType: "text/plain",
@@ -148,10 +165,15 @@ test("20 document batch overlaps within three slots and survives refresh", async
       `Document ${i}. ` + "Readable fixture text for the authorized corpus. ".repeat(8),
     ),
   }));
+  for (const [i, name] of ["harbor-guide.txt", "harbor-travel.txt", "meadow-guide.txt"].entries()) {
+    files[i + 2] = { name, mimeType: "text/plain", buffer: readFileSync(`demo/documents/${name}`) };
+  }
   await picker.setInputFiles(files.slice(0, 10));
   await expect.poll(() => active).toBeGreaterThan(0);
   await picker.setInputFiles([
     ...files.slice(10),
+    { name: "empty.txt", mimeType: "text/plain", buffer: Buffer.alloc(0) },
+    { name: "broken.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nbroken\n") },
     {
       name: "unsupported.exe",
       mimeType: "application/octet-stream",
@@ -159,12 +181,16 @@ test("20 document batch overlaps within three slots and survives refresh", async
     },
   ]);
   releaseUploads();
-  await expect(page.getByText(/21 files.*20 ready.*1 failed/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByText(/23 files.*20 ready.*3 failed/)).toBeVisible({ timeout: 20000 });
   expect(peak).toBe(3);
-  expect(documents.size).toBe(20);
+  expect(documents.size).toBe(21);
   await page.reload();
   await expect(page.getByText("same-name.txt", { exact: true })).toHaveCount(2);
   await expect(page.getByText("Ready", { exact: true })).toHaveCount(20);
+  await expect(page.getByRole("button", { name: /^broken\.pdf/ })).toBeDisabled();
+  await expect(
+    page.getByText("That PDF could not be read.", { exact: true }).first(),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Upload documents", exact: true }).focus();
   await expect(page.getByRole("button", { name: "Upload documents", exact: true })).toBeFocused();
