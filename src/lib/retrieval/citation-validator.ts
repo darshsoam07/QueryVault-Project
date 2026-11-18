@@ -48,13 +48,6 @@ import type { EvidenceSource } from "./types";
  */
 export const CITATION_CONTRACT_VERSION = "citation-contract/v1";
 
-/**
- * @deprecated Use CITATION_CONTRACT_VERSION. The old name conflated the
- * validator contract version with the deployment release; telemetry now
- * carries them as separate `contractVersion` / `release` fields.
- */
-export const CITATION_CONTRACT_RELEASE = CITATION_CONTRACT_VERSION;
-
 /** Size of the post-validation emission chunks (characters, word-boundary). */
 export const EMISSION_CHUNK_SIZE = 240;
 
