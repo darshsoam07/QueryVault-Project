@@ -33,7 +33,6 @@ export {
   isCanonicalSourceId,
   splitAnswerBlocks,
   CITATION_CONTRACT_VERSION,
-  CITATION_CONTRACT_RELEASE,
   EMISSION_CHUNK_SIZE,
 } from "./citation-validator";
 export type {

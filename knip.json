@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@5/overview/configuration-schema.json",
+  "entry": [
+    "src/routes/**/*.{ts,tsx}",
+    "server/plugins/**/*.{ts,js}",
+    "scripts/**/*.{ts,js,mjs}",
+    "evaluation/**/*.{ts,js}",
+    "e2e/**/*.spec.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "server/**/*.{ts,js}",
+    "scripts/**/*.{ts,js,mjs}",
+    "evaluation/**/*.{ts,js}"
+  ],
+  "ignoreDependencies": [
+    "@tanstack/router-plugin",
+    "tailwindcss",
+    "tw-animate-css"
+  ]
+}

@@ -76,8 +76,6 @@ export const listQueryTraces = createServerFn({ method: "POST" })
     return rows ?? [];
   });
 
-export const getQueryTraces = listQueryTraces;
-
 export const getQueryTrace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ traceId: z.string().uuid() }).parse(input))
