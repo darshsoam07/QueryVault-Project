@@ -1,4 +1,22 @@
-# QueryVault
+<div align="center">
+  <img src="./src/assets/queryvault-logo.png" alt="QueryVault Logo" width="72" />
+  <h1>QueryVault</h1>
+  <p><strong>Verified Retrieval-Augmented Generation (RAG) workspace for grounded, citation-checked document Q&amp;A.</strong></p>
+
+  <p>
+    <a href="https://query-vault-project.vercel.app"><strong>Live Application ↗</strong></a> ·
+    <a href="https://query-vault-project.vercel.app/chat"><strong>Chat Workspace</strong></a> ·
+    <a href="https://query-vault-project.vercel.app/reference"><strong>System Reference</strong></a> ·
+    <a href="https://query-vault-project.vercel.app/api/public/health"><strong>Live Health Check</strong></a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Live-Vercel-000000?style=flat-square&logo=vercel" alt="Deployed on Vercel" />
+    <img src="https://img.shields.io/badge/Stack-TanStack%20Start%20%2B%20Nitro-0F172A?style=flat-square" alt="TanStack Start and Nitro" />
+    <img src="https://img.shields.io/badge/Database-Supabase%20pgvector-3ECF8E?style=flat-square&logo=supabase&logoColor=white" alt="Supabase pgvector" />
+    <img src="https://img.shields.io/badge/AI-Google%20Gemini-4285F4?style=flat-square&logo=google&logoColor=white" alt="Google Gemini" />
+  </p>
+</div>
 
 QueryVault is a multi-tenant document question-answering application built with React, TanStack Start, Supabase, PostgreSQL/pgvector, and configurable AI providers. Users upload documents, wait for asynchronous indexing, select the documents in scope for a conversation, and ask questions answered from retrieved evidence with source citations.
 
@@ -9,8 +27,37 @@ The repository contains two distinct codebases:
 
 > **Implementation boundary:** QueryVault includes deterministic retrieval, evidence and citation checks, and a runtime support-verification step. These controls reduce common RAG failure modes; they do not establish that every generated answer is correct or that the system is hallucination-free. The checked-in offline evaluation is a synthetic retrieval/safety regression suite, not a real-document answer-quality benchmark.
 
+## Live Interfaces
+
+Explore the production deployment directly at **[query-vault-project.vercel.app](https://query-vault-project.vercel.app)**:
+
+| Interface | Live Route | Purpose |
+| :--- | :--- | :--- |
+| **Landing & Architecture Overview** | [`/`](https://query-vault-project.vercel.app/) | Product overview, pipeline walkthrough, and citation verification summary. |
+| **Authentication Portal** | [`/auth`](https://query-vault-project.vercel.app/auth) | Supabase Auth sign-in/sign-up with per-user Row-Level Security (RLS) isolation. |
+| **RAG Chat & Knowledge Panel** | [`/chat`](https://query-vault-project.vercel.app/chat) | Upload documents, monitor ingestion status, ask grounded questions, inspect inline citations, and view the live Trace Waterfall. |
+| **Technical Reference** | [`/reference`](https://query-vault-project.vercel.app/reference) | Pipeline specification, retrieval architecture, and verification documentation. |
+| **Operator Console** | [`/admin`](https://query-vault-project.vercel.app/admin) | Administrative diagnostics and ingestion queue observability. |
+| **Public Health Probe** | [`/api/public/health`](https://query-vault-project.vercel.app/api/public/health) | Real-time JSON status for API server, Supabase PostgreSQL, storage bucket, retrieval RPC, and Gemini configuration. |
+
+## Interface Previews
+
+### Landing & System Overview
+![QueryVault Landing Page](./assets/screenshots/landing.png)
+
+### Technical Reference & Pipeline Specification
+![QueryVault Technical Reference](./assets/screenshots/reference.png)
+
+<!-- Authenticated workspace previews (to be added once session capture is run):
+- Knowledge Panel: assets/screenshots/knowledge-panel.png
+- Grounded Q&A & Inline Citations: assets/screenshots/chat-citations.png
+- Operator Diagnostics & Trace Waterfall: assets/screenshots/trace-waterfall.png
+-->
+
 ## Contents
 
+- [Live Interfaces](#live-interfaces)
+- [Interface Previews](#interface-previews)
 - [Capabilities and design goals](#capabilities-and-design-goals)
 - [Architecture](#architecture)
 - [Request and data flows](#request-and-data-flows)
@@ -27,6 +74,7 @@ The repository contains two distinct codebases:
 - [Operational notes](#operational-notes)
 - [Architectural hygiene and cleanup recommendations](#architectural-hygiene-and-cleanup-recommendations)
 - [Documentation index](#documentation-index)
+- [Developer](#developer)
 - [License and attribution](#license-and-attribution)
 
 ## Capabilities and design goals
@@ -358,10 +406,10 @@ The repository does not define a Node `engines` field. Node 22 is the runtime ve
 
 ### 1. Clone and install
 
-No repository remote or active branch is encoded in the source archive in a way that can be independently verified. Use the clone URL supplied by your repository host; do not rely on the historical clone URL or branch command in the previous README.
+Clone the repository from GitHub:
 
 ```bash
-git clone <your-repository-url> QueryVault-Project
+git clone https://github.com/darshsoam07/QueryVault-Project.git QueryVault-Project
 cd QueryVault-Project
 
 # npm workflow
@@ -674,11 +722,12 @@ These are repository observations and recommended follow-ups, not claims that th
 7. **Clarify image support.** The upload policy accepts PNG/JPEG/WEBP, while the parser currently fails image files with `OCR_REQUIRED`. Either implement and test OCR or label images as accepted-but-not-processable until OCR is configured.
 8. **Review archived reference code.** `local-stack/` is a separate FastAPI/Chroma/Ollama app and is not part of the production runtime. Keep it clearly labelled as reference material or move it to a separate repository if it is no longer maintained.
 9. **Avoid overstating evaluation.** The offline gate uses synthetic fixtures and does not score generated answer quality. The real-document benchmark manifest is empty. Keep benchmark readiness and production answer-quality claims separate from unit-test success.
-10. **Verify repository identity before publishing clone commands.** The source archive does not provide a verifiable Git remote or active branch. Replace `<your-repository-url>` in this README with the canonical repository URL when confirmed; do not restore an unverified historical branch checkout command.
+10. **Repository identity and live deployment.** The canonical repository is [`https://github.com/darshsoam07/QueryVault-Project.git`](https://github.com/darshsoam07/QueryVault-Project.git) and the live production application is deployed at [`https://query-vault-project.vercel.app`](https://query-vault-project.vercel.app).
 
 ## Documentation index
 
 - [Architecture](ARCHITECTURE.md)
+- [Design decisions](DESIGN.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Docker image](docs/DOCKER.md)
 - [Security model](docs/SECURITY.md)
@@ -689,6 +738,14 @@ These are repository observations and recommended follow-ups, not claims that th
 - [Real-document benchmark](docs/REAL_DOCUMENT_BENCHMARK.md)
 - [Demo guide](docs/DEMO.md)
 - [Storage setup](supabase/STORAGE.md)
+
+## Developer
+
+**Darsh Soam**
+
+- **GitHub:** [@darshsoam07](https://github.com/darshsoam07)
+- **LinkedIn:** [Darsh Soam](https://www.linkedin.com/in/darshsoam)
+- **Live Application:** [QueryVault](https://query-vault-project.vercel.app)
 
 ## License and attribution
 
