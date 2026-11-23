@@ -143,7 +143,7 @@ function RootComponent() {
       if (
         typeof window !== "undefined" &&
         (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS ===
-          undefined
+        undefined
       ) {
         (window as unknown as { __QV_PERF_HYDRATION_MS?: number }).__QV_PERF_HYDRATION_MS =
           hydrationTimeMs;
