@@ -1,27 +1,39 @@
 /**
  * useAuth — single source of truth for the current Supabase session.
  *
- * Phase 1 fix: the previous implementation ran both `onAuthStateChange` AND a
- * parallel `getSession()` call. supabase-js v2 fires an `INITIAL_SESSION` event
- * as the very first `onAuthStateChange` callback, so the parallel getSession()
- * was redundant. Running both produced two concurrent state updates:
- *
- *   - `onAuthStateChange` INITIAL_SESSION → setSession(X), setLoading(false)
- *   - `getSession()` resolves             → setSession(X), setLoading(false)  → duplicate
- *
- * In React 18 strict mode, or when the event and promise settled in a different
- * order, this caused a flash of `loading: true / session: null` after the user
- * was already authenticated, redirecting the chat shell back to /auth mid-session.
- *
- * Fix: remove `getSession()` entirely. Rely solely on `onAuthStateChange`.
+ * Relies solely on `onAuthStateChange` (which fires `INITIAL_SESSION` immediately)
+ * and keeps a browser-only in-memory cache so client-side route transitions
+ * (`/auth` -> `/chat`) render on frame 0 without flashing a loading screen.
+ * The cache is disabled during SSR and Vitest runs to prevent cross-request or
+ * cross-test state leakage and preserve identical SSR/client hydration.
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
+const canUseClientCache = () =>
+  typeof window !== "undefined" && import.meta.env.MODE !== "test";
+
+let cachedSession: Session | null = null;
+let hasCachedSession = false;
+
+/**
+ * Seeds the in-memory browser session immediately after sign-in/sign-up so
+ * `/chat` renders immediately without waiting for a second INITIAL_SESSION event.
+ */
+export function primeAuthSession(nextSession: Session | null): void {
+  if (!canUseClientCache()) return;
+  cachedSession = nextSession;
+  hasCachedSession = true;
+}
+
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(() =>
+    canUseClientCache() && hasCachedSession ? cachedSession : null,
+  );
+  const [loading, setLoading] = useState<boolean>(() =>
+    canUseClientCache() && hasCachedSession ? false : true,
+  );
 
   useEffect(() => {
     // onAuthStateChange fires INITIAL_SESSION immediately with the persisted
@@ -29,6 +41,10 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (canUseClientCache()) {
+        cachedSession = nextSession;
+        hasCachedSession = true;
+      }
       setSession(nextSession);
       setLoading(false);
     });

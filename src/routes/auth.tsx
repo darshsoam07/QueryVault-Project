@@ -3,14 +3,14 @@ import { VaultMark, Wordmark } from "@/components/queryvault/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
+import { primeAuthSession, useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { authRedirectTo, googleAuthEnabled, oauthRedirectTo } from "@/lib/auth-providers";
 import { userMessage } from "@/lib/client-errors";
 import { gsap } from "@/lib/motion/gsap";
 import { prefersReducedMotion } from "@/lib/motion/reduced-motion";
 import { DUR, EASE, STAGGER } from "@/lib/motion/tokens";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -108,6 +108,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const router = useRouter();
   const { session, loading } = useAuth();
   const recoveryRef = useRef(
     typeof window !== "undefined" &&
@@ -121,6 +122,11 @@ function AuthPage() {
   const [resendAvailable, setResendAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Preload /chat route JS chunks while the user types so post-sign-in navigation is instant.
+  useEffect(() => {
+    void router.preloadRoute({ to: "/chat" }).catch(() => {});
+  }, [router]);
 
   useEffect(() => {
     const enterRecovery = () => {
@@ -141,9 +147,13 @@ function AuthPage() {
     });
     return () => data.subscription.unsubscribe();
   }, []);
+
   useEffect(() => {
-    if (!loading && session && !recoveryRef.current) navigate({ to: "/chat" });
+    if (!loading && session && !recoveryRef.current) {
+      void navigate({ to: "/chat", replace: true });
+    }
   }, [loading, session, navigate]);
+
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root || prefersReducedMotion()) return;
@@ -164,7 +174,9 @@ function AuthPage() {
     }, root);
     return () => ctx.revert();
   }, []);
+
   const normalizedEmail = () => email.trim().toLowerCase();
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if ((mode === "signup" || mode === "update") && password !== confirmPassword) {
@@ -173,6 +185,7 @@ function AuthPage() {
     }
     setBusy(true);
     setResendAvailable(false);
+    let navigating = false;
     try {
       if (mode === "reset") {
         const redirectTo = authRedirectTo("/auth");
@@ -189,7 +202,8 @@ function AuthPage() {
         if (error) throw error;
         recoveryRef.current = false;
         toast.success("Your password has been updated.");
-        navigate({ to: "/chat" });
+        navigating = true;
+        await navigate({ to: "/chat", replace: true });
         return;
       }
       if (mode === "signup") {
@@ -206,7 +220,10 @@ function AuthPage() {
           return;
         }
         if (data.session) {
+          primeAuthSession(data.session);
           toast.success("Account created. You're in.");
+          navigating = true;
+          await navigate({ to: "/chat", replace: true });
         } else {
           const confirmedEmail = normalizedEmail();
           setConfirmationNotice(
@@ -218,19 +235,26 @@ function AuthPage() {
         }
         return;
       }
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail(),
         password,
       });
       if (error) throw error;
+      if (data.session) {
+        primeAuthSession(data.session);
+        navigating = true;
+        await navigate({ to: "/chat", replace: true });
+      }
     } catch (error) {
+      navigating = false;
       const message = authErrorMessage(error, "Authentication failed.");
       setResendAvailable(message.includes("not been confirmed"));
       toast.error(message);
     } finally {
-      setBusy(false);
+      if (!navigating) setBusy(false);
     }
   };
+
   const resendConfirmation = async () => {
     setBusy(true);
     try {
@@ -249,6 +273,7 @@ function AuthPage() {
       setBusy(false);
     }
   };
+
   const google = async () => {
     setBusy(true);
     try {
@@ -263,6 +288,7 @@ function AuthPage() {
       toast.error(authErrorMessage(error, "Google sign-in failed. Try email instead."));
     }
   };
+
   const cardTitle =
     mode === "signin"
       ? "Sign in to your vault"
@@ -279,6 +305,7 @@ function AuthPage() {
         : mode === "update"
           ? "Update password"
           : "Send reset link";
+
   return (
     <PublicShell header={false} variant="neutral" smoothScroll={false}>
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -365,6 +392,7 @@ function AuthPage() {
                   <span className="h-px flex-1 bg-border" />
                 </div>
                 <Button
+                  type="button"
                   variant="outline"
                   className="w-full bg-surface/40 hover:bg-surface/80 border-border"
                   onClick={google}
