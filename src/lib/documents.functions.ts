@@ -19,6 +19,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { withDeadline, withRequestSignal } from "@/lib/async-deadline";
 import { ingestionLeaseState } from "@/lib/ingestion/lease";
+import { waitUntil } from "@vercel/functions";
+
+function safeWaitUntil(promise: Promise<unknown>): void {
+  try {
+    waitUntil(promise);
+  } catch {
+    void promise;
+  }
+}
 
 const uuid = z.string().uuid();
 
@@ -274,11 +283,12 @@ export const enqueueIngestion = createServerFn({ method: "POST" })
     });
 
     // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
-    void import("@/lib/ingestion/worker.server")
+    const drainPromise = import("@/lib/ingestion/worker.server")
       .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
       .catch(() =>
         logEvent("warn", "worker.wakeup_failed", requestId, { error_code: "WAKEUP_FAILED" }),
       );
+    safeWaitUntil(drainPromise);
 
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });
@@ -431,11 +441,12 @@ export const reindexDocument = createServerFn({ method: "POST" })
     });
 
     // Immediate server-side drain wakeup: jobs begin processing without waiting for 1-minute cron
-    void import("@/lib/ingestion/worker.server")
+    const drainPromise = import("@/lib/ingestion/worker.server")
       .then(({ drainIngestionJobs }) => drainIngestionJobs({ maxJobs: 3 }))
       .catch(() =>
         logEvent("warn", "worker.wakeup_failed", requestId, { error_code: "WAKEUP_FAILED" }),
       );
+    safeWaitUntil(drainPromise);
 
     return { documentId: data.documentId, jobId: job.id, status: "queued" as const, requestId };
   });

@@ -69,11 +69,18 @@ export function useDocuments(userId: string | undefined) {
         leaseState: ingestionLeaseState(row.ingestion_jobs?.[0] ?? null),
       }));
     },
-    // While anything is mid-pipeline, follow the real server phases.
-    refetchInterval: (query) =>
-      (query.state.data ?? []).some((doc) => doc.status !== "ready" && doc.status !== "failed")
-        ? 2000
-        : false,
+    // While anything is mid-pipeline, follow the real server phases with progressive polling.
+    refetchInterval: (query) => {
+      const isPending = (query.state.data ?? []).some(
+        (doc) => doc.status !== "ready" && doc.status !== "failed",
+      );
+      if (!isPending) return false;
+      // Step interval up: 500ms for first 2 refetches, 1000ms for next 3, then 2000ms steady-state
+      const count = query.state.dataUpdateCount;
+      if (count <= 2) return 500;
+      if (count <= 5) return 1000;
+      return 2000;
+    },
   });
 }
 

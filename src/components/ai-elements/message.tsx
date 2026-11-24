@@ -272,6 +272,8 @@ export const MessageResponse = memo(
     const [plugins, setPlugins] = useState<Record<string, unknown>>({});
 
     useEffect(() => {
+      if (typeof window === "undefined" || import.meta.env.SSR) return;
+
       const hasCode = content.includes("```");
       const hasMath = content.includes("$$");
       const hasMermaid = content.includes("```mermaid");
@@ -281,21 +283,23 @@ export const MessageResponse = memo(
 
       let cancelled = false;
 
-      Promise.all([
-        hasCode ? import("@streamdown/code").then((m) => m.code) : null,
-        hasMath ? import("@streamdown/math").then((m) => m.math) : null,
-        hasMermaid ? import("@streamdown/mermaid").then((m) => m.mermaid) : null,
-        hasCJK ? import("@streamdown/cjk").then((m) => m.cjk) : null,
-      ]).then(([codePlugin, mathPlugin, mermaidPlugin, cjkPlugin]) => {
-        if (cancelled) return;
-        setPlugins((prev) => ({
-          ...prev,
-          ...(codePlugin ? { code: codePlugin } : {}),
-          ...(mathPlugin ? { math: mathPlugin } : {}),
-          ...(mermaidPlugin ? { mermaid: mermaidPlugin } : {}),
-          ...(cjkPlugin ? { cjk: cjkPlugin } : {}),
-        }));
-      });
+      if (!import.meta.env.SSR) {
+        Promise.all([
+          hasCode ? import("@streamdown/code").then((m) => m.code) : null,
+          hasMath ? import("@streamdown/math").then((m) => m.math) : null,
+          hasMermaid ? import("@streamdown/mermaid").then((m) => m.mermaid) : null,
+          hasCJK ? import("@streamdown/cjk").then((m) => m.cjk) : null,
+        ]).then(([codePlugin, mathPlugin, mermaidPlugin, cjkPlugin]) => {
+          if (cancelled) return;
+          setPlugins((prev) => ({
+            ...prev,
+            ...(codePlugin ? { code: codePlugin } : {}),
+            ...(mathPlugin ? { math: mathPlugin } : {}),
+            ...(mermaidPlugin ? { mermaid: mermaidPlugin } : {}),
+            ...(cjkPlugin ? { cjk: cjkPlugin } : {}),
+          }));
+        });
+      }
 
       return () => {
         cancelled = true;

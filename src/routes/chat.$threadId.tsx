@@ -198,9 +198,27 @@ const STARTERS = [
   "Compare the conclusions of each document",
 ];
 
+const STAGE_LABELS: Record<string, string> = {
+  retrieving: "Searching your documents…",
+  reranking: "Reranking evidence…",
+  generating: "Synthesizing answer…",
+  verifying: "Verifying citations…",
+};
+
 const ChatMessageItem = memo(function ChatMessageItem({ message }: { message: UIMessage }) {
   const sources = extractSources(message);
   const text = message.parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+
+  const latestStage = useMemo(() => {
+    for (let i = message.parts.length - 1; i >= 0; i--) {
+      const part = message.parts[i];
+      if (part && (part as { type?: string }).type === "data-trace") {
+        const stage = (part as { data?: { stage?: string } }).data?.stage;
+        if (stage && stage in STAGE_LABELS) return stage;
+      }
+    }
+    return null;
+  }, [message.parts]);
 
   return (
     <Message
@@ -217,33 +235,41 @@ const ChatMessageItem = memo(function ChatMessageItem({ message }: { message: UI
         )}
       >
         {message.role === "assistant" ? (
-          <>
-            <MessageResponse
-              components={{
-                a: ({ href, children, ...props }) => (
-                  <a
-                    {...props}
-                    href={href}
-                    onClick={(event) => {
-                      if (href?.startsWith(`#evidence-${message.id}-`)) {
-                        event.preventDefault();
-                        document.getElementById(href.slice(1))?.click();
-                      }
-                    }}
-                  >
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {text.replace(/\[(source_\d{2})\]/g, (marker, id: string) =>
-                sources.some((source) => source.sourceId === id)
-                  ? `[${id}](#evidence-${message.id}-${id})`
-                  : marker,
-              )}
-            </MessageResponse>
-            <SourceRail sources={sources} messageId={message.id} />
-          </>
+          text ? (
+            <>
+              <MessageResponse
+                components={{
+                  a: ({ href, children, ...props }) => (
+                    <a
+                      {...props}
+                      href={href}
+                      onClick={(event) => {
+                        if (href?.startsWith(`#evidence-${message.id}-`)) {
+                          event.preventDefault();
+                          document.getElementById(href.slice(1))?.click();
+                        }
+                      }}
+                    >
+                      {children}
+                    </a>
+                  ),
+                }}
+              >
+                {text.replace(/\[(source_\d{2})\]/g, (marker, id: string) =>
+                  sources.some((source) => source.sourceId === id)
+                    ? `[${id}](#evidence-${message.id}-${id})`
+                    : marker,
+                )}
+              </MessageResponse>
+              <SourceRail sources={sources} messageId={message.id} />
+            </>
+          ) : (
+            <div className="py-1">
+              <Shimmer>
+                {STAGE_LABELS[latestStage ?? "generating"] ?? "Synthesizing answer…"}
+              </Shimmer>
+            </div>
+          )
         ) : (
           <span className="whitespace-pre-wrap text-sm">{text}</span>
         )}

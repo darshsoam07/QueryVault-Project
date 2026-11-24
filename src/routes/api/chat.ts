@@ -147,44 +147,74 @@ export const Route = createFileRoute("/api/chat")({
             throw new ApiError("INVALID_REQUEST", "Please enter a question (max 4000 characters).");
           }
 
-          try {
-            await enforceRateLimit(userId, "chat");
-          } catch (error) {
-            if (error instanceof RateLimitError) {
-              emitAsync({
-                event: EVENTS.QUOTA_EXCEEDED,
-                requestId,
-                status: "error",
-                errorCode: "RATE_LIMITED",
-                userId,
-                threadId: body.threadId,
-                attributes: { bucket: "chat", retry_after_s: error.retryAfter },
-              });
-            }
-            throw error;
-          }
+          // ---- Pre-flight DB checks in parallel (rate limit, thread lookup, document scope) ----
+          const requestedIds = body.documentIds ?? [];
+          const hasDocScopeCheck = body.documentIds != null && requestedIds.length > 0;
 
-          const { data: thread } = await supabase
+          const rateLimitPromise = (async () => {
+            try {
+              await enforceRateLimit(userId, "chat");
+            } catch (error) {
+              if (error instanceof RateLimitError) {
+                emitAsync({
+                  event: EVENTS.QUOTA_EXCEEDED,
+                  requestId,
+                  status: "error",
+                  errorCode: "RATE_LIMITED",
+                  userId,
+                  threadId: body.threadId,
+                  attributes: { bucket: "chat", retry_after_s: error.retryAfter },
+                });
+              }
+              throw error;
+            }
+          })();
+
+          const threadPromise = supabase
             .from("threads")
             .select("id, title")
             .eq("id", body.threadId)
             .eq("user_id", userId)
             .maybeSingle();
+
+          const docsPromise = hasDocScopeCheck
+            ? supabase
+                .from("documents")
+                .select("id, status, filename, parser_version")
+                .eq("user_id", userId)
+                .in("id", requestedIds)
+            : Promise.resolve(null);
+
+          const [rateLimitRes, threadRes, docsRes] = await Promise.allSettled([
+            rateLimitPromise,
+            threadPromise,
+            docsPromise,
+          ]);
+
+          // Inspect in the exact original order to preserve error precedence and HTTP contracts:
+          // 1. Rate limit
+          if (rateLimitRes.status === "rejected") {
+            throw rateLimitRes.reason;
+          }
+
+          // 2. Thread existence
+          if (threadRes.status === "rejected") {
+            throw threadRes.reason;
+          }
+          const thread = threadRes.value.data;
           if (!thread) {
             throw new ApiError("THREAD_NOT_FOUND", "That conversation no longer exists.");
           }
 
-          // ---- Document scope must be owned by the caller and READY -----
-          const requestedIds = body.documentIds ?? [];
+          // 3. Document scope verification
           let scopedIds: string[] | null = null;
           if (body.documentIds != null) {
             if (requestedIds.length === 0)
               throw new ApiError("DOCUMENT_NOT_READY", "Select at least one ready document.");
-            const { data: owned, error: ownedError } = await supabase
-              .from("documents")
-              .select("id, status, filename, parser_version")
-              .eq("user_id", userId)
-              .in("id", requestedIds);
+            if (docsRes.status === "rejected") {
+              throw docsRes.reason;
+            }
+            const { data: owned, error: ownedError } = docsRes.value ?? {};
             if (ownedError) throw new ApiError("INTERNAL", "Could not verify your documents.");
 
             const ownedIds = new Set((owned ?? []).map((row) => row.id));
@@ -501,6 +531,11 @@ export const Route = createFileRoute("/api/chat")({
             const refusalStream = createUIMessageStream({
               originalMessages,
               execute: async ({ writer }) => {
+                writer.write({
+                  type: "data-trace",
+                  id: "stage-retrieving",
+                  data: { stage: "retrieving" },
+                } as never);
                 writer.write({ type: "data-sources", id: "sources", data: [] });
                 writer.write({ type: "text-start", id: "refusal" });
                 writer.write({ type: "text-delta", id: "refusal", delta: GROUNDED_REFUSAL });
@@ -796,6 +831,26 @@ export const Route = createFileRoute("/api/chat")({
             const refusalStream = createUIMessageStream({
               originalMessages,
               execute: async ({ writer }) => {
+                writer.write({
+                  type: "data-trace",
+                  id: "stage-retrieving",
+                  data: { stage: "retrieving" },
+                } as never);
+                writer.write({
+                  type: "data-trace",
+                  id: "stage-reranking",
+                  data: { stage: "reranking" },
+                } as never);
+                writer.write({
+                  type: "data-trace",
+                  id: "stage-generating",
+                  data: { stage: "generating" },
+                } as never);
+                writer.write({
+                  type: "data-trace",
+                  id: "stage-verifying",
+                  data: { stage: "verifying" },
+                } as never);
                 // No fabricated or fallback source list: nothing valid was cited.
                 writer.write({ type: "data-sources", id: "sources", data: [] });
                 writer.write({ type: "text-start", id: "refusal" });
@@ -824,6 +879,26 @@ export const Route = createFileRoute("/api/chat")({
           const stream = createUIMessageStream({
             originalMessages,
             execute: async ({ writer }) => {
+              writer.write({
+                type: "data-trace",
+                id: "stage-retrieving",
+                data: { stage: "retrieving" },
+              } as never);
+              writer.write({
+                type: "data-trace",
+                id: "stage-reranking",
+                data: { stage: "reranking" },
+              } as never);
+              writer.write({
+                type: "data-trace",
+                id: "stage-generating",
+                data: { stage: "generating" },
+              } as never);
+              writer.write({
+                type: "data-trace",
+                id: "stage-verifying",
+                data: { stage: "verifying" },
+              } as never);
               // Cited sources only. Never all retrieved sources.
               writer.write({ type: "data-sources", id: "sources", data: citedNodes });
               writer.write({

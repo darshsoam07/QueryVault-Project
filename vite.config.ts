@@ -121,7 +121,7 @@ const isLovableBuild =
  * both.
  */
 const nitroOptions = {
-  preset: process.env.VERCEL ? "vercel" : process.env["NITRO_PRESET"] || "node-server",
+  preset: process.env["VERCEL"] ? "vercel" : process.env["NITRO_PRESET"] || "node-server",
   ...(isLovableBuild ? {} : { plugins: [BOOT_GUARD_PLUGIN] }),
 } as WrapperNitroOptions;
 
