@@ -300,6 +300,8 @@ function ThreadPage() {
 
   const { data: initialHistory, isLoading } = useQuery({
     queryKey: ["messages", userId, threadId],
+    staleTime: 0,
+    gcTime: 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
